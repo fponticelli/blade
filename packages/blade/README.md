@@ -12,8 +12,10 @@ npm install @fponticelli/blade
 
 ## Quick Start
 
+### String Rendering (Server-side)
+
 ```typescript
-import { compile, render } from '@fponticelli/blade';
+import { compile, createStringRenderer } from '@fponticelli/blade';
 
 const template = `
   <div class="greeting">
@@ -21,10 +23,30 @@ const template = `
   </div>
 `;
 
+// Compile once
 const compiled = await compile(template);
-const result = render(compiled, { user: { name: 'World' } });
 
-console.log(result.html);
+// Create a renderer (can be reused for multiple renders)
+const renderToString = createStringRenderer(compiled);
+
+// Render with different data
+const result1 = renderToString({ user: { name: 'Alice' } });
+console.log(result1.html); // <div class="greeting">Hello, Alice!</div>
+
+const result2 = renderToString({ user: { name: 'Bob' } });
+console.log(result2.html); // <div class="greeting">Hello, Bob!</div>
+```
+
+### DOM Rendering (Client-side)
+
+```typescript
+import { compile, createDomRenderer } from '@fponticelli/blade';
+
+const compiled = await compile('<div>Hello, ${name}!</div>');
+const renderToDom = createDomRenderer(compiled);
+
+const result = renderToDom({ name: 'World' });
+document.body.append(...result.nodes);
 ```
 
 ## Features

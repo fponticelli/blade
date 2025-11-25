@@ -19,9 +19,7 @@ export interface HelperRegistry {
   [name: string]: HelperFunction;
 }
 
-export type HelperFunction = (
-  scope: Scope
-) => (...args: unknown[]) => unknown;
+export type HelperFunction = (scope: Scope) => (...args: unknown[]) => unknown;
 
 export interface HelperFunctionWithMetadata {
   fn: HelperFunction;
@@ -36,10 +34,7 @@ export interface EvaluatorConfig {
   maxRecursionDepth: number;
 }
 
-export function evaluate(
-  _expr: ExprAst,
-  _context: EvaluationContext
-): unknown {
+export function evaluate(_expr: ExprAst, _context: EvaluationContext): unknown {
   // TODO: Implement expression evaluation
   throw new Error('Not implemented');
 }
