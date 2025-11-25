@@ -140,7 +140,7 @@ export class ExpressionParser {
     }
 
     // Otherwise it's a simple path (variable reference)
-    return ast.path([ast.pathKey(name, this.getLocation(start))], false, this.getLocation(start));
+    return ast.exprPath([ast.pathKey(name, this.getLocation(start))], false, this.getLocation(start));
   }
 
   private parsePath(): ExprAst {
@@ -161,7 +161,7 @@ export class ExpressionParser {
           this.consume(TokenType.RBRACKET, 'Expected ]');
         }
       }
-      return ast.path(segments, true, this.getLocation(start));
+      return ast.exprPath(segments, true, this.getLocation(start));
     }
 
     // Regular path: $foo or $foo.bar or $foo[0]
@@ -175,7 +175,7 @@ export class ExpressionParser {
           this.consume(TokenType.RBRACKET, 'Expected ]');
         }
       }
-      return ast.path(segments, false, this.getLocation(start));
+      return ast.exprPath(segments, false, this.getLocation(start));
     }
 
     throw new Error('Expected identifier after $');
@@ -262,7 +262,7 @@ export class ExpressionParser {
   private parseUnderscore(): ExprAst {
     const token = this.advance();
     // _ is a special identifier in match expressions
-    return ast.path([ast.pathKey('_', this.getLocation(token))], false, this.getLocation(token));
+    return ast.exprPath([ast.pathKey('_', this.getLocation(token))], false, this.getLocation(token));
   }
 
   // Infix parsers (operators that combine expressions)

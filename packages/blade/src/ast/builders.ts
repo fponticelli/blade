@@ -850,20 +850,65 @@ export const comment = {
   node: node.comment,
 };
 export const text = {
-  node: node.text,
+  node: (opts: { segments: TextSegment[]; location?: SourceLocation }) =>
+    node.text(opts.segments, opts.location),
   literalSegment: seg.literal,
   exprSegment: seg.expr,
 };
 export const ifNode = {
-  node: node.ifNode,
+  node: (opts: {
+    condition?: ExprAst;
+    then?: TemplateNode[];
+    else?: TemplateNode[] | null;
+    branches?: Array<{ condition: ExprAst; body: TemplateNode[]; location?: SourceLocation }>;
+    elseBranch?: TemplateNode[];
+    location?: SourceLocation;
+  }) => {
+    // Support both simple (condition/then/else) and branch-based syntax
+    if (opts.condition && opts.then) {
+      return node.ifNode({
+        branches: [{ condition: opts.condition, body: opts.then }],
+        elseBranch: opts.else ?? undefined,
+        location: opts.location,
+      });
+    }
+    return node.ifNode({
+      branches: opts.branches ?? [],
+      elseBranch: opts.elseBranch,
+      location: opts.location,
+    });
+  },
 };
 export const forNode = {
-  node: node.forNode,
+  node: (opts: {
+    item: string;
+    index?: string;
+    iterable: ExprAst;
+    body: TemplateNode[];
+    iterationType?: 'of' | 'in';
+    location?: SourceLocation;
+  }) =>
+    node.forLoop({
+      itemVar: opts.item,
+      itemsExpr: opts.iterable,
+      indexVar: opts.index,
+      iterationType: opts.iterationType,
+      body: opts.body,
+      location: opts.location,
+    }),
 };
 export const matchNode = {
-  node: node.matchNode,
-  literalCase: match.literal,
-  expressionCase: match.expression,
+  node: node.match,
+  literalCase: (opts: {
+    values: (string | number | boolean)[];
+    body: TemplateNode[];
+    location?: SourceLocation;
+  }) => match.literal(opts.values, opts.body, opts.location),
+  expressionCase: (opts: {
+    condition: ExprAst;
+    body: TemplateNode[];
+    location?: SourceLocation;
+  }) => match.expression(opts.condition, opts.body, opts.location),
 };
 export const letNode = {
   node: node.letNode,
@@ -874,8 +919,171 @@ export const fragment = {
 export const attribute = {
   static: (opts: { name: string; value: string; location?: SourceLocation }) =>
     attr.static(opts.name, opts.value, opts.location),
-  expr: attr.expr,
-  mixed: attr.mixed,
+  expr: (opts: { name: string; expr: ExprAst; location?: SourceLocation }) =>
+    attr.expr(opts.name, opts.expr, opts.location),
+  mixed: (opts: {
+    name: string;
+    segments: (StaticAttributeValue | ExprAttributeValue)[];
+    location?: SourceLocation;
+  }) => attr.mixed(opts.name, opts.segments, opts.location),
   staticValue: attr.staticValue,
   exprValue: attr.exprValue,
 };
+
+/**
+ * Creates a source location from start and end positions.
+ * Used by expression parser for token-based location tracking.
+ */
+export function location(
+  start: { line: number; column: number; offset: number },
+  end: { line: number; column: number; offset: number }
+): SourceLocation {
+  return {
+    start,
+    end,
+  };
+}
+
+// =============================================================================
+// Expression Parser Compatibility Exports
+// =============================================================================
+// These exports provide the exact signatures expected by the expression parser
+
+/**
+ * Creates a literal node with explicit type and location.
+ */
+export function literal(
+  value: string | number | boolean | null | undefined,
+  type: LiteralType,
+  location?: SourceLocation
+): LiteralNode {
+  return {
+    kind: 'literal',
+    type,
+    value,
+    location: location ?? loc(),
+  };
+}
+
+/**
+ * Creates a path node with explicit isGlobal and location.
+ * Note: The expression parser calls this as `ast.path(segments, isGlobal, location)`
+ * We export it directly - not as an alias since `path` is already exported as an object.
+ */
+export function exprPath(
+  segments: PathItem[],
+  isGlobal: boolean,
+  location?: SourceLocation
+): PathNode {
+  return {
+    kind: 'path',
+    segments,
+    isGlobal,
+    location: location ?? loc(),
+  };
+}
+
+/**
+ * Creates a key path item with location.
+ */
+export function pathKey(key: string, location?: SourceLocation): KeyPathItem {
+  return { kind: 'key', key };
+}
+
+/**
+ * Creates an index path item with location.
+ */
+export function pathIndex(index: number, location?: SourceLocation): IndexPathItem {
+  return { kind: 'index', index };
+}
+
+/**
+ * Creates a star (wildcard) path item with location.
+ */
+export function pathStar(location?: SourceLocation): StarPathItem {
+  return { kind: 'star' };
+}
+
+/**
+ * Creates a unary operation node.
+ */
+export function unary(
+  operator: '!' | '-',
+  operand: ExprAst,
+  location?: SourceLocation
+): UnaryNode {
+  return {
+    kind: 'unary',
+    operator,
+    operand,
+    location: location ?? loc(),
+  };
+}
+
+/**
+ * Creates a binary operation node.
+ */
+export function binary(
+  operator: BinaryOperator,
+  left: ExprAst,
+  right: ExprAst,
+  location?: SourceLocation
+): BinaryNode {
+  return {
+    kind: 'binary',
+    operator,
+    left,
+    right,
+    location: location ?? loc(),
+  };
+}
+
+/**
+ * Creates a ternary expression node.
+ */
+export function ternary(
+  condition: ExprAst,
+  truthy: ExprAst,
+  falsy: ExprAst,
+  location?: SourceLocation
+): TernaryNode {
+  return {
+    kind: 'ternary',
+    condition,
+    truthy,
+    falsy,
+    location: location ?? loc(),
+  };
+}
+
+/**
+ * Creates a function call node.
+ */
+export function call(
+  callee: string,
+  args: ExprAst[],
+  location?: SourceLocation
+): CallNode {
+  return {
+    kind: 'call',
+    callee,
+    args,
+    location: location ?? loc(),
+  };
+}
+
+/**
+ * Creates a function expression node (for arrow functions).
+ */
+export function functionExpr(
+  params: string[],
+  body: ExprAst,
+  location?: SourceLocation
+): FunctionExpr {
+  return {
+    kind: 'function',
+    params,
+    body,
+    location: location ?? loc(),
+  };
+}

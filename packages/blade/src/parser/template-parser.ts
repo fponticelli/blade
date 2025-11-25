@@ -16,7 +16,7 @@ export class TemplateParser {
   private column = 1;
   private errors: ParseError[] = [];
   private callCount = 0;
-  private readonly MAX_CALLS = 1000;
+  private readonly MAX_CALLS = 10000;
   private recursionDepth = 0;
   private readonly MAX_RECURSION_DEPTH = 20;
 
@@ -737,7 +737,8 @@ export class TemplateParser {
     while (!this.isAtEnd()) {
       this.checkCallLimit('parseText loop');
       // Check for end of text node
-      if (this.peek() === '<' || this.peek() === '@') {
+      // Stop at < (HTML tag), @ (directive), or } (end of block/case body)
+      if (this.peek() === '<' || this.peek() === '@' || this.peek() === '}') {
         break;
       }
 
@@ -821,6 +822,11 @@ export class TemplateParser {
     // Save any remaining text
     if (textBuffer) {
       segments.push(ast.text.literalSegment(textBuffer, this.getLocationFrom(startLoc)));
+    }
+
+    // Return null for empty text nodes (whitespace-only between elements)
+    if (segments.length === 0) {
+      return null as unknown as TemplateNode;
     }
 
     return ast.text.node({
@@ -1020,11 +1026,14 @@ export class TemplateParser {
       this.skipWhitespace();
     }
 
-    // Expect 'of'
+    // Expect 'of' or 'in'
     const ofKeyword = this.parseIdentifier();
-    if (ofKeyword !== 'of') {
+    let iterationType: 'of' | 'in' = 'of';
+    if (ofKeyword === 'in') {
+      iterationType = 'in';
+    } else if (ofKeyword !== 'of') {
       this.errors.push({
-        message: `Expected 'of' in @for directive, got '${ofKeyword}'`,
+        message: `Expected 'of' or 'in' in @for directive, got '${ofKeyword}'`,
         line: this.line,
         column: this.column,
         offset: this.pos,
@@ -1082,6 +1091,7 @@ export class TemplateParser {
       item,
       index: index ?? undefined,
       iterable: iterResult.value,
+      iterationType,
       body,
       location: this.getLocationFrom(startLoc),
     });
@@ -1416,8 +1426,12 @@ export class TemplateParser {
 
     this.consume('}');
 
-    // For code blocks, we return all the statements as-is
-    // The AST doesn't have a CodeBlock node, so we return a fragment
+    // If there's only one statement, return it directly
+    // Otherwise, return a fragment containing all statements
+    if (statements.length === 1) {
+      return statements[0];
+    }
+
     return ast.fragment.node({
       children: statements,
       location: this.getLocationFrom(startLoc),
