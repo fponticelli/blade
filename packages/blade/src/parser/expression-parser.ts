@@ -31,6 +31,8 @@ export class ExpressionParser {
   private tokens: Token[];
   private current = 0;
   private errors: ParseError[] = [];
+  private recursionDepth = 0;
+  private readonly MAX_RECURSION_DEPTH = 15;
 
   constructor(source: string) {
     const tokenizer = new Tokenizer(source);
@@ -58,31 +60,44 @@ export class ExpressionParser {
   }
 
   private parseExpression(precedence: Precedence): ExprAst {
-    // Get prefix parser
-    const prefixFn = this.getPrefixParser(this.peek().type);
-    if (!prefixFn) {
-      throw new Error(`Unexpected token: ${this.peek().type}`);
+    this.recursionDepth++;
+    if (this.recursionDepth > this.MAX_RECURSION_DEPTH) {
+      const token = this.peek();
+      throw new Error(
+        `Expression parser exceeded maximum recursion depth (${this.MAX_RECURSION_DEPTH}).\n` +
+        `Current token: ${token.type} at line ${token.line}, column ${token.column}`
+      );
     }
 
-    let left = prefixFn.call(this);
+    try {
+      // Get prefix parser
+      const prefixFn = this.getPrefixParser(this.peek().type);
+      if (!prefixFn) {
+        throw new Error(`Unexpected token: ${this.peek().type}`);
+      }
 
-    // Parse infix operators based on precedence
-    let iterations = 0;
-    const maxIterations = 1000;
-    while (precedence < this.getPrecedence(this.peek().type)) {
-      if (++iterations > maxIterations) {
-        throw new Error('Infinite loop detected in parseExpression');
+      let left = prefixFn.call(this);
+
+      // Parse infix operators based on precedence
+      let iterations = 0;
+      const maxIterations = 1000;
+      while (precedence < this.getPrecedence(this.peek().type)) {
+        if (++iterations > maxIterations) {
+          throw new Error('Infinite loop detected in parseExpression');
+        }
+        const prevCurrent = this.current;
+        const infixFn = this.getInfixParser(this.peek().type);
+        if (!infixFn) break;
+        left = infixFn.call(this, left);
+        if (this.current === prevCurrent) {
+          throw new Error(`Infix parser did not advance position for token: ${this.peek().type}`);
+        }
       }
-      const prevCurrent = this.current;
-      const infixFn = this.getInfixParser(this.peek().type);
-      if (!infixFn) break;
-      left = infixFn.call(this, left);
-      if (this.current === prevCurrent) {
-        throw new Error(`Infix parser did not advance position for token: ${this.peek().type}`);
-      }
+
+      return left;
+    } finally {
+      this.recursionDepth--;
     }
-
-    return left;
   }
 
   // Prefix parsers (tokens that start an expression)

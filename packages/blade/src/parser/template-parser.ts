@@ -15,15 +15,32 @@ export class TemplateParser {
   private line = 1;
   private column = 1;
   private errors: ParseError[] = [];
+  private callCount = 0;
+  private readonly MAX_CALLS = 1000;
+  private recursionDepth = 0;
+  private readonly MAX_RECURSION_DEPTH = 20;
 
   constructor(source: string) {
     this.source = source;
+  }
+
+  private checkCallLimit(method: string) {
+    this.callCount++;
+    if (this.callCount > this.MAX_CALLS) {
+      const context = this.source.substring(Math.max(0, this.pos - 50), Math.min(this.source.length, this.pos + 50));
+      throw new Error(
+        `Parser exceeded maximum call limit (${this.MAX_CALLS}) in ${method}.\n` +
+        `Position: ${this.pos}, Line: ${this.line}, Column: ${this.column}\n` +
+        `Context: ...${context}...`
+      );
+    }
   }
 
   parse(): { nodes: TemplateNode[]; errors: ParseError[] } {
     const nodes: TemplateNode[] = [];
 
     while (!this.isAtEnd()) {
+      this.checkCallLimit('parse loop');
       const prevPos = this.pos;
       const node = this.parseNode();
       if (node) {
@@ -44,10 +61,22 @@ export class TemplateParser {
   }
 
   private parseNode(): TemplateNode | null {
-    // Skip whitespace at the beginning
-    this.skipWhitespace();
+    this.checkCallLimit('parseNode');
+    this.recursionDepth++;
+    if (this.recursionDepth > this.MAX_RECURSION_DEPTH) {
+      const context = this.source.substring(Math.max(0, this.pos - 50), Math.min(this.source.length, this.pos + 50));
+      throw new Error(
+        `Parser exceeded maximum recursion depth (${this.MAX_RECURSION_DEPTH}).\n` +
+        `Position: ${this.pos}, Line: ${this.line}, Column: ${this.column}\n` +
+        `Context: ...${context}...`
+      );
+    }
 
-    if (this.isAtEnd()) return null;
+    try {
+      // Skip whitespace at the beginning
+      this.skipWhitespace();
+
+      if (this.isAtEnd()) return null;
 
     // Check for HTML tags
     if (this.peek() === '<') {
@@ -62,13 +91,16 @@ export class TemplateParser {
       return this.parseElement();
     }
 
-    // Check for @ directives
-    if (this.peek() === '@') {
-      return this.parseDirective();
-    }
+      // Check for @ directives
+      if (this.peek() === '@') {
+        return this.parseDirective();
+      }
 
-    // Otherwise, parse text (which may contain expressions)
-    return this.parseText();
+      // Otherwise, parse text (which may contain expressions)
+      return this.parseText();
+    } finally {
+      this.recursionDepth--;
+    }
   }
 
   private parseElement(): TemplateNode {
@@ -703,6 +735,7 @@ export class TemplateParser {
     let textBuffer = '';
 
     while (!this.isAtEnd()) {
+      this.checkCallLimit('parseText loop');
       // Check for end of text node
       if (this.peek() === '<' || this.peek() === '@') {
         break;
@@ -812,8 +845,14 @@ export class TemplateParser {
 
     // Parse path segments (.foo or [0])
     while (this.peek() === '.' || this.peek() === '[') {
+      const prevPos = this.pos;
       if (this.peek() === '.') {
         this.advance();
+        // Must have identifier after dot
+        if (!this.isAlphaNumeric(this.peek())) {
+          // No identifier after dot, break to avoid infinite loop
+          break;
+        }
         while (this.isAlphaNumeric(this.peek())) {
           this.advance();
         }
@@ -828,7 +867,14 @@ export class TemplateParser {
         }
         if (this.peek() === ']') {
           this.advance();
+        } else {
+          // No closing bracket, break to avoid infinite loop
+          break;
         }
+      }
+      // Safety check: if position didn't advance, break
+      if (this.pos === prevPos) {
+        break;
       }
     }
 
@@ -1069,10 +1115,22 @@ export class TemplateParser {
 
       if (this.peek() === '}') break;
 
+      // Track position to detect infinite loops
+      const prevPos = this.pos;
+
       // Parse case
       const caseNode = this.parseMatchCase();
       if (caseNode) {
         cases.push(caseNode);
+      } else if (this.pos === prevPos) {
+        // parseMatchCase failed and didn't advance - break to avoid infinite loop
+        this.errors.push({
+          message: 'Failed to parse match case',
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+        break;
       }
 
       this.skipWhitespace();
@@ -1093,29 +1151,38 @@ export class TemplateParser {
   private parseMatchCase(): any {
     const startLoc = this.getLocation();
 
-    // Check for 'when' keyword or underscore (default case)
-    if (this.peek() === '_' && (this.peekNext() === ' ' || this.peekNext() === '{')) {
-      this.advance(); // consume _
-      this.skipWhitespace();
-      this.consume('{');
+    // Check for underscore (expression case or default case)
+    if (this.peek() === '_') {
+      const nextChar = this.peekNext();
+      // Check if it's default case: _ { or _ (space) {
+      if (nextChar === ' ' || nextChar === '{') {
+        this.advance(); // consume _
+        this.skipWhitespace();
+        this.consume('{');
 
-      const body: TemplateNode[] = [];
-      while (!this.isAtEnd() && this.peek() !== '}') {
-        const node = this.parseNode();
-        if (node) body.push(node);
+        const body: TemplateNode[] = [];
+        while (!this.isAtEnd() && this.peek() !== '}') {
+          const node = this.parseNode();
+          if (node) body.push(node);
+        }
+        this.consume('}');
+
+        // Default case - match all
+        return ast.matchNode.literalCase({
+          values: [],
+          body,
+          location: this.getLocationFrom(startLoc),
+        });
       }
-      this.consume('}');
-
-      // Default case - match all
-      return ast.matchNode.literalCase({
-        values: [],
-        body,
-        location: this.getLocationFrom(startLoc),
-      });
+      // Otherwise it's an expression case like _.startsWith() or _ > 100
+      // Fall through to expression parsing below
     }
 
+    // Check for 'when' keyword
+    const keywordStart = this.pos;
     const keyword = this.parseIdentifier();
-    if (keyword !== 'when') {
+    if (keyword !== 'when' && this.peek() !== '_') {
+      // Not 'when' and not starting with underscore - error
       this.errors.push({
         message: `Expected 'when' in match case, got '${keyword}'`,
         line: this.line,
@@ -1123,6 +1190,12 @@ export class TemplateParser {
         offset: this.pos,
       });
       return null;
+    }
+
+    // If we parsed 'when', continue to parse literals/expression
+    // If keyword is actually '_', reset position to parse as expression
+    if (keyword === '_' || this.peek() === '_') {
+      this.pos = keywordStart; // Reset to parse full expression including _
     }
 
     this.skipWhitespace();
@@ -1134,6 +1207,7 @@ export class TemplateParser {
     // Try to parse as literals first
     const values: (string | number | boolean)[] = [];
     let isExpressionCase = false;
+    let exprResult: any = null;
 
     // Check for underscore (wildcard expression case)
     if (this.peek() === '_') {
@@ -1194,6 +1268,20 @@ export class TemplateParser {
       }
     }
 
+    // If expression case, parse the expression NOW before parsing body
+    if (isExpressionCase) {
+      const exprEnd = this.source.indexOf('{', this.pos);
+      const exprSource = this.source.substring(this.pos, exprEnd).trim();
+      this.pos = exprEnd;
+
+      const exprParser = new ExpressionParser(exprSource);
+      exprResult = exprParser.parse();
+
+      if (!exprResult.value) {
+        throw new Error('Invalid match case expression');
+      }
+    }
+
     this.skipWhitespace();
     this.consume('{');
 
@@ -1221,19 +1309,6 @@ export class TemplateParser {
     this.consume('}');
 
     if (isExpressionCase) {
-      // Parse as expression case
-      this.pos = caseStart; // Reset to parse expression
-      const exprEnd = this.source.indexOf('{', this.pos);
-      const exprSource = this.source.substring(this.pos, exprEnd).trim();
-      this.pos = exprEnd;
-
-      const exprParser = new ExpressionParser(exprSource);
-      const exprResult = exprParser.parse();
-
-      if (!exprResult.value) {
-        throw new Error('Invalid match case expression');
-      }
-
       return ast.matchNode.expressionCase({
         condition: exprResult.value,
         body,
@@ -1306,6 +1381,8 @@ export class TemplateParser {
     const statements: TemplateNode[] = [];
 
     while (!this.isAtEnd() && this.peek() !== '}') {
+      this.checkCallLimit('parseCodeBlock loop');
+      const prevPos = this.pos;
       this.skipWhitespace();
 
       if (this.peek() === '}') break;
@@ -1324,6 +1401,17 @@ export class TemplateParser {
       }
 
       this.skipWhitespace();
+
+      // Safety check: if position didn't advance, break to avoid infinite loop
+      if (this.pos === prevPos) {
+        this.errors.push({
+          message: `parseCodeBlock: position not advancing at '${this.peek()}'`,
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+        break;
+      }
     }
 
     this.consume('}');

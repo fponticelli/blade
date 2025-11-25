@@ -97,6 +97,8 @@ export class Tokenizer {
   private line = 1;
   private column = 1;
   private tokens: Token[] = [];
+  private callCount = 0;
+  private readonly MAX_CALLS = 1000;
 
   constructor(source: string) {
     this.source = source;
@@ -104,6 +106,14 @@ export class Tokenizer {
 
   tokenize(): Token[] {
     while (!this.isAtEnd()) {
+      if (++this.callCount > this.MAX_CALLS) {
+        const context = this.source.substring(Math.max(0, this.pos - 50), Math.min(this.source.length, this.pos + 50));
+        throw new Error(
+          `Tokenizer exceeded maximum call limit (${this.MAX_CALLS}).\n` +
+          `Position: ${this.pos}, Line: ${this.line}, Column: ${this.column}\n` +
+          `Context: ...${context}...`
+        );
+      }
       this.scanToken();
     }
 
