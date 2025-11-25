@@ -1,7 +1,7 @@
 // Compiler module
-// TODO: Implement template compilation
 
 import type { CompiledTemplate } from '../ast/types.js';
+import * as ast from '../ast/builders.js';
 
 export interface CompileOptions {
   loader?: TemplateLoader;
@@ -19,9 +19,35 @@ export interface TemplateLoader {
 }
 
 export async function compile(
-  _source: string,
+  source: string,
   _options?: CompileOptions
 ): Promise<CompiledTemplate> {
-  // TODO: Implement compilation
-  throw new Error('Not implemented');
+  // TODO: Implement full compilation with parser
+  // For now, return a minimal AST structure to make tests fail gracefully
+
+  const location = ast.loc({
+    line: 1,
+    column: 1,
+    offset: 0,
+    endLine: 1,
+    endColumn: source.length + 1,
+    endOffset: source.length,
+  });
+
+  const rootNode = ast.root.node({
+    children: [], // Empty children for now
+    components: new Map(),
+    metadata: ast.root.metadata({
+      globalsUsed: [],
+      pathsAccessed: [],
+      helpersUsed: [],
+      componentsUsed: [],
+    }),
+    location,
+  });
+
+  return {
+    root: rootNode,
+    diagnostics: [],
+  };
 }

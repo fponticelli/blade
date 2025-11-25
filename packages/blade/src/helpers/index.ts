@@ -8,7 +8,7 @@ import type { HelperFunction, Scope } from '../evaluator/index.js';
 // =============================================================================
 
 export const formatCurrency: HelperFunction = (scope: Scope) => {
-  return (value: unknown, currency?: string): string => {
+  return (value: unknown, currency?: unknown): string => {
     const curr = currency ?? (scope.globals['currency'] as string) ?? 'USD';
     const locale = (scope.globals['locale'] as string) ?? 'en-US';
     return new Intl.NumberFormat(locale, {
@@ -19,7 +19,7 @@ export const formatCurrency: HelperFunction = (scope: Scope) => {
 };
 
 export const formatNumber: HelperFunction = (scope: Scope) => {
-  return (value: unknown, decimals?: number): string => {
+  return (value: unknown, decimals?: unknown): string => {
     const locale = (scope.globals['locale'] as string) ?? 'en-US';
     return new Intl.NumberFormat(locale, {
       minimumFractionDigits: decimals,
@@ -29,7 +29,7 @@ export const formatNumber: HelperFunction = (scope: Scope) => {
 };
 
 export const formatPercent: HelperFunction = (scope: Scope) => {
-  return (value: unknown, decimals?: number): string => {
+  return (value: unknown, decimals?: unknown): string => {
     const locale = (scope.globals['locale'] as string) ?? 'en-US';
     return new Intl.NumberFormat(locale, {
       style: 'percent',
@@ -105,13 +105,13 @@ export const trim: HelperFunction = (_scope: Scope) => {
 };
 
 export const substring: HelperFunction = (_scope: Scope) => {
-  return (str: unknown, start: number, end?: number): string => {
+  return (str: unknown, start: unknown, end?: unknown): string => {
     return String(str).substring(start, end);
   };
 };
 
 export const replace: HelperFunction = (_scope: Scope) => {
-  return (str: unknown, search: string, replacement: string): string => {
+  return (str: unknown, search: unknown, replacement: unknown): string => {
     return String(str).replace(search, replacement);
   };
 };
@@ -121,7 +121,7 @@ export const replace: HelperFunction = (_scope: Scope) => {
 // =============================================================================
 
 export const round: HelperFunction = (_scope: Scope) => {
-  return (value: unknown, decimals?: number): number => {
+  return (value: unknown, decimals?: unknown): number => {
     const factor = Math.pow(10, decimals ?? 0);
     return Math.round(Number(value) * factor) / factor;
   };

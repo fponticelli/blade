@@ -1,7 +1,7 @@
 // Parser module
-// TODO: Implement template and expression parsing
 
 import type { ExprAst, TemplateNode } from '../ast/types.js';
+import { ExpressionParser } from './expression-parser.js';
 
 export interface ParseResult<T> {
   value: T;
@@ -15,12 +15,21 @@ export interface ParseError {
   offset: number;
 }
 
-export function parseExpression(_source: string): ParseResult<ExprAst> {
-  // TODO: Implement expression parsing
-  throw new Error('Not implemented');
+export function parseExpression(source: string): ParseResult<ExprAst> {
+  const parser = new ExpressionParser(source);
+  const result = parser.parse();
+
+  if (result.value === null) {
+    throw new Error('Failed to parse expression');
+  }
+
+  return {
+    value: result.value,
+    errors: result.errors,
+  };
 }
 
 export function parseTemplate(_source: string): ParseResult<TemplateNode[]> {
-  // TODO: Implement template parsing
+  // TODO: Implement full template parsing
   throw new Error('Not implemented');
 }
