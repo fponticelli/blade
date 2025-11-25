@@ -167,14 +167,24 @@ export class TemplateParser {
   }
 
   private parseComponent(tagName: string, startLoc: { line: number; column: number; offset: number }): TemplateNode {
-    // Parse component props (similar to attributes)
-    const props: any[] = [];
+    // Parse component props (must be expressions, not attributes)
+    const props: Array<{ name: string; value: any; location: any }> = [];
+    const propPathMapping = new Map<string, readonly string[]>();
     this.skipWhitespace();
 
     while (!this.isAtEnd() && this.peek() !== '>' && this.peek() !== '/') {
-      const prop = this.parseAttribute();
+      const prop = this.parseComponentProp();
       if (prop) {
         props.push(prop);
+        // Extract path mapping if the value is a path expression
+        if (prop.value.kind === 'path' && !prop.value.isGlobal) {
+          const pathSegments = prop.value.segments
+            .filter((seg: any) => seg.kind === 'key')
+            .map((seg: any) => seg.key);
+          if (pathSegments.length > 0) {
+            propPathMapping.set(prop.name, pathSegments);
+          }
+        }
       }
       this.skipWhitespace();
     }
@@ -188,6 +198,7 @@ export class TemplateParser {
         name: tagName,
         props,
         children: [],
+        propPathMapping,
         location: this.getLocationFrom(startLoc),
       });
     }
@@ -228,8 +239,127 @@ export class TemplateParser {
       name: tagName,
       props,
       children,
+      propPathMapping,
       location: this.getLocationFrom(startLoc),
     });
+  }
+
+  private parseComponentProp(): { name: string; value: any; location: any } | null {
+    const startLoc = this.getLocation();
+    const name = this.parseIdentifier();
+
+    // If no valid identifier, skip invalid character
+    if (name === '') {
+      this.errors.push({
+        message: `Invalid component prop name at '${this.peek()}'`,
+        line: this.line,
+        column: this.column,
+        offset: this.pos,
+      });
+      this.advance();
+      return null;
+    }
+
+    this.skipWhitespace();
+
+    // Component props must have a value (no boolean props)
+    if (this.peek() !== '=') {
+      this.errors.push({
+        message: `Component prop '${name}' must have a value`,
+        line: this.line,
+        column: this.column,
+        offset: this.pos,
+      });
+      return null;
+    }
+
+    this.consume('=');
+    this.skipWhitespace();
+
+    // Parse the expression value
+    let exprSource: string;
+
+    if (this.peek() === '"' || this.peek() === "'") {
+      // Quoted string literal - convert to literal expression
+      const quote = this.peek();
+      this.advance(); // opening quote
+      const valueStart = this.pos;
+      while (!this.isAtEnd() && this.peek() !== quote) {
+        if (this.peek() === '\\') {
+          this.advance();
+        }
+        this.advance();
+      }
+      const value = this.source.substring(valueStart, this.pos);
+      this.advance(); // closing quote
+
+      // Create a string literal expression
+      const exprParser = new ExpressionParser(`"${value}"`);
+      const result = exprParser.parse();
+
+      if (!result.value) {
+        throw new Error(`Invalid prop value for '${name}'`);
+      }
+
+      return {
+        name,
+        value: result.value,
+        location: this.getLocationFrom(startLoc),
+      };
+    } else if (this.peek() === '$') {
+      // Expression starting with $
+      if (this.peekNext() === '{') {
+        // Complex expression ${...}
+        this.advance(); // $
+        this.advance(); // {
+        const exprStart = this.pos;
+        let braceCount = 1;
+        while (!this.isAtEnd() && braceCount > 0) {
+          if (this.peek() === '{') braceCount++;
+          if (this.peek() === '}') braceCount--;
+          if (braceCount > 0) this.advance();
+        }
+        exprSource = this.source.substring(exprStart, this.pos);
+        this.advance(); // consume }
+      } else {
+        // Simple expression $path
+        exprSource = this.parseSimpleExpression();
+      }
+
+      const exprParser = new ExpressionParser(exprSource);
+      const result = exprParser.parse();
+
+      if (!result.value) {
+        throw new Error(`Invalid prop expression for '${name}'`);
+      }
+
+      return {
+        name,
+        value: result.value,
+        location: this.getLocationFrom(startLoc),
+      };
+    } else {
+      // Unquoted value - parse as identifier or number
+      const valueStart = this.pos;
+      while (!this.isAtEnd() && !this.isWhitespace(this.peek()) && this.peek() !== '>' && this.peek() !== '/') {
+        this.advance();
+      }
+      const value = this.source.substring(valueStart, this.pos);
+
+      // Try to parse as expression
+      const exprParser = new ExpressionParser(value);
+      const result = exprParser.parse();
+
+      if (!result.value) {
+        throw new Error(`Invalid prop value for '${name}'`);
+      }
+
+      return {
+        name,
+        value: result.value,
+        location: this.getLocationFrom(startLoc),
+      };
+    }
   }
 
   private parseSlot(startLoc: { line: number; column: number; offset: number }): TemplateNode {
