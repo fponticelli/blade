@@ -24,9 +24,19 @@ export class TemplateParser {
     const nodes: TemplateNode[] = [];
 
     while (!this.isAtEnd()) {
+      const prevPos = this.pos;
       const node = this.parseNode();
       if (node) {
         nodes.push(node);
+      } else if (this.pos === prevPos) {
+        // If parseNode returned null and didn't advance, skip the current character
+        this.errors.push({
+          message: `Unexpected character '${this.peek()}'`,
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+        this.advance();
       }
     }
 
@@ -104,9 +114,13 @@ export class TemplateParser {
     this.skipWhitespace();
 
     while (!this.isAtEnd() && this.peek() !== '>' && this.peek() !== '/') {
+      const prevPos = this.pos;
       const attr = this.parseAttribute();
       if (attr) {
         attributes.push(attr);
+      } else if (this.pos === prevPos) {
+        // If parseAttribute returned null and didn't advance, break to avoid infinite loop
+        break;
       }
       this.skipWhitespace();
     }
@@ -135,9 +149,13 @@ export class TemplateParser {
         break;
       }
 
+      const prevPos = this.pos;
       const child = this.parseNode();
       if (child) {
         children.push(child);
+      } else if (this.pos === prevPos) {
+        // parseNode didn't advance, break to avoid infinite loop
+        break;
       }
     }
 
@@ -173,6 +191,7 @@ export class TemplateParser {
     this.skipWhitespace();
 
     while (!this.isAtEnd() && this.peek() !== '>' && this.peek() !== '/') {
+      const prevPos = this.pos;
       const prop = this.parseComponentProp();
       if (prop) {
         props.push(prop);
@@ -185,6 +204,9 @@ export class TemplateParser {
             propPathMapping.set(prop.name, pathSegments);
           }
         }
+      } else if (this.pos === prevPos) {
+        // If parseComponentProp returned null and didn't advance, break to avoid infinite loop
+        break;
       }
       this.skipWhitespace();
     }
@@ -213,9 +235,13 @@ export class TemplateParser {
         break;
       }
 
+      const prevPos = this.pos;
       const child = this.parseNode();
       if (child) {
         children.push(child);
+      } else if (this.pos === prevPos) {
+        // parseNode didn't advance, break to avoid infinite loop
+        break;
       }
     }
 
@@ -270,6 +296,8 @@ export class TemplateParser {
         column: this.column,
         offset: this.pos,
       });
+      // Don't advance - let the parent loop handle the next character
+      // This allows proper handling of '>' or '/' that ends the tag
       return null;
     }
 
@@ -441,9 +469,13 @@ export class TemplateParser {
         break;
       }
 
+      const prevPos = this.pos;
       const child = this.parseNode();
       if (child) {
         fallback.push(child);
+      } else if (this.pos === prevPos) {
+        // parseNode didn't advance, break to avoid infinite loop
+        break;
       }
     }
 
@@ -715,8 +747,9 @@ export class TemplateParser {
             segments.push(ast.text.exprSegment(result.value, this.getLocationFrom(startLoc)));
           }
         } else {
-          // Invalid expression, treat $ as literal
-          textBuffer += '$';
+          // Invalid expression, treat $ as literal and reset position
+          this.pos = exprStart; // Reset back to before the $
+          textBuffer += this.advance(); // Add $ and advance past it
         }
         continue;
       }
@@ -874,8 +907,14 @@ export class TemplateParser {
         });
         break;
       }
+      const prevPos = this.pos;
       const node = this.parseNode();
-      if (node) thenBody.push(node);
+      if (node) {
+        thenBody.push(node);
+      } else if (this.pos === prevPos) {
+        // parseNode didn't advance, break to avoid infinite loop
+        break;
+      }
     }
     this.consume('}');
 
@@ -901,8 +940,14 @@ export class TemplateParser {
           });
           break;
         }
+        const prevPos = this.pos;
         const node = this.parseNode();
-        if (node) elseBody.push(node);
+        if (node) {
+          elseBody.push(node);
+        } else if (this.pos === prevPos) {
+          // parseNode didn't advance, break to avoid infinite loop
+          break;
+        }
       }
       this.consume('}');
     }
@@ -978,8 +1023,14 @@ export class TemplateParser {
         });
         break;
       }
+      const prevPos = this.pos;
       const node = this.parseNode();
-      if (node) body.push(node);
+      if (node) {
+        body.push(node);
+      } else if (this.pos === prevPos) {
+        // parseNode didn't advance, break to avoid infinite loop
+        break;
+      }
     }
     this.consume('}');
 
@@ -1164,8 +1215,14 @@ export class TemplateParser {
         });
         break;
       }
+      const prevPos = this.pos;
       const node = this.parseNode();
-      if (node) body.push(node);
+      if (node) {
+        body.push(node);
+      } else if (this.pos === prevPos) {
+        // parseNode didn't advance, break to avoid infinite loop
+        break;
+      }
     }
     this.consume('}');
 
