@@ -8,11 +8,9 @@
 import { describe, it, expect } from 'vitest';
 import { compile, type CompileOptions } from '../src/compiler/index.js';
 import type {
-  CompiledTemplate,
   RootNode,
   TextNode,
   ElementNode,
-  ExprAst,
   PathNode,
   LiteralNode,
   BinaryNode,
@@ -40,17 +38,12 @@ import type {
 /**
  * Helper to compile and extract the root node
  */
-async function compileAndGetRoot(source: string, options?: CompileOptions): Promise<RootNode> {
+async function compileAndGetRoot(
+  source: string,
+  options?: CompileOptions
+): Promise<RootNode> {
   const result = await compile(source, options);
   return result.root;
-}
-
-/**
- * Helper to get first child of root
- */
-async function compileAndGetFirstChild(source: string): Promise<any> {
-  const root = await compileAndGetRoot(source);
-  return root.children[0];
 }
 
 /**
@@ -212,7 +205,22 @@ describe('Compiler - Complex Expressions', () => {
   });
 
   it('should parse binary operations', async () => {
-    const operators = ['+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&&', '||', '??'];
+    const operators = [
+      '+',
+      '-',
+      '*',
+      '/',
+      '%',
+      '==',
+      '!=',
+      '<',
+      '>',
+      '<=',
+      '>=',
+      '&&',
+      '||',
+      '??',
+    ];
 
     for (const op of operators) {
       const root = await compileAndGetRoot(`\${a ${op} b}`);
@@ -228,12 +236,14 @@ describe('Compiler - Complex Expressions', () => {
 
   it('should parse unary operations', async () => {
     const root1 = await compileAndGetRoot('${!isValid}');
-    const expr1 = ((root1.children[0] as TextNode).segments[0] as any).expr as UnaryNode;
+    const expr1 = ((root1.children[0] as TextNode).segments[0] as any)
+      .expr as UnaryNode;
     expect(expr1.kind).toBe('unary');
     expect(expr1.operator).toBe('!');
 
     const root2 = await compileAndGetRoot('${-total}');
-    const expr2 = ((root2.children[0] as TextNode).segments[0] as any).expr as UnaryNode;
+    const expr2 = ((root2.children[0] as TextNode).segments[0] as any)
+      .expr as UnaryNode;
     expect(expr2.kind).toBe('unary');
     expect(expr2.operator).toBe('-');
   });
@@ -260,7 +270,9 @@ describe('Compiler - Complex Expressions', () => {
   });
 
   it('should parse nested function calls', async () => {
-    const root = await compileAndGetRoot('${formatCurrency(sum(items[*].price))}');
+    const root = await compileAndGetRoot(
+      '${formatCurrency(sum(items[*].price))}'
+    );
     const textNode = root.children[0] as TextNode;
     const expr = (textNode.segments[0] as any).expr as CallNode;
 
@@ -351,7 +363,9 @@ describe('Compiler - HTML Attributes', () => {
   });
 
   it('should parse expression attributes', async () => {
-    const root = await compileAndGetRoot('<button disabled=${!isValid}>Submit</button>');
+    const root = await compileAndGetRoot(
+      '<button disabled=${!isValid}>Submit</button>'
+    );
     const element = root.children[0] as ElementNode;
     const attr = element.attributes[0] as ExprAttributeNode;
 
@@ -362,7 +376,9 @@ describe('Compiler - HTML Attributes', () => {
   });
 
   it('should parse mixed attributes (interpolation)', async () => {
-    const root = await compileAndGetRoot('<div class="status-${order.status}">test</div>');
+    const root = await compileAndGetRoot(
+      '<div class="status-${order.status}">test</div>'
+    );
     const element = root.children[0] as ElementNode;
     const attr = element.attributes[0] as MixedAttributeNode;
 
@@ -375,7 +391,9 @@ describe('Compiler - HTML Attributes', () => {
   });
 
   it('should parse multiple attributes', async () => {
-    const root = await compileAndGetRoot('<input type="text" value=$name disabled=${!valid} />');
+    const root = await compileAndGetRoot(
+      '<input type="text" value=$name disabled=${!valid} />'
+    );
     const element = root.children[0] as ElementNode;
 
     expect(element.attributes).toHaveLength(3);
@@ -448,7 +466,9 @@ describe('Compiler - @if Directive', () => {
 
 describe('Compiler - @for Directive', () => {
   it('should parse @for...of for values', async () => {
-    const root = await compileAndGetRoot('@for(item of items) { <li>$item.name</li> }');
+    const root = await compileAndGetRoot(
+      '@for(item of items) { <li>$item.name</li> }'
+    );
     const forNode = root.children[0] as ForNode;
 
     expect(forNode.kind).toBe('for');
@@ -460,7 +480,9 @@ describe('Compiler - @for Directive', () => {
   });
 
   it('should parse @for...of with index', async () => {
-    const root = await compileAndGetRoot('@for(item, index of items) { <li>${index}. $item.name</li> }');
+    const root = await compileAndGetRoot(
+      '@for(item, index of items) { <li>${index}. $item.name</li> }'
+    );
     const forNode = root.children[0] as ForNode;
 
     expect(forNode.itemVar).toBe('item');
@@ -469,7 +491,9 @@ describe('Compiler - @for Directive', () => {
   });
 
   it('should parse @for...in for keys/indices', async () => {
-    const root = await compileAndGetRoot('@for(index in items) { <li>$index</li> }');
+    const root = await compileAndGetRoot(
+      '@for(index in items) { <li>$index</li> }'
+    );
     const forNode = root.children[0] as ForNode;
 
     expect(forNode.itemVar).toBe('index');
@@ -477,7 +501,9 @@ describe('Compiler - @for Directive', () => {
   });
 
   it('should parse complex expression in @for', async () => {
-    const root = await compileAndGetRoot('@for(item of data.orders[0].items) { <li>$item</li> }');
+    const root = await compileAndGetRoot(
+      '@for(item of data.orders[0].items) { <li>$item</li> }'
+    );
     const forNode = root.children[0] as ForNode;
 
     expect(forNode.itemsExpr.kind).toBe('path');
@@ -619,7 +645,9 @@ describe('Compiler - @@ Blocks', () => {
   });
 
   it('should parse complex function expressions', async () => {
-    const root = await compileAndGetRoot('@@ { let discounted = (amount, percent) => amount * (1 - percent / 100); }');
+    const root = await compileAndGetRoot(
+      '@@ { let discounted = (amount, percent) => amount * (1 - percent / 100); }'
+    );
     const letNode = root.children[0] as LetNode;
     const func = letNode.value as any;
 
@@ -705,7 +733,9 @@ describe('Compiler - Component Usage', () => {
   });
 
   it('should parse component props', async () => {
-    const root = await compileAndGetRoot('<Price amount=$order.total currency="EUR" />');
+    const root = await compileAndGetRoot(
+      '<Price amount=$order.total currency="EUR" />'
+    );
     const comp = root.children[0] as ComponentNode;
 
     expect(comp.props).toHaveLength(2);
@@ -863,7 +893,9 @@ describe('Compiler - Comments', () => {
 
     // HTML comments inside fragments should be preserved
     const fragment = root.children[0] as FragmentNode;
-    const comment = fragment.children.find(c => c.kind === 'comment') as CommentNode;
+    const comment = fragment.children.find(
+      c => c.kind === 'comment'
+    ) as CommentNode;
 
     if (comment) {
       expect(comment.style).toBe('html');
@@ -901,7 +933,9 @@ describe('Compiler - Metadata Collection', () => {
   });
 
   it('should track helper functions used', async () => {
-    const root = await compileAndGetRoot('${formatCurrency(total)} ${sum(items)}');
+    const root = await compileAndGetRoot(
+      '${formatCurrency(total)} ${sum(items)}'
+    );
 
     expect(root.metadata.helpersUsed.size).toBe(2);
     expect(Array.from(root.metadata.helpersUsed)).toContain('formatCurrency');
@@ -1045,7 +1079,9 @@ describe('Compiler - Warnings', () => {
 describe('Compiler - Options', () => {
   it('should respect maxExpressionDepth', async () => {
     const deepExpr = '${' + 'a + '.repeat(100) + 'b' + '}'.repeat(100);
-    const errors = await compileAndGetErrors(deepExpr, { maxExpressionDepth: 10 });
+    const errors = await compileAndGetErrors(deepExpr, {
+      maxExpressionDepth: 10,
+    });
 
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].message).toMatch(/depth|nesting/i);
@@ -1058,21 +1094,24 @@ describe('Compiler - Options', () => {
 
   it('should use custom loader for components', async () => {
     const loader = {
-      load: async (name: string) => {
+      load: async (_name: string) => {
         return {
           root: {
             kind: 'root' as const,
-            children: [],
+            children: [] as never[],
             components: new Map(),
             metadata: {
-              globalsUsed: new Set(),
-              pathsAccessed: new Set(),
-              helpersUsed: new Set(),
-              componentsUsed: new Set(),
+              globalsUsed: new Set<string>(),
+              pathsAccessed: new Set<string>(),
+              helpersUsed: new Set<string>(),
+              componentsUsed: new Set<string>(),
             },
-            location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } },
+            location: {
+              start: { line: 1, column: 1, offset: 0 },
+              end: { line: 1, column: 1, offset: 0 },
+            },
           },
-          diagnostics: [],
+          diagnostics: [] as never[],
         };
       },
     };
@@ -1099,13 +1138,13 @@ describe('Compiler - Complex Templates', () => {
           <h2>Order Summary</h2>
           <ul>
             @for(item, index of items) {
-              <li class="item-${index}">
-                ${item.name}: ${formatCurrency(item.price)}
+              <li class="item-\${index}">
+                \${item.name}: \${formatCurrency(item.price)}
               </li>
             }
           </ul>
           <div class="total">
-            Total: ${formatCurrency(total * (1 + taxRate))}
+            Total: \${formatCurrency(total * (1 + taxRate))}
           </div>
         } else {
           <p>No items</p>
@@ -1154,7 +1193,7 @@ describe('Compiler - Complex Templates', () => {
       // Define reusable components
       <template:PriceTag amount! currency="USD">
         <span class="price">
-          ${formatCurrency(amount, currency)}
+          \${formatCurrency(amount, currency)}
         </span>
       </template:PriceTag>
 
@@ -1165,19 +1204,19 @@ describe('Compiler - Complex Templates', () => {
         let applyDiscount = (price) => price * (1 - discount);
       }
 
-      <div class="container theme-${$.theme}">
+      <div class="container theme-\${$.theme}">
         <h1>Products</h1>
 
         @for(product of products) {
           <div class="product">
-            <h3>$product.name</h3>
+            <h3>\$product.name</h3>
 
             @match(product.stock) {
               when 0 {
                 <span class="out-of-stock">Out of Stock</span>
               }
               _ < 10 {
-                <span class="low-stock">Only ${product.stock} left!</span>
+                <span class="low-stock">Only \${product.stock} left!</span>
               }
               * {
                 <span class="in-stock">In Stock</span>
@@ -1185,12 +1224,12 @@ describe('Compiler - Complex Templates', () => {
             }
 
             @if(product.onSale) {
-              <PriceTag amount=${applyDiscount(product.price)} />
+              <PriceTag amount=\${applyDiscount(product.price)} />
               <span class="original">
-                <PriceTag amount=$product.price />
+                <PriceTag amount=\$product.price />
               </span>
             } else {
-              <PriceTag amount=$product.price />
+              <PriceTag amount=\$product.price />
             }
           </div>
         }
@@ -1249,12 +1288,17 @@ describe('Compiler - Edge Cases', () => {
 
   it('should handle very long attribute values', async () => {
     const longValue = 'x'.repeat(10000);
-    const root = await compileAndGetRoot(`<div data-value="${longValue}">test</div>`);
+    const root = await compileAndGetRoot(
+      `<div data-value="${longValue}">test</div>`
+    );
     expect(root.children).toHaveLength(1);
   });
 
   it('should handle templates with thousands of nodes', async () => {
-    const items = Array(1000).fill(0).map((_, i) => `<div>Item ${i}</div>`).join('\n');
+    const items = Array(1000)
+      .fill(0)
+      .map((_, i) => `<div>Item ${i}</div>`)
+      .join('\n');
     const result = await compile(items);
     expect(result.root.children.length).toBe(1000);
   });

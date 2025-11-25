@@ -20,8 +20,16 @@
  * - end: { line: 2, column: 7, offset: 13 }
  */
 export interface SourceLocation {
-  readonly start: { readonly line: number; readonly column: number; readonly offset: number };
-  readonly end: { readonly line: number; readonly column: number; readonly offset: number };
+  readonly start: {
+    readonly line: number;
+    readonly column: number;
+    readonly offset: number;
+  };
+  readonly end: {
+    readonly line: number;
+    readonly column: number;
+    readonly offset: number;
+  };
   readonly source?: string;
 }
 
@@ -358,8 +366,16 @@ export interface TextNode extends BaseNode {
  * @property location - Source location of this segment
  */
 export type TextSegment =
-  | { readonly kind: 'literal'; readonly text: string; readonly location: SourceLocation }
-  | { readonly kind: 'expr'; readonly expr: ExprAst; readonly location: SourceLocation };
+  | {
+      readonly kind: 'literal';
+      readonly text: string;
+      readonly location: SourceLocation;
+    }
+  | {
+      readonly kind: 'expr';
+      readonly expr: ExprAst;
+      readonly location: SourceLocation;
+    };
 
 /**
  * HTML element node.
@@ -587,7 +603,6 @@ export interface MatchNode extends BaseNode {
   readonly cases: readonly MatchCase[];
   readonly defaultCase?: readonly TemplateNode[];
 }
-
 
 /**
  * Literal match case in a match statement.
