@@ -41,6 +41,10 @@ export class TemplateParser {
 
     // Check for HTML tags
     if (this.peek() === '<') {
+      // Check if it's a comment
+      if (this.peekNext() === '!' && this.peekAhead(4) === '<!--') {
+        return this.parseComment();
+      }
       // Check if it's a closing tag (we'll handle this in parseElement)
       if (this.peekNext() === '/') {
         return null; // Closing tag, handled by parent
@@ -62,6 +66,16 @@ export class TemplateParser {
 
     this.consume('<');
     const tagName = this.parseIdentifier();
+
+    // Check if it's a component (starts with capital letter)
+    if (tagName.length > 0 && tagName[0] >= 'A' && tagName[0] <= 'Z') {
+      return this.parseComponent(tagName, startLoc);
+    }
+
+    // Check if it's a slot tag
+    if (tagName === 'slot') {
+      return this.parseSlot(startLoc);
+    }
 
     // Parse attributes
     const attributes: any[] = [];
@@ -126,6 +140,202 @@ export class TemplateParser {
       attributes,
       children,
       selfClosing: false,
+      location: this.getLocationFrom(startLoc),
+    });
+  }
+
+  private parseComponent(tagName: string, startLoc: { line: number; column: number; offset: number }): TemplateNode {
+    // Parse component props (similar to attributes)
+    const props: any[] = [];
+    this.skipWhitespace();
+
+    while (!this.isAtEnd() && this.peek() !== '>' && this.peek() !== '/') {
+      const prop = this.parseAttribute();
+      if (prop) {
+        props.push(prop);
+      }
+      this.skipWhitespace();
+    }
+
+    // Check for self-closing component
+    const selfClosing = this.peek() === '/' && this.peekNext() === '>';
+    if (selfClosing) {
+      this.advance(); // /
+      this.advance(); // >
+      return ast.component.node({
+        name: tagName,
+        props,
+        children: [],
+        location: this.getLocationFrom(startLoc),
+      });
+    }
+
+    this.consume('>');
+
+    // Parse children (including slots)
+    const children: TemplateNode[] = [];
+    while (!this.isAtEnd()) {
+      // Check for closing tag
+      if (this.peek() === '<' && this.peekNext() === '/') {
+        break;
+      }
+
+      const child = this.parseNode();
+      if (child) {
+        children.push(child);
+      }
+    }
+
+    // Parse closing tag
+    if (this.peek() === '<' && this.peekNext() === '/') {
+      this.advance(); // <
+      this.advance(); // /
+      const closingTag = this.parseIdentifier();
+      if (closingTag !== tagName) {
+        this.errors.push({
+          message: `Mismatched closing tag: expected </${tagName}>, got </${closingTag}>`,
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+      }
+      this.consume('>');
+    }
+
+    return ast.component.node({
+      name: tagName,
+      props,
+      children,
+      location: this.getLocationFrom(startLoc),
+    });
+  }
+
+  private parseSlot(startLoc: { line: number; column: number; offset: number }): TemplateNode {
+    // Parse slot attributes (looking for "name" attribute)
+    let slotName: string | null = null;
+    this.skipWhitespace();
+
+    while (!this.isAtEnd() && this.peek() !== '>' && this.peek() !== '/') {
+      const attrStartLoc = this.getLocation();
+      const attrName = this.parseIdentifier();
+
+      if (attrName === 'name') {
+        this.skipWhitespace();
+        this.consume('=');
+        this.skipWhitespace();
+
+        // Parse slot name (must be quoted string)
+        if (this.peek() === '"' || this.peek() === "'") {
+          const quote = this.peek();
+          this.advance(); // opening quote
+          const nameStart = this.pos;
+          while (!this.isAtEnd() && this.peek() !== quote) {
+            this.advance();
+          }
+          slotName = this.source.substring(nameStart, this.pos);
+          this.advance(); // closing quote
+        }
+      } else {
+        // Skip other attributes on slot tag (not standard but be lenient)
+        this.skipWhitespace();
+        if (this.peek() === '=') {
+          this.consume('=');
+          this.skipWhitespace();
+          if (this.peek() === '"' || this.peek() === "'") {
+            const quote = this.peek();
+            this.advance();
+            while (!this.isAtEnd() && this.peek() !== quote) {
+              this.advance();
+            }
+            this.advance();
+          }
+        }
+      }
+
+      this.skipWhitespace();
+    }
+
+    // Check for self-closing slot
+    const selfClosing = this.peek() === '/' && this.peekNext() === '>';
+    if (selfClosing) {
+      this.advance(); // /
+      this.advance(); // >
+      return ast.slot.node({
+        name: slotName,
+        fallback: [],
+        location: this.getLocationFrom(startLoc),
+      });
+    }
+
+    this.consume('>');
+
+    // Parse fallback content
+    const fallback: TemplateNode[] = [];
+    while (!this.isAtEnd()) {
+      // Check for closing tag
+      if (this.peek() === '<' && this.peekNext() === '/') {
+        break;
+      }
+
+      const child = this.parseNode();
+      if (child) {
+        fallback.push(child);
+      }
+    }
+
+    // Parse closing tag
+    if (this.peek() === '<' && this.peekNext() === '/') {
+      this.advance(); // <
+      this.advance(); // /
+      const closingTag = this.parseIdentifier();
+      if (closingTag !== 'slot') {
+        this.errors.push({
+          message: `Mismatched closing tag: expected </slot>, got </${closingTag}>`,
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+      }
+      this.consume('>');
+    }
+
+    return ast.slot.node({
+      name: slotName,
+      fallback,
+      location: this.getLocationFrom(startLoc),
+    });
+  }
+
+  private parseComment(): TemplateNode {
+    const startLoc = this.getLocation();
+
+    // Consume <!--
+    this.advance(); // <
+    this.advance(); // !
+    this.advance(); // -
+    this.advance(); // -
+
+    // Read comment content until -->
+    const contentStart = this.pos;
+    while (!this.isAtEnd()) {
+      if (this.peek() === '-' && this.peekNext() === '-' && this.peekAhead(3) === '-->') {
+        break;
+      }
+      this.advance();
+    }
+
+    const text = this.source.substring(contentStart, this.pos);
+
+    // Consume -->
+    if (this.peek() === '-') {
+      this.advance(); // -
+      this.advance(); // -
+      this.advance(); // >
+    }
+
+    return ast.comment.node({
+      style: 'html',
+      text,
       location: this.getLocationFrom(startLoc),
     });
   }
