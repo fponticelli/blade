@@ -36,6 +36,62 @@ import type {
 // =============================================================================
 
 /**
+ * Type guard for literal text segments
+ */
+function isLiteralSegment(segment: { kind: string }): segment is { kind: 'literal'; text: string } {
+  return segment.kind === 'literal';
+}
+
+/**
+ * Type guard for expression segments
+ */
+function isExprSegment(segment: { kind: string; expr?: unknown }): segment is { kind: 'expr'; expr: any } {
+  return segment.kind === 'expr';
+}
+
+/**
+ * Type guard for key path items
+ */
+function isKeyPathItem(item: { kind: string }): item is { kind: 'key'; key: string } {
+  return item.kind === 'key';
+}
+
+/**
+ * Type guard for index path items
+ */
+function isIndexPathItem(item: { kind: string }): item is { kind: 'index'; index: number } {
+  return item.kind === 'index';
+}
+
+/**
+ * Type guard for static attribute values
+ */
+function isStaticAttrValue(segment: { kind: string }): segment is { kind: 'static'; value: string } {
+  return segment.kind === 'static';
+}
+
+/**
+ * Type guard for literal match cases
+ */
+function isLiteralMatchCase(matchCase: { kind: string }): matchCase is { kind: 'literal'; values: readonly (string | number | boolean)[] } {
+  return matchCase.kind === 'literal';
+}
+
+/**
+ * Type guard for expression match cases
+ */
+function isExpressionMatchCase(matchCase: { kind: string }): matchCase is { kind: 'expression'; condition: any } {
+  return matchCase.kind === 'expression';
+}
+
+/**
+ * Type guard for function expressions
+ */
+function isFunctionExpr(expr: { kind: string }): expr is { kind: 'function'; params: readonly string[]; body: any } {
+  return expr.kind === 'function';
+}
+
+/**
  * Helper to compile and extract the root node
  */
 async function compileAndGetRoot(
@@ -84,8 +140,11 @@ describe('Compiler - Basic Structure', () => {
     const textNode = root.children[0] as TextNode;
     expect(textNode.kind).toBe('text');
     expect(textNode.segments).toHaveLength(1);
-    expect(textNode.segments[0].kind).toBe('literal');
-    expect((textNode.segments[0] as any).text).toBe('Hello, World!');
+    const segment = textNode.segments[0];
+    expect(segment.kind).toBe('literal');
+    if (isLiteralSegment(segment)) {
+      expect(segment.text).toBe('Hello, World!');
+    }
   });
 
   it('should compile plain HTML', async () => {
@@ -131,55 +190,90 @@ describe('Compiler - Simple Expressions', () => {
     const segment = textNode.segments[0];
 
     expect(segment.kind).toBe('expr');
-    const expr = (segment as any).expr as PathNode;
-    expect(expr.kind).toBe('path');
-    expect(expr.isGlobal).toBe(false);
-    expect(expr.segments).toHaveLength(1);
-    expect(expr.segments[0].kind).toBe('key');
-    expect((expr.segments[0] as any).key).toBe('foo');
+    if (isExprSegment(segment)) {
+      const expr = segment.expr as PathNode;
+      expect(expr.kind).toBe('path');
+      expect(expr.isGlobal).toBe(false);
+      expect(expr.segments).toHaveLength(1);
+      const pathItem = expr.segments[0];
+      expect(pathItem.kind).toBe('key');
+      if (isKeyPathItem(pathItem)) {
+        expect(pathItem.key).toBe('foo');
+      }
+    }
   });
 
   it('should parse dotted path: $data.user.name', async () => {
     const root = await compileAndGetRoot('$data.user.name');
     const textNode = root.children[0] as TextNode;
-    const expr = (textNode.segments[0] as any).expr as PathNode;
+    const segment = textNode.segments[0];
 
-    expect(expr.segments).toHaveLength(3);
-    expect((expr.segments[0] as any).key).toBe('data');
-    expect((expr.segments[1] as any).key).toBe('user');
-    expect((expr.segments[2] as any).key).toBe('name');
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      const expr = segment.expr as PathNode;
+      expect(expr.segments).toHaveLength(3);
+      const seg0 = expr.segments[0];
+      const seg1 = expr.segments[1];
+      const seg2 = expr.segments[2];
+      if (isKeyPathItem(seg0) && isKeyPathItem(seg1) && isKeyPathItem(seg2)) {
+        expect(seg0.key).toBe('data');
+        expect(seg1.key).toBe('user');
+        expect(seg2.key).toBe('name');
+      }
+    }
   });
 
   it('should parse global path: $.currency', async () => {
     const root = await compileAndGetRoot('$.currency');
     const textNode = root.children[0] as TextNode;
-    const expr = (textNode.segments[0] as any).expr as PathNode;
+    const segment = textNode.segments[0];
 
-    expect(expr.isGlobal).toBe(true);
-    expect(expr.segments).toHaveLength(1);
-    expect((expr.segments[0] as any).key).toBe('currency');
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      const expr = segment.expr as PathNode;
+      expect(expr.isGlobal).toBe(true);
+      expect(expr.segments).toHaveLength(1);
+      const pathItem = expr.segments[0];
+      if (isKeyPathItem(pathItem)) {
+        expect(pathItem.key).toBe('currency');
+      }
+    }
   });
 
   it('should parse array index: $items[0]', async () => {
     const root = await compileAndGetRoot('$items[0]');
     const textNode = root.children[0] as TextNode;
-    const expr = (textNode.segments[0] as any).expr as PathNode;
+    const segment = textNode.segments[0];
 
-    expect(expr.segments).toHaveLength(2);
-    expect(expr.segments[0].kind).toBe('key');
-    expect((expr.segments[0] as any).key).toBe('items');
-    expect(expr.segments[1].kind).toBe('index');
-    expect((expr.segments[1] as any).index).toBe(0);
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      const expr = segment.expr as PathNode;
+      expect(expr.segments).toHaveLength(2);
+      const seg0 = expr.segments[0];
+      const seg1 = expr.segments[1];
+      expect(seg0.kind).toBe('key');
+      expect(seg1.kind).toBe('index');
+      if (isKeyPathItem(seg0)) {
+        expect(seg0.key).toBe('items');
+      }
+      if (isIndexPathItem(seg1)) {
+        expect(seg1.index).toBe(0);
+      }
+    }
   });
 
   it('should parse array wildcard: $items[*].price', async () => {
     const root = await compileAndGetRoot('$items[*].price');
     const textNode = root.children[0] as TextNode;
-    const expr = (textNode.segments[0] as any).expr as ArrayWildcardNode;
+    const segment = textNode.segments[0];
 
-    expect(expr.kind).toBe('wildcard');
-    expect(expr.path.segments).toHaveLength(3);
-    expect(expr.path.segments[1].kind).toBe('star');
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      const expr = segment.expr as ArrayWildcardNode;
+      expect(expr.kind).toBe('wildcard');
+      expect(expr.path.segments).toHaveLength(3);
+      expect(expr.path.segments[1].kind).toBe('star');
+    }
   });
 });
 
@@ -196,11 +290,15 @@ describe('Compiler - Complex Expressions', () => {
     for (const test of tests) {
       const root = await compileAndGetRoot(test.source);
       const textNode = root.children[0] as TextNode;
-      const expr = (textNode.segments[0] as any).expr as LiteralNode;
+      const segment = textNode.segments[0];
 
-      expect(expr.kind).toBe('literal');
-      expect(expr.type).toBe(test.type);
-      expect(expr.value).toBe(test.value);
+      expect(segment.kind).toBe('expr');
+      if (isExprSegment(segment)) {
+        const expr = segment.expr as LiteralNode;
+        expect(expr.kind).toBe('literal');
+        expect(expr.type).toBe(test.type);
+        expect(expr.value).toBe(test.value);
+      }
     }
   });
 
@@ -225,48 +323,68 @@ describe('Compiler - Complex Expressions', () => {
     for (const op of operators) {
       const root = await compileAndGetRoot(`\${a ${op} b}`);
       const textNode = root.children[0] as TextNode;
-      const expr = (textNode.segments[0] as any).expr as BinaryNode;
+      const segment = textNode.segments[0];
 
-      expect(expr.kind).toBe('binary');
-      expect(expr.operator).toBe(op);
-      expect(expr.left).toBeDefined();
-      expect(expr.right).toBeDefined();
+      expect(segment.kind).toBe('expr');
+      if (isExprSegment(segment)) {
+        const expr = segment.expr as BinaryNode;
+        expect(expr.kind).toBe('binary');
+        expect(expr.operator).toBe(op);
+        expect(expr.left).toBeDefined();
+        expect(expr.right).toBeDefined();
+      }
     }
   });
 
   it('should parse unary operations', async () => {
     const root1 = await compileAndGetRoot('${!isValid}');
-    const expr1 = ((root1.children[0] as TextNode).segments[0] as any)
-      .expr as UnaryNode;
-    expect(expr1.kind).toBe('unary');
-    expect(expr1.operator).toBe('!');
+    const textNode1 = root1.children[0] as TextNode;
+    const segment1 = textNode1.segments[0];
+    expect(segment1.kind).toBe('expr');
+    if (isExprSegment(segment1)) {
+      const expr1 = segment1.expr as UnaryNode;
+      expect(expr1.kind).toBe('unary');
+      expect(expr1.operator).toBe('!');
+    }
 
     const root2 = await compileAndGetRoot('${-total}');
-    const expr2 = ((root2.children[0] as TextNode).segments[0] as any)
-      .expr as UnaryNode;
-    expect(expr2.kind).toBe('unary');
-    expect(expr2.operator).toBe('-');
+    const textNode2 = root2.children[0] as TextNode;
+    const segment2 = textNode2.segments[0];
+    expect(segment2.kind).toBe('expr');
+    if (isExprSegment(segment2)) {
+      const expr2 = segment2.expr as UnaryNode;
+      expect(expr2.kind).toBe('unary');
+      expect(expr2.operator).toBe('-');
+    }
   });
 
   it('should parse ternary expressions', async () => {
     const root = await compileAndGetRoot('${isValid ? "Yes" : "No"}');
     const textNode = root.children[0] as TextNode;
-    const expr = (textNode.segments[0] as any).expr as TernaryNode;
+    const segment = textNode.segments[0];
 
-    expect(expr.kind).toBe('ternary');
-    expect(expr.condition).toBeDefined();
-    expect(expr.truthy).toBeDefined();
-    expect(expr.falsy).toBeDefined();
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      const expr = segment.expr as TernaryNode;
+      expect(expr.kind).toBe('ternary');
+      expect(expr.condition).toBeDefined();
+      expect(expr.truthy).toBeDefined();
+      expect(expr.falsy).toBeDefined();
+    }
   });
 
   it('should parse function calls', async () => {
     const root = await compileAndGetRoot('${formatCurrency(total)}');
     const textNode = root.children[0] as TextNode;
-    const expr = (textNode.segments[0] as any).expr as CallNode;
+    const segment = textNode.segments[0];
 
-    expect(expr.kind).toBe('call');
-    expect(expr.callee).toBe('formatCurrency');
-    expect(expr.args).toHaveLength(1);
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      const expr = segment.expr as CallNode;
+      expect(expr.kind).toBe('call');
+      expect(expr.callee).toBe('formatCurrency');
+      expect(expr.args).toHaveLength(1);
+    }
   });
 
   it('should parse nested function calls', async () => {
@@ -274,23 +392,31 @@ describe('Compiler - Complex Expressions', () => {
       '${formatCurrency(sum(items[*].price))}'
     );
     const textNode = root.children[0] as TextNode;
-    const expr = (textNode.segments[0] as any).expr as CallNode;
+    const segment = textNode.segments[0];
 
-    expect(expr.kind).toBe('call');
-    expect(expr.callee).toBe('formatCurrency');
-    expect(expr.args[0].kind).toBe('call');
-    expect((expr.args[0] as CallNode).callee).toBe('sum');
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      const expr = segment.expr as CallNode;
+      expect(expr.kind).toBe('call');
+      expect(expr.callee).toBe('formatCurrency');
+      expect(expr.args[0].kind).toBe('call');
+      expect((expr.args[0] as CallNode).callee).toBe('sum');
+    }
   });
 
   it('should respect operator precedence', async () => {
     const root = await compileAndGetRoot('${a + b * c}');
     const textNode = root.children[0] as TextNode;
-    const expr = (textNode.segments[0] as any).expr as BinaryNode;
+    const segment = textNode.segments[0];
 
-    // Should parse as: a + (b * c), not (a + b) * c
-    expect(expr.operator).toBe('+');
-    expect(expr.right.kind).toBe('binary');
-    expect((expr.right as BinaryNode).operator).toBe('*');
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      const expr = segment.expr as BinaryNode;
+      // Should parse as: a + (b * c), not (a + b) * c
+      expect(expr.operator).toBe('+');
+      expect(expr.right.kind).toBe('binary');
+      expect((expr.right as BinaryNode).operator).toBe('*');
+    }
   });
 });
 
@@ -300,8 +426,11 @@ describe('Compiler - Expression Interpolation', () => {
     const textNode = root.children[0] as TextNode;
 
     expect(textNode.segments).toHaveLength(2);
-    expect(textNode.segments[0].kind).toBe('literal');
-    expect((textNode.segments[0] as any).text).toBe('Total: ');
+    const seg0 = textNode.segments[0];
+    expect(seg0.kind).toBe('literal');
+    if (isLiteralSegment(seg0)) {
+      expect(seg0.text).toBe('Total: ');
+    }
     expect(textNode.segments[1].kind).toBe('expr');
   });
 
@@ -385,8 +514,11 @@ describe('Compiler - HTML Attributes', () => {
     expect(attr.kind).toBe('mixed');
     expect(attr.name).toBe('class');
     expect(attr.segments).toHaveLength(2);
-    expect(attr.segments[0].kind).toBe('static');
-    expect((attr.segments[0] as any).value).toBe('status-');
+    const seg0 = attr.segments[0];
+    expect(seg0.kind).toBe('static');
+    if (isStaticAttrValue(seg0)) {
+      expect(seg0.value).toBe('status-');
+    }
     expect(attr.segments[1].kind).toBe('expr');
   });
 
@@ -528,10 +660,13 @@ describe('Compiler - @match Directive', () => {
     expect(matchNode.kind).toBe('match');
     expect(matchNode.value).toBeDefined();
     expect(matchNode.cases).toHaveLength(2);
-    expect(matchNode.cases[0].kind).toBe('literal');
-    expect((matchNode.cases[0] as any).values).toHaveLength(2);
-    expect((matchNode.cases[0] as any).values).toContain('paid');
-    expect((matchNode.cases[0] as any).values).toContain('completed');
+    const case0 = matchNode.cases[0];
+    expect(case0.kind).toBe('literal');
+    if (isLiteralMatchCase(case0)) {
+      expect(case0.values).toHaveLength(2);
+      expect(case0.values).toContain('paid');
+      expect(case0.values).toContain('completed');
+    }
   });
 
   it('should parse @match with expression cases', async () => {
@@ -549,8 +684,11 @@ describe('Compiler - @match Directive', () => {
     const matchNode = root.children[0] as MatchNode;
 
     expect(matchNode.cases).toHaveLength(2);
-    expect(matchNode.cases[0].kind).toBe('expression');
-    expect((matchNode.cases[0] as any).condition).toBeDefined();
+    const case0 = matchNode.cases[0];
+    expect(case0.kind).toBe('expression');
+    if (isExpressionMatchCase(case0)) {
+      expect(case0.condition).toBeDefined();
+    }
   });
 
   it('should parse @match with default case', async () => {
@@ -639,9 +777,10 @@ describe('Compiler - @@ Blocks', () => {
     const letNode = root.children[0] as LetNode;
 
     expect(letNode.value.kind).toBe('function');
-    const func = letNode.value as any;
-    expect(func.params).toEqual(['a', 'b']);
-    expect(func.body).toBeDefined();
+    if (isFunctionExpr(letNode.value)) {
+      expect(letNode.value.params).toEqual(['a', 'b']);
+      expect(letNode.value.body).toBeDefined();
+    }
   });
 
   it('should parse complex function expressions', async () => {
@@ -649,11 +788,12 @@ describe('Compiler - @@ Blocks', () => {
       '@@ { let discounted = (amount, percent) => amount * (1 - percent / 100); }'
     );
     const letNode = root.children[0] as LetNode;
-    const func = letNode.value as any;
 
-    expect(func.kind).toBe('function');
-    expect(func.params).toHaveLength(2);
-    expect(func.body.kind).toBe('binary');
+    expect(letNode.value.kind).toBe('function');
+    if (isFunctionExpr(letNode.value)) {
+      expect(letNode.value.params).toHaveLength(2);
+      expect(letNode.value.body.kind).toBe('binary');
+    }
   });
 });
 
