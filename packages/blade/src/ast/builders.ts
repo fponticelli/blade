@@ -837,24 +837,40 @@ export const diag = {
 // Convenience Aliases for Parser
 // =============================================================================
 
-export const element = node;
-export const component = node;
-export const slot = node;
-export const comment = node;
+export const element = {
+  node: node.element,
+};
+export const component = {
+  node: node.component,
+};
+export const slot = {
+  node: node.slot,
+};
+export const comment = {
+  node: node.comment,
+};
 export const text = {
   node: node.text,
   literalSegment: seg.literal,
   exprSegment: seg.expr,
 };
-export const ifNode = node;
-export const forNode = node;
+export const ifNode = {
+  node: node.ifNode,
+};
+export const forNode = {
+  node: node.forNode,
+};
 export const matchNode = {
   node: node.matchNode,
   literalCase: match.literal,
   expressionCase: match.expression,
 };
-export const letNode = node;
-export const fragment = node;
+export const letNode = {
+  node: node.letNode,
+};
+export const fragment = {
+  node: node.fragment,
+};
 export const attribute = {
   static: (opts: { name: string; value: string; location?: SourceLocation }) =>
     attr.static(opts.name, opts.value, opts.location),
