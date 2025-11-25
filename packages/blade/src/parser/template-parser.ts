@@ -734,6 +734,16 @@ export class TemplateParser {
     // Parse then body
     const thenBody: TemplateNode[] = [];
     while (!this.isAtEnd() && this.peek() !== '}') {
+      // Check for unexpected closing tag
+      if (this.peek() === '<' && this.peekNext() === '/') {
+        this.errors.push({
+          message: 'Unexpected closing tag in @if body',
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+        break;
+      }
       const node = this.parseNode();
       if (node) thenBody.push(node);
     }
@@ -751,6 +761,16 @@ export class TemplateParser {
 
       elseBody = [];
       while (!this.isAtEnd() && this.peek() !== '}') {
+        // Check for unexpected closing tag
+        if (this.peek() === '<' && this.peekNext() === '/') {
+          this.errors.push({
+            message: 'Unexpected closing tag in @else body',
+            line: this.line,
+            column: this.column,
+            offset: this.pos,
+          });
+          break;
+        }
         const node = this.parseNode();
         if (node) elseBody.push(node);
       }
@@ -818,6 +838,16 @@ export class TemplateParser {
     // Parse body
     const body: TemplateNode[] = [];
     while (!this.isAtEnd() && this.peek() !== '}') {
+      // Check for unexpected closing tag
+      if (this.peek() === '<' && this.peekNext() === '/') {
+        this.errors.push({
+          message: 'Unexpected closing tag in @for body',
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+        break;
+      }
       const node = this.parseNode();
       if (node) body.push(node);
     }
@@ -994,6 +1024,16 @@ export class TemplateParser {
 
     const body: TemplateNode[] = [];
     while (!this.isAtEnd() && this.peek() !== '}') {
+      // Check for unexpected closing tag
+      if (this.peek() === '<' && this.peekNext() === '/') {
+        this.errors.push({
+          message: 'Unexpected closing tag in match case body',
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+        break;
+      }
       const node = this.parseNode();
       if (node) body.push(node);
     }
