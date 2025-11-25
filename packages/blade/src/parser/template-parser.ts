@@ -67,6 +67,28 @@ export class TemplateParser {
     this.consume('<');
     const tagName = this.parseIdentifier();
 
+    // Handle empty tag name (malformed HTML like <!DOCTYPE or <!)
+    if (tagName === '') {
+      this.errors.push({
+        message: `Invalid tag name at '${this.peek()}'`,
+        line: this.line,
+        column: this.column,
+        offset: this.pos,
+      });
+      // Skip to next > or end of input to recover
+      while (!this.isAtEnd() && this.peek() !== '>') {
+        this.advance();
+      }
+      if (this.peek() === '>') {
+        this.advance();
+      }
+      // Return an empty text node as fallback
+      return ast.text.node({
+        segments: [],
+        location: this.getLocationFrom(startLoc),
+      });
+    }
+
     // Check if it's a component (starts with capital letter)
     if (tagName.length > 0 && tagName[0] >= 'A' && tagName[0] <= 'Z') {
       return this.parseComponent(tagName, startLoc);
@@ -219,6 +241,18 @@ export class TemplateParser {
       const attrStartLoc = this.getLocation();
       const attrName = this.parseIdentifier();
 
+      // If no valid identifier, skip invalid character
+      if (attrName === '') {
+        this.errors.push({
+          message: `Invalid slot attribute at '${this.peek()}'`,
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+        this.advance();
+        continue;
+      }
+
       if (attrName === 'name') {
         this.skipWhitespace();
         this.consume('=');
@@ -343,6 +377,18 @@ export class TemplateParser {
   private parseAttribute(): any {
     const startLoc = this.getLocation();
     const name = this.parseIdentifier();
+
+    // If no valid identifier was parsed, skip the current character to avoid infinite loop
+    if (name === '') {
+      this.errors.push({
+        message: `Invalid attribute name at '${this.peek()}'`,
+        line: this.line,
+        column: this.column,
+        offset: this.pos,
+      });
+      this.advance(); // Skip invalid character
+      return null;
+    }
 
     this.skipWhitespace();
 
