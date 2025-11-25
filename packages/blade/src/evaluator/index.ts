@@ -19,7 +19,10 @@ export interface HelperRegistry {
   [name: string]: HelperFunction;
 }
 
-export type HelperFunction = (scope: Scope) => (...args: unknown[]) => unknown;
+export type HelperFunction = (
+  scope: Scope,
+  setWarning: (msg: string) => void
+) => (...args: unknown[]) => unknown;
 
 export interface HelperFunctionWithMetadata {
   fn: HelperFunction;

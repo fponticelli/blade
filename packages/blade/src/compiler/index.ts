@@ -2,6 +2,7 @@
 
 import type { CompiledTemplate } from '../ast/types.js';
 import * as ast from '../ast/builders.js';
+import { parseTemplate } from '../parser/index.js';
 
 export interface CompileOptions {
   loader?: TemplateLoader;
@@ -22,8 +23,8 @@ export async function compile(
   source: string,
   _options?: CompileOptions
 ): Promise<CompiledTemplate> {
-  // TODO: Implement full compilation with parser
-  // For now, return a minimal AST structure to make tests fail gracefully
+  // Parse the template
+  const parseResult = parseTemplate(source);
 
   const location = ast.loc({
     line: 1,
@@ -35,7 +36,7 @@ export async function compile(
   });
 
   const rootNode = ast.root.node({
-    children: [], // Empty children for now
+    children: parseResult.value,
     components: new Map(),
     metadata: ast.root.metadata({
       globalsUsed: [],
@@ -46,8 +47,19 @@ export async function compile(
     location,
   });
 
+  // Convert parse errors to diagnostics
+  const diagnostics = parseResult.errors.map(err => ({
+    level: 'error' as const,
+    message: err.message,
+    location: ast.loc({
+      line: err.line,
+      column: err.column,
+      offset: err.offset,
+    }),
+  }));
+
   return {
     root: rootNode,
-    diagnostics: [],
+    diagnostics,
   };
 }

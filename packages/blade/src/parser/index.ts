@@ -2,6 +2,7 @@
 
 import type { ExprAst, TemplateNode } from '../ast/types.js';
 import { ExpressionParser } from './expression-parser.js';
+import { TemplateParser } from './template-parser.js';
 
 export interface ParseResult<T> {
   value: T;
@@ -29,7 +30,12 @@ export function parseExpression(source: string): ParseResult<ExprAst> {
   };
 }
 
-export function parseTemplate(_source: string): ParseResult<TemplateNode[]> {
-  // TODO: Implement full template parsing
-  throw new Error('Not implemented');
+export function parseTemplate(source: string): ParseResult<TemplateNode[]> {
+  const parser = new TemplateParser(source);
+  const result = parser.parse();
+
+  return {
+    value: result.nodes,
+    errors: result.errors,
+  };
 }
