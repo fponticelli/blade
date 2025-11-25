@@ -274,15 +274,9 @@ export class TemplateParser {
     const startLoc = this.getLocation();
     const name = this.parseIdentifier();
 
-    // If no valid identifier, skip invalid character
+    // If no valid identifier, don't consume the character - let parent loop handle it
     if (name === '') {
-      this.errors.push({
-        message: `Invalid component prop name at '${this.peek()}'`,
-        line: this.line,
-        column: this.column,
-        offset: this.pos,
-      });
-      this.advance();
+      // This is expected when we reach '>' or '/', so don't report error
       return null;
     }
 

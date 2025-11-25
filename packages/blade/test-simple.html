@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Parser Test</title>
+</head>
+<body>
+    <h1>Testing Parser</h1>
+    <div id="output"></div>
+
+    <script type="module">
+        // Inline simplified parser test
+        class TemplateParser {
+            constructor(source) {
+                this.source = source;
+                this.pos = 0;
+                this.line = 1;
+                this.column = 1;
+                this.errors = [];
+            }
+
+            isAtEnd() {
+                return this.pos >= this.source.length;
+            }
+
+            peek() {
+                return this.source[this.pos];
+            }
+
+            peekNext() {
+                return this.source[this.pos + 1];
+            }
+
+            advance() {
+                const ch = this.source[this.pos];
+                this.pos++;
+                if (ch === '\\n') {
+                    this.line++;
+                    this.column = 1;
+                } else {
+                    this.column++;
+                }
+                return ch;
+            }
+
+            skipWhitespace() {
+                while (!this.isAtEnd() && /\\s/.test(this.peek())) {
+                    this.advance();
+                }
+            }
+
+            parseIdentifier() {
+                const start = this.pos;
+                while (!this.isAtEnd() && /[a-zA-Z0-9_]/.test(this.peek())) {
+                    this.advance();
+                }
+                return this.source.substring(start, this.pos);
+            }
+
+            parseComponent() {
+                console.log('parseComponent starting at pos', this.pos, 'char:', this.peek());
+                const props = [];
+                this.skipWhitespace();
+
+                let iterations = 0;
+                while (!this.isAtEnd() && this.peek() !== '>' && this.peek() !== '/') {
+                    iterations++;
+                    if (iterations > 100) {
+                        console.error('INFINITE LOOP DETECTED in parseComponent');
+                        break;
+                    }
+
+                    const prevPos = this.pos;
+                    console.log('  Loop iteration', iterations, 'pos:', this.pos, 'char:', this.peek());
+
+                    const name = this.parseIdentifier();
+                    console.log('    Parsed identifier:', JSON.stringify(name));
+
+                    if (name === '') {
+                        console.log('    Empty identifier, advancing past:', this.peek());
+                        this.advance();
+                        continue;
+                    }
+
+                    this.skipWhitespace();
+
+                    if (this.peek() !== '=') {
+                        console.log('    No = sign, breaking');
+                        if (this.pos === prevPos) {
+                            console.log('    Position did not advance, breaking');
+                            break;
+                        }
+                        continue;
+                    }
+
+                    this.advance(); // =
+                    this.skipWhitespace();
+
+                    // Parse quoted value
+                    if (this.peek() === '"' || this.peek() === "'") {
+                        const quote = this.peek();
+                        this.advance();
+                        const valueStart = this.pos;
+                        while (!this.isAtEnd() && this.peek() !== quote) {
+                            this.advance();
+                        }
+                        const value = this.source.substring(valueStart, this.pos);
+                        this.advance(); // closing quote
+                        props.push({ name, value });
+                    }
+
+                    this.skipWhitespace();
+                }
+
+                console.log('parseComponent done, props:', props.length);
+                return { props };
+            }
+
+            test() {
+                this.advance(); // <
+                const tagName = this.parseIdentifier();
+                console.log('Tag name:', tagName);
+                return this.parseComponent();
+            }
+        }
+
+        const parser = new TemplateParser('<Card title="Test" />');
+        const result = parser.test();
+        document.getElementById('output').textContent = JSON.stringify(result, null, 2);
+        console.log('RESULT:', result);
+    </script>
+</body>
+</html>
