@@ -106,9 +106,7 @@ function isExpressionMatchCase(matchCase: {
 /**
  * Type guard for function expressions
  */
-function isFunctionExpr(expr: {
-  kind: string;
-}): expr is FunctionExpr {
+function isFunctionExpr(expr: { kind: string }): expr is FunctionExpr {
   return expr.kind === 'function';
 }
 
