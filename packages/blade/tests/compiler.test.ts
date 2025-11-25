@@ -17,6 +17,7 @@ import type {
   IfNode,
   ForNode,
   MatchNode,
+  MatchExpressionCase,
   LetNode,
   ComponentNode,
   FragmentNode,
@@ -29,6 +30,8 @@ import type {
   StaticAttributeNode,
   ExprAttributeNode,
   MixedAttributeNode,
+  ExprAst,
+  FunctionExpr,
 } from '../src/ast/types.js';
 
 // =============================================================================
@@ -38,56 +41,74 @@ import type {
 /**
  * Type guard for literal text segments
  */
-function isLiteralSegment(segment: { kind: string }): segment is { kind: 'literal'; text: string } {
+function isLiteralSegment(segment: {
+  kind: string;
+}): segment is { kind: 'literal'; text: string } {
   return segment.kind === 'literal';
 }
 
 /**
  * Type guard for expression segments
  */
-function isExprSegment(segment: { kind: string; expr?: unknown }): segment is { kind: 'expr'; expr: any } {
+function isExprSegment(segment: {
+  kind: string;
+  expr?: unknown;
+}): segment is { kind: 'expr'; expr: ExprAst } {
   return segment.kind === 'expr';
 }
 
 /**
  * Type guard for key path items
  */
-function isKeyPathItem(item: { kind: string }): item is { kind: 'key'; key: string } {
+function isKeyPathItem(item: {
+  kind: string;
+}): item is { kind: 'key'; key: string } {
   return item.kind === 'key';
 }
 
 /**
  * Type guard for index path items
  */
-function isIndexPathItem(item: { kind: string }): item is { kind: 'index'; index: number } {
+function isIndexPathItem(item: {
+  kind: string;
+}): item is { kind: 'index'; index: number } {
   return item.kind === 'index';
 }
 
 /**
  * Type guard for static attribute values
  */
-function isStaticAttrValue(segment: { kind: string }): segment is { kind: 'static'; value: string } {
+function isStaticAttrValue(segment: {
+  kind: string;
+}): segment is { kind: 'static'; value: string } {
   return segment.kind === 'static';
 }
 
 /**
  * Type guard for literal match cases
  */
-function isLiteralMatchCase(matchCase: { kind: string }): matchCase is { kind: 'literal'; values: readonly (string | number | boolean)[] } {
+function isLiteralMatchCase(matchCase: { kind: string }): matchCase is {
+  kind: 'literal';
+  values: readonly (string | number | boolean)[];
+} {
   return matchCase.kind === 'literal';
 }
 
 /**
  * Type guard for expression match cases
  */
-function isExpressionMatchCase(matchCase: { kind: string }): matchCase is { kind: 'expression'; condition: any } {
+function isExpressionMatchCase(matchCase: {
+  kind: string;
+}): matchCase is MatchExpressionCase {
   return matchCase.kind === 'expression';
 }
 
 /**
  * Type guard for function expressions
  */
-function isFunctionExpr(expr: { kind: string }): expr is { kind: 'function'; params: readonly string[]; body: any } {
+function isFunctionExpr(expr: {
+  kind: string;
+}): expr is FunctionExpr {
   return expr.kind === 'function';
 }
 
@@ -1349,7 +1370,7 @@ describe('Compiler - Complex Templates', () => {
 
         @for(product of products) {
           <div class="product">
-            <h3>\$product.name</h3>
+            <h3>$product.name</h3>
 
             @match(product.stock) {
               when 0 {
@@ -1366,10 +1387,10 @@ describe('Compiler - Complex Templates', () => {
             @if(product.onSale) {
               <PriceTag amount=\${applyDiscount(product.price)} />
               <span class="original">
-                <PriceTag amount=\$product.price />
+                <PriceTag amount=$product.price />
               </span>
             } else {
-              <PriceTag amount=\$product.price />
+              <PriceTag amount=$product.price />
             }
           </div>
         }
