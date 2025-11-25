@@ -67,10 +67,19 @@ export class ExpressionParser {
     let left = prefixFn.call(this);
 
     // Parse infix operators based on precedence
+    let iterations = 0;
+    const maxIterations = 1000;
     while (precedence < this.getPrecedence(this.peek().type)) {
+      if (++iterations > maxIterations) {
+        throw new Error('Infinite loop detected in parseExpression');
+      }
+      const prevCurrent = this.current;
       const infixFn = this.getInfixParser(this.peek().type);
       if (!infixFn) break;
       left = infixFn.call(this, left);
+      if (this.current === prevCurrent) {
+        throw new Error(`Infix parser did not advance position for token: ${this.peek().type}`);
+      }
     }
 
     return left;
@@ -244,7 +253,7 @@ export class ExpressionParser {
   // Infix parsers (operators that combine expressions)
 
   private parseBinary(left: ExprAst): ExprAst {
-    const start = this.previous();
+    // Token already consumed by getInfixParser()
     const operator = this.previous().value;
     const precedence = this.getPrecedence(this.previous().type);
     const right = this.parseExpression(precedence);
@@ -253,18 +262,17 @@ export class ExpressionParser {
       operator as any,
       left,
       right,
-      this.getLocation(start)
+      this.getLocation(this.previous())
     );
   }
 
   private parseTernary(left: ExprAst): ExprAst {
-    const start = this.previous();
-    this.consume(TokenType.QUESTION, 'Expected ?');
+    const questionToken = this.advance(); // Consume the ? token
     const truthy = this.parseExpression(Precedence.NONE);
     this.consume(TokenType.COLON, 'Expected :');
     const falsy = this.parseExpression(Precedence.NONE);
 
-    return ast.ternary(left, truthy, falsy, this.getLocation(start));
+    return ast.ternary(left, truthy, falsy, this.getLocation(questionToken));
   }
 
   private parseCall(left: ExprAst): ExprAst {
