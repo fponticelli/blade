@@ -10,18 +10,12 @@ import * as ast from '../ast/builders.js';
 import { parseTemplate } from '../parser/index.js';
 
 export interface CompileOptions {
-  loader?: TemplateLoader;
-  maxLoadDepth?: number;
   validate?: boolean;
   strict?: boolean;
   includeSourceMap?: boolean;
   includeMetadata?: boolean;
   maxExpressionDepth?: number;
   maxFunctionDepth?: number;
-}
-
-export interface TemplateLoader {
-  load(name: string): Promise<CompiledTemplate> | CompiledTemplate;
 }
 
 interface MetadataCollector {

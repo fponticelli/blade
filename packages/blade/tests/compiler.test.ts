@@ -1185,34 +1185,6 @@ describe('Compiler - Options', () => {
     // This would be tested during evaluation, not compilation
     expect(true).toBe(true);
   });
-
-  it('should use custom loader for components', async () => {
-    const loader = {
-      load: async (_name: string) => {
-        return {
-          root: {
-            kind: 'root' as const,
-            children: [] as never[],
-            components: new Map(),
-            metadata: {
-              globalsUsed: new Set<string>(),
-              pathsAccessed: new Set<string>(),
-              helpersUsed: new Set<string>(),
-              componentsUsed: new Set<string>(),
-            },
-            location: {
-              start: { line: 1, column: 1, offset: 0 },
-              end: { line: 1, column: 1, offset: 0 },
-            },
-          },
-          diagnostics: [] as never[],
-        };
-      },
-    };
-
-    const result = await compile('@load("External")\n<External />', { loader });
-    expect(result).toBeDefined();
-  });
 });
 
 // =============================================================================

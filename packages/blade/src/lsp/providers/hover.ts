@@ -93,10 +93,6 @@ function getDirectiveHover(directive: string): HoverInfo | null {
       description:
         'Component definition. Defines a reusable template component.',
     },
-    load: {
-      syntax: '@load("./component.blade")',
-      description: 'Component import. Loads a component from an external file.',
-    },
   };
 
   const info = directives[directive];

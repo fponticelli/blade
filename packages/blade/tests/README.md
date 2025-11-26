@@ -104,10 +104,9 @@ Exhaustive test suite for the compiler module (94 tests total).
     - Unused variable warnings
     - Variable shadowing warnings
 
-11. **Compilation Options (3 tests)**
+11. **Compilation Options (2 tests)**
     - Max expression depth
     - Max function depth
-    - Custom component loaders
 
 12. **Complex Integration Tests (3 tests)**
     - Nested templates with all features
