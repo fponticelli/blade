@@ -165,7 +165,9 @@ export const path = {
 // Expression Builders
 // =============================================================================
 
-function inferLiteralType(value: string | number | boolean | null | undefined): LiteralType {
+function inferLiteralType(
+  value: string | number | boolean | null | undefined
+): LiteralType {
   if (value === null || value === undefined) return 'nil';
   if (typeof value === 'string') return 'string';
   if (typeof value === 'number') return 'number';
@@ -375,7 +377,7 @@ export const node = {
   }): IfNode {
     return {
       kind: 'if',
-      branches: opts.branches.map((b) => ({
+      branches: opts.branches.map(b => ({
         condition: b.condition,
         body: b.body,
         location: b.location ?? loc(),
@@ -482,7 +484,7 @@ export const node = {
       kind: 'component',
       name: opts.name,
       props:
-        opts.props?.map((p) => ({
+        opts.props?.map(p => ({
           name: p.name,
           value: p.value,
           location: p.location ?? loc(),
@@ -497,10 +499,7 @@ export const node = {
    * Creates a fragment node.
    * @example node.fragment([...children])
    */
-  fragment(
-    children: TemplateNode[],
-    location?: SourceLocation
-  ): FragmentNode {
+  fragment(children: TemplateNode[], location?: SourceLocation): FragmentNode {
     return {
       kind: 'fragment',
       children,
@@ -598,7 +597,11 @@ export const attr = {
    * Creates a dynamic expression attribute.
    * @example attr.expr('disabled', expr.unary('!', expr.pathFrom('isValid')))
    */
-  expr(name: string, exprAst: ExprAst, location?: SourceLocation): ExprAttributeNode {
+  expr(
+    name: string,
+    exprAst: ExprAst,
+    location?: SourceLocation
+  ): ExprAttributeNode {
     return {
       kind: 'expr',
       name,
@@ -710,7 +713,7 @@ export const comp = {
     return {
       name: opts.name,
       props:
-        opts.props?.map((p) => ({
+        opts.props?.map(p => ({
           name: p.name,
           required: p.required ?? false,
           defaultValue: p.defaultValue,
@@ -860,7 +863,11 @@ export const ifNode = {
     condition?: ExprAst;
     then?: TemplateNode[];
     else?: TemplateNode[] | null;
-    branches?: Array<{ condition: ExprAst; body: TemplateNode[]; location?: SourceLocation }>;
+    branches?: Array<{
+      condition: ExprAst;
+      body: TemplateNode[];
+      location?: SourceLocation;
+    }>;
     elseBranch?: TemplateNode[];
     location?: SourceLocation;
   }) => {
@@ -914,7 +921,11 @@ export const letNode = {
   node: node.letNode,
 };
 export const fragment = {
-  node: node.fragment,
+  node: (opts: {
+    children: TemplateNode[];
+    preserveWhitespace?: boolean;
+    location?: SourceLocation;
+  }) => node.fragment(opts.children, opts.location),
 };
 export const attribute = {
   static: (opts: { name: string; value: string; location?: SourceLocation }) =>
@@ -986,21 +997,21 @@ export function exprPath(
 /**
  * Creates a key path item with location.
  */
-export function pathKey(key: string, location?: SourceLocation): KeyPathItem {
+export function pathKey(key: string): KeyPathItem {
   return { kind: 'key', key };
 }
 
 /**
  * Creates an index path item with location.
  */
-export function pathIndex(index: number, location?: SourceLocation): IndexPathItem {
+export function pathIndex(index: number): IndexPathItem {
   return { kind: 'index', index };
 }
 
 /**
  * Creates a star (wildcard) path item with location.
  */
-export function pathStar(location?: SourceLocation): StarPathItem {
+export function pathStar(): StarPathItem {
   return { kind: 'star' };
 }
 

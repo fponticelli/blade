@@ -4,7 +4,7 @@
  * Implements a Pratt parser (operator precedence parser) for parsing expressions.
  */
 
-import type { ExprAst } from '../ast/types.js';
+import type { ExprAst, PathItem, BinaryOperator } from '../ast/types.js';
 import * as ast from '../ast/builders.js';
 import { Token, TokenType, Tokenizer } from './tokenizer.js';
 import type { ParseError } from './index.js';
@@ -12,36 +12,54 @@ import type { ParseError } from './index.js';
 // Operator precedence levels (higher = binds tighter)
 enum Precedence {
   NONE = 0,
-  NULLISH = 1, // ??
-  OR = 2, // ||
-  AND = 3, // &&
-  EQUALITY = 4, // == !=
-  COMPARISON = 5, // < > <= >=
-  TERM = 6, // + -
-  FACTOR = 7, // * / %
-  UNARY = 8, // ! -
-  CALL = 9, // ()
-  PRIMARY = 10,
+  TERNARY = 1, // ? :
+  NULLISH = 2, // ??
+  OR = 3, // ||
+  AND = 4, // &&
+  EQUALITY = 5, // == !=
+  COMPARISON = 6, // < > <= >=
+  TERM = 7, // + -
+  FACTOR = 8, // * / %
+  UNARY = 9, // ! -
+  CALL = 10, // ()
+  PRIMARY = 11,
 }
 
 type PrefixParseFn = () => ExprAst;
 type InfixParseFn = (left: ExprAst) => ExprAst;
+
+export interface ExpressionParserOptions {
+  maxExpressionDepth?: number;
+}
 
 export class ExpressionParser {
   private tokens: Token[];
   private current = 0;
   private errors: ParseError[] = [];
   private recursionDepth = 0;
-  private readonly MAX_RECURSION_DEPTH = 15;
+  private readonly MAX_RECURSION_DEPTH: number;
 
-  constructor(source: string) {
+  constructor(source: string, options?: ExpressionParserOptions) {
     const tokenizer = new Tokenizer(source);
     this.tokens = tokenizer.tokenize();
+    this.MAX_RECURSION_DEPTH = options?.maxExpressionDepth ?? 15;
   }
 
   parse(): { value: ExprAst | null; errors: ParseError[] } {
     try {
       const expr = this.parseExpression(Precedence.NONE);
+
+      // Check for unconsumed tokens (excluding EOF)
+      if (!this.isAtEnd() && this.peek().type !== TokenType.EOF) {
+        const token = this.peek();
+        this.errors.push({
+          message: `Unexpected token in expression: ${token.type}`,
+          line: token.line,
+          column: token.column,
+          offset: token.offset,
+        });
+      }
+
       return { value: expr, errors: this.errors };
     } catch (error) {
       return {
@@ -65,7 +83,7 @@ export class ExpressionParser {
       const token = this.peek();
       throw new Error(
         `Expression parser exceeded maximum recursion depth (${this.MAX_RECURSION_DEPTH}).\n` +
-        `Current token: ${token.type} at line ${token.line}, column ${token.column}`
+          `Current token: ${token.type} at line ${token.line}, column ${token.column}`
       );
     }
 
@@ -82,15 +100,25 @@ export class ExpressionParser {
       let iterations = 0;
       const maxIterations = 1000;
       while (precedence < this.getPrecedence(this.peek().type)) {
-        if (++iterations > maxIterations) {
+        iterations++;
+        if (iterations > maxIterations) {
           throw new Error('Infinite loop detected in parseExpression');
+        }
+        // Check if operator chain depth exceeds limit
+        if (iterations > this.MAX_RECURSION_DEPTH) {
+          throw new Error(
+            `Expression depth exceeded maximum (${this.MAX_RECURSION_DEPTH}). ` +
+              `Too many chained operators or deeply nested expressions.`
+          );
         }
         const prevCurrent = this.current;
         const infixFn = this.getInfixParser(this.peek().type);
         if (!infixFn) break;
         left = infixFn.call(this, left);
         if (this.current === prevCurrent) {
-          throw new Error(`Infix parser did not advance position for token: ${this.peek().type}`);
+          throw new Error(
+            `Infix parser did not advance position for token: ${this.peek().type}`
+          );
         }
       }
 
@@ -139,8 +167,26 @@ export class ExpressionParser {
       return this.parseFunctionCall(name, start);
     }
 
-    // Otherwise it's a simple path (variable reference)
-    return ast.exprPath([ast.pathKey(name, this.getLocation(start))], false, this.getLocation(start));
+    // Check if it's a path with array access or property access
+    const segments: PathItem[] = [ast.pathKey(name)];
+    let hasWildcard = false;
+
+    while (this.match(TokenType.DOT) || this.match(TokenType.LBRACKET)) {
+      if (this.previous().type === TokenType.DOT) {
+        segments.push(this.parsePathSegment());
+      } else {
+        const seg = this.parseIndexOrWildcard();
+        if (seg.kind === 'star') hasWildcard = true;
+        segments.push(seg);
+        this.consume(TokenType.RBRACKET, 'Expected ]');
+      }
+    }
+
+    const pathNode = ast.exprPath(segments, false, this.getLocation(start));
+    if (hasWildcard) {
+      return ast.expr.wildcard(pathNode, this.getLocation(start));
+    }
+    return pathNode;
   }
 
   private parsePath(): ExprAst {
@@ -149,54 +195,65 @@ export class ExpressionParser {
 
     // Check for global path $.foo
     const isGlobal = this.match(TokenType.DOT);
+    let hasWildcard = false;
 
     if (isGlobal && this.peek().type === TokenType.IDENTIFIER) {
       // Global path: $.foo
-      const segments = [this.parsePathSegment()];
+      const segments: PathItem[] = [this.parsePathSegment()];
       while (this.match(TokenType.DOT) || this.match(TokenType.LBRACKET)) {
         if (this.previous().type === TokenType.DOT) {
           segments.push(this.parsePathSegment());
         } else {
-          segments.push(this.parseIndexOrWildcard());
+          const seg = this.parseIndexOrWildcard();
+          if (seg.kind === 'star') hasWildcard = true;
+          segments.push(seg);
           this.consume(TokenType.RBRACKET, 'Expected ]');
         }
       }
-      return ast.exprPath(segments, true, this.getLocation(start));
+      const pathNode = ast.exprPath(segments, true, this.getLocation(start));
+      if (hasWildcard) {
+        return ast.expr.wildcard(pathNode, this.getLocation(start));
+      }
+      return pathNode;
     }
 
     // Regular path: $foo or $foo.bar or $foo[0]
     if (this.peek().type === TokenType.IDENTIFIER) {
-      const segments = [this.parsePathSegment()];
+      const segments: PathItem[] = [this.parsePathSegment()];
       while (this.match(TokenType.DOT) || this.match(TokenType.LBRACKET)) {
         if (this.previous().type === TokenType.DOT) {
           segments.push(this.parsePathSegment());
         } else {
-          segments.push(this.parseIndexOrWildcard());
+          const seg = this.parseIndexOrWildcard();
+          if (seg.kind === 'star') hasWildcard = true;
+          segments.push(seg);
           this.consume(TokenType.RBRACKET, 'Expected ]');
         }
       }
-      return ast.exprPath(segments, false, this.getLocation(start));
+      const pathNode = ast.exprPath(segments, false, this.getLocation(start));
+      if (hasWildcard) {
+        return ast.expr.wildcard(pathNode, this.getLocation(start));
+      }
+      return pathNode;
     }
 
     throw new Error('Expected identifier after $');
   }
 
-  private parsePathSegment() {
+  private parsePathSegment(): PathItem {
     const token = this.consume(TokenType.IDENTIFIER, 'Expected identifier');
-    return ast.pathKey(token.value, this.getLocation(token));
+    return ast.pathKey(token.value);
   }
 
-  private parseIndexOrWildcard() {
-    const start = this.peek();
-
+  private parseIndexOrWildcard(): PathItem {
     if (this.match(TokenType.STAR)) {
-      return ast.pathStar(this.getLocation(start));
+      return ast.pathStar();
     }
 
     if (this.peek().type === TokenType.NUMBER) {
       const token = this.advance();
       const index = parseInt(token.value, 10);
-      return ast.pathIndex(index, this.getLocation(token));
+      return ast.pathIndex(index);
     }
 
     throw new Error('Expected number or * in array index');
@@ -220,15 +277,18 @@ export class ExpressionParser {
     let i = this.current;
 
     // Skip parameters
-    while (i < this.tokens.length && this.tokens[i].type !== TokenType.RPAREN) {
-      if (this.tokens[i].type === TokenType.EOF) return false;
+    while (i < this.tokens.length) {
+      const token = this.tokens[i];
+      if (!token || token.type === TokenType.EOF) return false;
+      if (token.type === TokenType.RPAREN) break;
       i++;
     }
 
     if (i >= this.tokens.length) return false;
     i++; // skip )
 
-    return this.tokens[i]?.type === TokenType.ARROW;
+    const nextToken = this.tokens[i];
+    return nextToken?.type === TokenType.ARROW;
   }
 
   private parseArrowFunction(): ExprAst {
@@ -238,7 +298,10 @@ export class ExpressionParser {
     // Parse parameters
     if (!this.check(TokenType.RPAREN)) {
       do {
-        const param = this.consume(TokenType.IDENTIFIER, 'Expected parameter name');
+        const param = this.consume(
+          TokenType.IDENTIFIER,
+          'Expected parameter name'
+        );
         params.push(param.value);
       } while (this.match(TokenType.COMMA));
     }
@@ -248,7 +311,12 @@ export class ExpressionParser {
 
     const body = this.parseExpression(Precedence.NONE);
 
-    return ast.functionExpr(params, body, this.getLocation(start));
+    // FunctionExpr is used in contexts that accept ExprAst
+    return ast.functionExpr(
+      params,
+      body,
+      this.getLocation(start)
+    ) as unknown as ExprAst;
   }
 
   private parseUnary(): ExprAst {
@@ -256,13 +324,17 @@ export class ExpressionParser {
     const operator = this.advance();
     const operand = this.parseExpression(Precedence.UNARY);
 
-    return ast.unary(operator.value as '!' | '-', operand, this.getLocation(start));
+    return ast.unary(
+      operator.value as '!' | '-',
+      operand,
+      this.getLocation(start)
+    );
   }
 
   private parseUnderscore(): ExprAst {
     const token = this.advance();
     // _ is a special identifier in match expressions
-    return ast.exprPath([ast.pathKey('_', this.getLocation(token))], false, this.getLocation(token));
+    return ast.exprPath([ast.pathKey('_')], false, this.getLocation(token));
   }
 
   // Infix parsers (operators that combine expressions)
@@ -274,7 +346,7 @@ export class ExpressionParser {
     const right = this.parseExpression(precedence);
 
     return ast.binary(
-      operator as any,
+      operator as BinaryOperator,
       left,
       right,
       this.getLocation(this.previous())
@@ -288,35 +360,6 @@ export class ExpressionParser {
     const falsy = this.parseExpression(Precedence.NONE);
 
     return ast.ternary(left, truthy, falsy, this.getLocation(questionToken));
-  }
-
-  private parseCall(left: ExprAst): ExprAst {
-    const start = this.previous();
-
-    // left should be a path node with a single identifier
-    if (left.kind !== 'path' || left.segments.length !== 1) {
-      throw new Error('Invalid function call');
-    }
-
-    const segment = left.segments[0];
-    if (segment.kind !== 'key') {
-      throw new Error('Invalid function name');
-    }
-
-    const callee = segment.key;
-    const args: ExprAst[] = [];
-
-    this.consume(TokenType.LPAREN, 'Expected (');
-
-    if (!this.check(TokenType.RPAREN)) {
-      do {
-        args.push(this.parseExpression(Precedence.NONE));
-      } while (this.match(TokenType.COMMA));
-    }
-
-    this.consume(TokenType.RPAREN, 'Expected )');
-
-    return ast.call(callee, args, this.getLocation(start));
   }
 
   private parseFunctionCall(name: string, start: Token): ExprAst {
@@ -374,6 +417,8 @@ export class ExpressionParser {
       case TokenType.BANG_EQ:
       case TokenType.LT:
       case TokenType.GT:
+      case TokenType.TAG_OPEN: // < in expression context
+      case TokenType.TAG_CLOSE: // > in expression context
       case TokenType.LT_EQ:
       case TokenType.GT_EQ:
       case TokenType.AMP_AMP:
@@ -390,6 +435,8 @@ export class ExpressionParser {
 
   private getPrecedence(type: TokenType): Precedence {
     switch (type) {
+      case TokenType.QUESTION:
+        return Precedence.TERNARY;
       case TokenType.QUESTION_QUESTION:
         return Precedence.NULLISH;
       case TokenType.PIPE_PIPE:
@@ -401,6 +448,8 @@ export class ExpressionParser {
         return Precedence.EQUALITY;
       case TokenType.LT:
       case TokenType.GT:
+      case TokenType.TAG_OPEN: // < in expression context
+      case TokenType.TAG_CLOSE: // > in expression context
       case TokenType.LT_EQ:
       case TokenType.GT_EQ:
         return Precedence.COMPARISON;
@@ -428,11 +477,19 @@ export class ExpressionParser {
   }
 
   private peek(): Token {
-    return this.tokens[this.current];
+    const token = this.tokens[this.current];
+    if (!token) {
+      throw new Error('Unexpected end of tokens');
+    }
+    return token;
   }
 
   private previous(): Token {
-    return this.tokens[this.current - 1];
+    const token = this.tokens[this.current - 1];
+    if (!token) {
+      throw new Error('No previous token');
+    }
+    return token;
   }
 
   private check(type: TokenType): boolean {
@@ -462,7 +519,11 @@ export class ExpressionParser {
   private getLocation(token: Token) {
     return ast.location(
       { line: token.line, column: token.column, offset: token.offset },
-      { line: token.line, column: token.column + token.value.length, offset: token.offset + token.value.length }
+      {
+        line: token.line,
+        column: token.column + token.value.length,
+        offset: token.offset + token.value.length,
+      }
     );
   }
 }

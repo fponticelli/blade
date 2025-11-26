@@ -6,28 +6,28 @@ export default defineConfig({
   plugins: [
     dts({
       insertTypesEntry: true,
-      rollupTypes: true
-    })
+      rollupTypes: true,
+    }),
   ],
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
       name: 'Blade',
       formats: ['es'],
-      fileName: 'index'
+      fileName: 'index',
     },
     rollupOptions: {
       external: [],
       output: {
-        exports: 'named'
-      }
+        exports: 'named',
+      },
     },
     sourcemap: true,
-    minify: 'esbuild'
+    minify: 'esbuild',
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src')
-    }
-  }
+      '@': resolve(__dirname, './src'),
+    },
+  },
 });

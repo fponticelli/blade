@@ -1,6 +1,10 @@
 // Parser module
 
-import type { ExprAst, TemplateNode } from '../ast/types.js';
+import type {
+  ExprAst,
+  TemplateNode,
+  ComponentDefinition,
+} from '../ast/types.js';
 import { ExpressionParser } from './expression-parser.js';
 import { TemplateParser } from './template-parser.js';
 
@@ -9,11 +13,21 @@ export interface ParseResult<T> {
   errors: ParseError[];
 }
 
+export interface TemplateParseResult {
+  value: TemplateNode[];
+  errors: ParseError[];
+  components: Map<string, ComponentDefinition>;
+}
+
 export interface ParseError {
   message: string;
   line: number;
   column: number;
   offset: number;
+}
+
+export interface ParseOptions {
+  maxExpressionDepth?: number;
 }
 
 export function parseExpression(source: string): ParseResult<ExprAst> {
@@ -30,12 +44,16 @@ export function parseExpression(source: string): ParseResult<ExprAst> {
   };
 }
 
-export function parseTemplate(source: string): ParseResult<TemplateNode[]> {
-  const parser = new TemplateParser(source);
+export function parseTemplate(
+  source: string,
+  options?: ParseOptions
+): TemplateParseResult {
+  const parser = new TemplateParser(source, options);
   const result = parser.parse();
 
   return {
     value: result.nodes,
     errors: result.errors,
+    components: result.components,
   };
 }

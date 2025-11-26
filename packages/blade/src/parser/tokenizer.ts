@@ -107,11 +107,14 @@ export class Tokenizer {
   tokenize(): Token[] {
     while (!this.isAtEnd()) {
       if (++this.callCount > this.MAX_CALLS) {
-        const context = this.source.substring(Math.max(0, this.pos - 50), Math.min(this.source.length, this.pos + 50));
+        const context = this.source.substring(
+          Math.max(0, this.pos - 50),
+          Math.min(this.source.length, this.pos + 50)
+        );
         throw new Error(
           `Tokenizer exceeded maximum call limit (${this.MAX_CALLS}).\n` +
-          `Position: ${this.pos}, Line: ${this.line}, Column: ${this.column}\n` +
-          `Context: ...${context}...`
+            `Position: ${this.pos}, Line: ${this.line}, Column: ${this.column}\n` +
+            `Context: ...${context}...`
         );
       }
       this.scanToken();
@@ -221,7 +224,9 @@ export class Tokenizer {
         // Check for self-closing tag />
         if (this.peek() === '>') {
           this.advance();
-          this.tokens.push(this.makeToken(TokenType.TAG_SELF_CLOSE, '/>', start));
+          this.tokens.push(
+            this.makeToken(TokenType.TAG_SELF_CLOSE, '/>', start)
+          );
         } else {
           this.tokens.push(this.makeToken(TokenType.SLASH, char, start));
         }
@@ -282,7 +287,9 @@ export class Tokenizer {
       case '?':
         if (this.peek() === '?') {
           this.advance();
-          this.tokens.push(this.makeToken(TokenType.QUESTION_QUESTION, '??', start));
+          this.tokens.push(
+            this.makeToken(TokenType.QUESTION_QUESTION, '??', start)
+          );
         } else {
           this.tokens.push(this.makeToken(TokenType.QUESTION, char, start));
         }
@@ -384,7 +391,7 @@ export class Tokenizer {
   }
 
   private advance(): string {
-    const char = this.source[this.pos++];
+    const char = this.source[this.pos++] ?? '\0';
     if (char === '\n') {
       this.line++;
       this.column = 1;
@@ -396,12 +403,12 @@ export class Tokenizer {
 
   private peek(): string {
     if (this.isAtEnd()) return '\0';
-    return this.source[this.pos];
+    return this.source[this.pos] ?? '\0';
   }
 
   private peekNext(): string {
     if (this.pos + 1 >= this.source.length) return '\0';
-    return this.source[this.pos + 1];
+    return this.source[this.pos + 1] ?? '\0';
   }
 
   private isAtEnd(): boolean {

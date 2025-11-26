@@ -24,6 +24,7 @@
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts --fix",
     "typecheck": "tsc --noEmit",
+    "check": "npm run lint:fix && npm run lint && npm run build && npm run test",
     "clean": "rm -rf dist coverage .turbo"
   },
   "keywords": [

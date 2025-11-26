@@ -4,10 +4,25 @@
  * Parses HTML structure, text content, and Blade expressions into an AST.
  */
 
-import type { TemplateNode, TextSegment } from '../ast/types.js';
+import type {
+  TemplateNode,
+  TextSegment,
+  ComponentDefinition,
+  ExprAst,
+  AttributeNode,
+  SourceLocation,
+  PathItem,
+  MatchCase,
+  StaticAttributeValue,
+  ExprAttributeValue,
+} from '../ast/types.js';
 import * as ast from '../ast/builders.js';
 import { ExpressionParser } from './expression-parser.js';
 import type { ParseError } from './index.js';
+
+export interface TemplateParserOptions {
+  maxExpressionDepth?: number;
+}
 
 export class TemplateParser {
   private source: string;
@@ -16,27 +31,37 @@ export class TemplateParser {
   private column = 1;
   private errors: ParseError[] = [];
   private callCount = 0;
-  private readonly MAX_CALLS = 10000;
+  private readonly MAX_CALLS = 100000;
   private recursionDepth = 0;
-  private readonly MAX_RECURSION_DEPTH = 20;
+  private readonly MAX_RECURSION_DEPTH = 100;
+  private componentDefinitions: Map<string, ComponentDefinition> = new Map();
+  private options: TemplateParserOptions;
 
-  constructor(source: string) {
+  constructor(source: string, options?: TemplateParserOptions) {
     this.source = source;
+    this.options = options ?? {};
   }
 
   private checkCallLimit(method: string) {
     this.callCount++;
     if (this.callCount > this.MAX_CALLS) {
-      const context = this.source.substring(Math.max(0, this.pos - 50), Math.min(this.source.length, this.pos + 50));
+      const context = this.source.substring(
+        Math.max(0, this.pos - 50),
+        Math.min(this.source.length, this.pos + 50)
+      );
       throw new Error(
         `Parser exceeded maximum call limit (${this.MAX_CALLS}) in ${method}.\n` +
-        `Position: ${this.pos}, Line: ${this.line}, Column: ${this.column}\n` +
-        `Context: ...${context}...`
+          `Position: ${this.pos}, Line: ${this.line}, Column: ${this.column}\n` +
+          `Context: ...${context}...`
       );
     }
   }
 
-  parse(): { nodes: TemplateNode[]; errors: ParseError[] } {
+  parse(): {
+    nodes: TemplateNode[];
+    errors: ParseError[];
+    components: Map<string, ComponentDefinition>;
+  } {
     const nodes: TemplateNode[] = [];
 
     while (!this.isAtEnd()) {
@@ -44,7 +69,17 @@ export class TemplateParser {
       const prevPos = this.pos;
       const node = this.parseNode();
       if (node) {
-        nodes.push(node);
+        // Flatten fragment nodes at the top level when they contain only let statements
+        // (e.g., from @@ blocks with multiple declarations)
+        if (
+          node.kind === 'fragment' &&
+          node.children.length > 0 &&
+          node.children.every(c => c.kind === 'let')
+        ) {
+          nodes.push(...node.children);
+        } else {
+          nodes.push(node);
+        }
       } else if (this.pos === prevPos) {
         // If parseNode returned null and didn't advance, skip the current character
         this.errors.push({
@@ -57,18 +92,25 @@ export class TemplateParser {
       }
     }
 
-    return { nodes, errors: this.errors };
+    return {
+      nodes,
+      errors: this.errors,
+      components: this.componentDefinitions,
+    };
   }
 
   private parseNode(): TemplateNode | null {
     this.checkCallLimit('parseNode');
     this.recursionDepth++;
     if (this.recursionDepth > this.MAX_RECURSION_DEPTH) {
-      const context = this.source.substring(Math.max(0, this.pos - 50), Math.min(this.source.length, this.pos + 50));
+      const context = this.source.substring(
+        Math.max(0, this.pos - 50),
+        Math.min(this.source.length, this.pos + 50)
+      );
       throw new Error(
         `Parser exceeded maximum recursion depth (${this.MAX_RECURSION_DEPTH}).\n` +
-        `Position: ${this.pos}, Line: ${this.line}, Column: ${this.column}\n` +
-        `Context: ...${context}...`
+          `Position: ${this.pos}, Line: ${this.line}, Column: ${this.column}\n` +
+          `Context: ...${context}...`
       );
     }
 
@@ -78,18 +120,18 @@ export class TemplateParser {
 
       if (this.isAtEnd()) return null;
 
-    // Check for HTML tags
-    if (this.peek() === '<') {
-      // Check if it's a comment
-      if (this.peekNext() === '!' && this.peekAhead(4) === '<!--') {
-        return this.parseComment();
+      // Check for HTML tags
+      if (this.peek() === '<') {
+        // Check if it's a comment
+        if (this.peekNext() === '!' && this.peekAhead(4) === '<!--') {
+          return this.parseComment();
+        }
+        // Check if it's a closing tag (we'll handle this in parseElement)
+        if (this.peekNext() === '/') {
+          return null; // Closing tag, handled by parent
+        }
+        return this.parseElement();
       }
-      // Check if it's a closing tag (we'll handle this in parseElement)
-      if (this.peekNext() === '/') {
-        return null; // Closing tag, handled by parent
-      }
-      return this.parseElement();
-    }
 
       // Check for @ directives
       if (this.peek() === '@') {
@@ -103,10 +145,16 @@ export class TemplateParser {
     }
   }
 
-  private parseElement(): TemplateNode {
+  private parseElement(): TemplateNode | null {
     const startLoc = this.getLocation();
 
     this.consume('<');
+
+    // Check for fragment syntax <>...</>
+    if (this.peek() === '>') {
+      return this.parseFragment(startLoc);
+    }
+
     const tagName = this.parseIdentifier();
 
     // Handle empty tag name (malformed HTML like <!DOCTYPE or <!)
@@ -131,8 +179,20 @@ export class TemplateParser {
       });
     }
 
+    // Check if it's a component definition (template:ComponentName)
+    if (tagName.startsWith('template:')) {
+      const componentName = tagName.substring(9); // Remove 'template:' prefix
+      return this.parseComponentDefinition(componentName, startLoc);
+    }
+
     // Check if it's a component (starts with capital letter)
-    if (tagName.length > 0 && tagName[0] >= 'A' && tagName[0] <= 'Z') {
+    const firstChar = tagName[0];
+    if (
+      tagName.length > 0 &&
+      firstChar &&
+      firstChar >= 'A' &&
+      firstChar <= 'Z'
+    ) {
       return this.parseComponent(tagName, startLoc);
     }
 
@@ -142,7 +202,7 @@ export class TemplateParser {
     }
 
     // Parse attributes
-    const attributes: any[] = [];
+    const attributes: AttributeNode[] = [];
     this.skipWhitespace();
 
     while (!this.isAtEnd() && this.peek() !== '>' && this.peek() !== '/') {
@@ -158,15 +218,13 @@ export class TemplateParser {
     }
 
     // Check for self-closing tag
-    const selfClosing = this.peek() === '/' && this.peekNext() === '>';
-    if (selfClosing) {
+    if (this.peek() === '/' && this.peekNext() === '>') {
       this.advance(); // /
       this.advance(); // >
       return ast.element.node({
         tag: tagName,
         attributes,
         children: [],
-        selfClosing: true,
         location: this.getLocationFrom(startLoc),
       });
     }
@@ -205,20 +263,42 @@ export class TemplateParser {
         });
       }
       this.consume('>');
+    } else if (!this.isAtEnd()) {
+      // There's content but no closing tag - something is wrong
+      this.errors.push({
+        message: `Unclosed tag: <${tagName}>`,
+        line: startLoc.line,
+        column: startLoc.column,
+        offset: startLoc.offset,
+      });
+    } else {
+      // Reached end of input without closing tag
+      this.errors.push({
+        message: `Unclosed tag: <${tagName}>`,
+        line: startLoc.line,
+        column: startLoc.column,
+        offset: startLoc.offset,
+      });
     }
 
     return ast.element.node({
       tag: tagName,
       attributes,
       children,
-      selfClosing: false,
       location: this.getLocationFrom(startLoc),
     });
   }
 
-  private parseComponent(tagName: string, startLoc: { line: number; column: number; offset: number }): TemplateNode {
+  private parseComponent(
+    tagName: string,
+    startLoc: { line: number; column: number; offset: number }
+  ): TemplateNode {
     // Parse component props (must be expressions, not attributes)
-    const props: Array<{ name: string; value: any; location: any }> = [];
+    const props: Array<{
+      name: string;
+      value: ExprAst;
+      location: SourceLocation;
+    }> = [];
     const propPathMapping = new Map<string, readonly string[]>();
     this.skipWhitespace();
 
@@ -230,8 +310,8 @@ export class TemplateParser {
         // Extract path mapping if the value is a path expression
         if (prop.value.kind === 'path' && !prop.value.isGlobal) {
           const pathSegments = prop.value.segments
-            .filter((seg: any) => seg.kind === 'key')
-            .map((seg: any) => seg.key);
+            .filter((seg: PathItem): seg is { kind: 'key'; key: string } => seg.kind === 'key')
+            .map((seg) => seg.key);
           if (pathSegments.length > 0) {
             propPathMapping.set(prop.name, pathSegments);
           }
@@ -302,7 +382,184 @@ export class TemplateParser {
     });
   }
 
-  private parseComponentProp(): { name: string; value: any; location: any } | null {
+  private parseComponentDefinition(
+    name: string,
+    startLoc: { line: number; column: number; offset: number }
+  ): TemplateNode | null {
+    // Parse prop definitions
+    const props: Array<{
+      name: string;
+      required: boolean;
+      defaultValue?: ExprAst | string;
+      location: SourceLocation;
+    }> = [];
+    this.skipWhitespace();
+
+    while (!this.isAtEnd() && this.peek() !== '>' && this.peek() !== '/') {
+      const propStartLoc = this.getLocation();
+      const propName = this.parseIdentifier();
+
+      if (propName === '') {
+        break;
+      }
+
+      let required = false;
+      let defaultValue: ExprAst | string | undefined = undefined;
+
+      // Check for required marker (!)
+      if (this.peek() === '!') {
+        required = true;
+        this.advance();
+      }
+
+      this.skipWhitespace();
+
+      // Check for default value
+      if (this.peek() === '=') {
+        this.advance();
+        this.skipWhitespace();
+
+        if (this.peek() === '"' || this.peek() === "'") {
+          // Quoted string default
+          const quote = this.peek();
+          this.advance();
+          const valueStart = this.pos;
+          while (!this.isAtEnd() && this.peek() !== quote) {
+            if (this.peek() === '\\') {
+              this.advance();
+            }
+            this.advance();
+          }
+          defaultValue = this.source.substring(valueStart, this.pos);
+          this.advance(); // closing quote
+        } else if (this.peek() === '{') {
+          // Expression default
+          this.advance();
+          const exprStart = this.pos;
+          let braceCount = 1;
+          while (!this.isAtEnd() && braceCount > 0) {
+            if (this.peek() === '{') braceCount++;
+            if (this.peek() === '}') braceCount--;
+            if (braceCount > 0) this.advance();
+          }
+          const exprSource = this.source.substring(exprStart, this.pos);
+          this.advance(); // closing }
+
+          const exprParser = this.createExpressionParser(exprSource);
+          const exprResult = exprParser.parse();
+          if (exprResult.value) {
+            defaultValue = exprResult.value;
+          }
+        }
+      }
+
+      props.push({
+        name: propName,
+        required,
+        defaultValue,
+        location: this.getLocationFrom(propStartLoc),
+      });
+
+      this.skipWhitespace();
+    }
+
+    // Check for self-closing (not typical for component definitions)
+    if (this.peek() === '/' && this.peekNext() === '>') {
+      this.advance();
+      this.advance();
+      // Check for duplicate component definition
+      if (this.componentDefinitions.has(name)) {
+        this.errors.push({
+          message: `Duplicate component definition: ${name}`,
+          line: startLoc.line,
+          column: startLoc.column,
+          offset: startLoc.offset,
+        });
+      }
+      const componentDef: ComponentDefinition = {
+        name,
+        props,
+        body: [],
+        location: this.getLocationFrom(startLoc),
+      };
+      this.componentDefinitions.set(name, componentDef);
+      return null; // Component definitions don't create visible nodes
+    }
+
+    this.consume('>');
+
+    // Parse body
+    const body: TemplateNode[] = [];
+    const closingTag = `template:${name}`;
+
+    while (!this.isAtEnd()) {
+      // Check for closing tag
+      if (this.peek() === '<' && this.peekNext() === '/') {
+        const checkPos = this.pos + 2;
+        let tagEnd = checkPos;
+        while (tagEnd < this.source.length) {
+          const char = this.source[tagEnd];
+          if (char === '>' || char === undefined || this.isWhitespace(char)) {
+            break;
+          }
+          tagEnd++;
+        }
+        const closingTagName = this.source.substring(checkPos, tagEnd);
+        if (closingTagName === closingTag) {
+          break;
+        }
+      }
+
+      const prevPos = this.pos;
+      const node = this.parseNode();
+      if (node) {
+        body.push(node);
+      } else if (this.pos === prevPos) {
+        break;
+      }
+    }
+
+    // Parse closing tag
+    if (this.peek() === '<' && this.peekNext() === '/') {
+      this.advance(); // <
+      this.advance(); // /
+      const closingTagName = this.parseIdentifier();
+      if (closingTagName !== closingTag) {
+        this.errors.push({
+          message: `Mismatched closing tag: expected </${closingTag}>, got </${closingTagName}>`,
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+      }
+      this.consume('>');
+    }
+
+    // Check for duplicate component definition
+    if (this.componentDefinitions.has(name)) {
+      this.errors.push({
+        message: `Duplicate component definition: ${name}`,
+        line: startLoc.line,
+        column: startLoc.column,
+        offset: startLoc.offset,
+      });
+    }
+    const componentDef: ComponentDefinition = {
+      name,
+      props,
+      body,
+      location: this.getLocationFrom(startLoc),
+    };
+    this.componentDefinitions.set(name, componentDef);
+
+    return null; // Component definitions don't create visible nodes
+  }
+
+  private parseComponentProp(): {
+    name: string;
+    value: ExprAst;
+    location: SourceLocation;
+  } | null {
     const startLoc = this.getLocation();
     const name = this.parseIdentifier();
 
@@ -348,7 +605,7 @@ export class TemplateParser {
       this.advance(); // closing quote
 
       // Create a string literal expression
-      const exprParser = new ExpressionParser(`"${value}"`);
+      const exprParser = this.createExpressionParser(`"${value}"`);
       const result = exprParser.parse();
 
       if (!result.value) {
@@ -380,7 +637,7 @@ export class TemplateParser {
         exprSource = this.parseSimpleExpression();
       }
 
-      const exprParser = new ExpressionParser(exprSource);
+      const exprParser = this.createExpressionParser(exprSource);
       const result = exprParser.parse();
 
       if (!result.value) {
@@ -395,13 +652,18 @@ export class TemplateParser {
     } else {
       // Unquoted value - parse as identifier or number
       const valueStart = this.pos;
-      while (!this.isAtEnd() && !this.isWhitespace(this.peek()) && this.peek() !== '>' && this.peek() !== '/') {
+      while (
+        !this.isAtEnd() &&
+        !this.isWhitespace(this.peek()) &&
+        this.peek() !== '>' &&
+        this.peek() !== '/'
+      ) {
         this.advance();
       }
       const value = this.source.substring(valueStart, this.pos);
 
       // Try to parse as expression
-      const exprParser = new ExpressionParser(value);
+      const exprParser = this.createExpressionParser(value);
       const result = exprParser.parse();
 
       if (!result.value) {
@@ -416,13 +678,16 @@ export class TemplateParser {
     }
   }
 
-  private parseSlot(startLoc: { line: number; column: number; offset: number }): TemplateNode {
+  private parseSlot(startLoc: {
+    line: number;
+    column: number;
+    offset: number;
+  }): TemplateNode {
     // Parse slot attributes (looking for "name" attribute)
-    let slotName: string | null = null;
+    let slotName: string | undefined = undefined;
     this.skipWhitespace();
 
     while (!this.isAtEnd() && this.peek() !== '>' && this.peek() !== '/') {
-      const attrStartLoc = this.getLocation();
       const attrName = this.parseIdentifier();
 
       // If no valid identifier, skip invalid character
@@ -480,7 +745,7 @@ export class TemplateParser {
       this.advance(); // >
       return ast.slot.node({
         name: slotName,
-        fallback: [],
+        fallback: undefined,
         location: this.getLocationFrom(startLoc),
       });
     }
@@ -540,7 +805,11 @@ export class TemplateParser {
     // Read comment content until -->
     const contentStart = this.pos;
     while (!this.isAtEnd()) {
-      if (this.peek() === '-' && this.peekNext() === '-' && this.peekAhead(3) === '-->') {
+      if (
+        this.peek() === '-' &&
+        this.peekNext() === '-' &&
+        this.peekAhead(3) === '-->'
+      ) {
         break;
       }
       this.advance();
@@ -562,7 +831,7 @@ export class TemplateParser {
     });
   }
 
-  private parseAttribute(): any {
+  private parseAttribute(): AttributeNode | null {
     const startLoc = this.getLocation();
     const name = this.parseIdentifier();
 
@@ -611,7 +880,7 @@ export class TemplateParser {
         const exprSource = this.source.substring(exprStart, this.pos);
         this.advance(); // consume }
 
-        const exprParser = new ExpressionParser(exprSource);
+        const exprParser = this.createExpressionParser(exprSource);
         const exprResult = exprParser.parse();
 
         if (!exprResult.value) {
@@ -626,7 +895,7 @@ export class TemplateParser {
       } else {
         // Simple expression: name=$path
         const exprSource = this.parseSimpleExpression();
-        const exprParser = new ExpressionParser(exprSource);
+        const exprParser = this.createExpressionParser(exprSource);
         const exprResult = exprParser.parse();
 
         if (!exprResult.value) {
@@ -647,8 +916,7 @@ export class TemplateParser {
       this.advance(); // opening quote
 
       // Check if it contains expressions (mixed attribute)
-      const valueStart = this.pos;
-      const segments: any[] = [];
+      const segments: (StaticAttributeValue | ExprAttributeValue)[] = [];
       let textBuffer = '';
 
       while (!this.isAtEnd() && this.peek() !== quote) {
@@ -656,7 +924,12 @@ export class TemplateParser {
         if (this.peek() === '$' && this.peekNext() === '{') {
           // Save accumulated text
           if (textBuffer) {
-            segments.push(ast.attribute.staticValue(textBuffer, this.getLocationFrom(startLoc)));
+            segments.push(
+              ast.attribute.staticValue(
+                textBuffer,
+                this.getLocationFrom(startLoc)
+              )
+            );
             textBuffer = '';
           }
 
@@ -674,11 +947,16 @@ export class TemplateParser {
           const exprSource = this.source.substring(exprStart, this.pos);
           this.advance(); // consume }
 
-          const exprParser = new ExpressionParser(exprSource);
+          const exprParser = this.createExpressionParser(exprSource);
           const exprResult = exprParser.parse();
 
           if (exprResult.value) {
-            segments.push(ast.attribute.exprValue(exprResult.value, this.getLocationFrom(startLoc)));
+            segments.push(
+              ast.attribute.exprValue(
+                exprResult.value,
+                this.getLocationFrom(startLoc)
+              )
+            );
           }
         } else if (this.peek() === '\\') {
           // Escape sequence
@@ -693,16 +971,19 @@ export class TemplateParser {
 
       // Save remaining text
       if (textBuffer || segments.length === 0) {
-        segments.push(ast.attribute.staticValue(textBuffer, this.getLocationFrom(startLoc)));
+        segments.push(
+          ast.attribute.staticValue(textBuffer, this.getLocationFrom(startLoc))
+        );
       }
 
       this.advance(); // closing quote
 
       // If only one static segment, return static attribute
-      if (segments.length === 1 && segments[0].kind === 'static') {
+      const firstSegment = segments[0];
+      if (segments.length === 1 && firstSegment && firstSegment.kind === 'static') {
         return ast.attribute.static({
           name,
-          value: segments[0].value,
+          value: firstSegment.value,
           location: this.getLocationFrom(startLoc),
         });
       }
@@ -717,7 +998,12 @@ export class TemplateParser {
 
     // Unquoted value (treat as static)
     const start = this.pos;
-    while (!this.isAtEnd() && !this.isWhitespace(this.peek()) && this.peek() !== '>' && this.peek() !== '/') {
+    while (
+      !this.isAtEnd() &&
+      !this.isWhitespace(this.peek()) &&
+      this.peek() !== '>' &&
+      this.peek() !== '/'
+    ) {
       this.advance();
     }
     const value = this.source.substring(start, this.pos);
@@ -737,16 +1023,34 @@ export class TemplateParser {
     while (!this.isAtEnd()) {
       this.checkCallLimit('parseText loop');
       // Check for end of text node
-      // Stop at < (HTML tag), @ (directive), or } (end of block/case body)
-      if (this.peek() === '<' || this.peek() === '@' || this.peek() === '}') {
+      // Stop at @ (directive) or } (end of block/case body)
+      if (this.peek() === '@' || this.peek() === '}') {
         break;
+      }
+
+      // Stop at < only when followed by a valid tag character (letter, /, !, >)
+      if (this.peek() === '<') {
+        const next = this.peekNext();
+        if (
+          this.isAlpha(next) ||
+          next === '/' ||
+          next === '!' ||
+          next === '>'
+        ) {
+          break;
+        }
+        // Otherwise treat < as literal text
+        textBuffer += this.advance();
+        continue;
       }
 
       // Check for simple expression $identifier
       if (this.peek() === '$' && this.peekNext() !== '{') {
         // Save any accumulated text
         if (textBuffer) {
-          segments.push(ast.text.literalSegment(textBuffer, this.getLocationFrom(startLoc)));
+          segments.push(
+            ast.text.literalSegment(textBuffer, this.getLocationFrom(startLoc))
+          );
           textBuffer = '';
         }
 
@@ -758,21 +1062,25 @@ export class TemplateParser {
         if (this.peek() === '.') {
           this.pos = exprStart; // Reset to parse full expression
           const exprSource = this.parseSimpleExpression();
-          const exprParser = new ExpressionParser(exprSource);
+          const exprParser = this.createExpressionParser(exprSource);
           const result = exprParser.parse();
 
           if (result.value) {
-            segments.push(ast.text.exprSegment(result.value, this.getLocationFrom(startLoc)));
+            segments.push(
+              ast.text.exprSegment(result.value, this.getLocationFrom(startLoc))
+            );
           }
         } else if (this.isAlpha(this.peek())) {
           // Simple path like $foo or $foo.bar
           this.pos = exprStart; // Reset to parse full expression
           const exprSource = this.parseSimpleExpression();
-          const exprParser = new ExpressionParser(exprSource);
+          const exprParser = this.createExpressionParser(exprSource);
           const result = exprParser.parse();
 
           if (result.value) {
-            segments.push(ast.text.exprSegment(result.value, this.getLocationFrom(startLoc)));
+            segments.push(
+              ast.text.exprSegment(result.value, this.getLocationFrom(startLoc))
+            );
           }
         } else {
           // Invalid expression, treat $ as literal and reset position
@@ -786,7 +1094,9 @@ export class TemplateParser {
       if (this.peek() === '$' && this.peekNext() === '{') {
         // Save any accumulated text
         if (textBuffer) {
-          segments.push(ast.text.literalSegment(textBuffer, this.getLocationFrom(startLoc)));
+          segments.push(
+            ast.text.literalSegment(textBuffer, this.getLocationFrom(startLoc))
+          );
           textBuffer = '';
         }
 
@@ -805,12 +1115,30 @@ export class TemplateParser {
         const exprSource = this.source.substring(exprStart, this.pos);
         this.advance(); // consume closing }
 
+        // Check for empty expression
+        if (exprSource.trim() === '') {
+          this.errors.push({
+            message: 'Empty expression',
+            line: this.line,
+            column: this.column,
+            offset: this.pos,
+          });
+          continue;
+        }
+
         // Parse the expression
-        const exprParser = new ExpressionParser(exprSource);
+        const exprParser = this.createExpressionParser(exprSource);
         const result = exprParser.parse();
 
+        // Report any expression parsing errors
+        if (result.errors.length > 0) {
+          this.errors.push(...result.errors);
+        }
+
         if (result.value) {
-          segments.push(ast.text.exprSegment(result.value, this.getLocationFrom(startLoc)));
+          segments.push(
+            ast.text.exprSegment(result.value, this.getLocationFrom(startLoc))
+          );
         }
         continue;
       }
@@ -821,7 +1149,9 @@ export class TemplateParser {
 
     // Save any remaining text
     if (textBuffer) {
-      segments.push(ast.text.literalSegment(textBuffer, this.getLocationFrom(startLoc)));
+      segments.push(
+        ast.text.literalSegment(textBuffer, this.getLocationFrom(startLoc))
+      );
     }
 
     // Return null for empty text nodes (whitespace-only between elements)
@@ -919,7 +1249,57 @@ export class TemplateParser {
     }
   }
 
-  private parseIf(startLoc: { line: number; column: number; offset: number }): TemplateNode {
+  private parseIf(startLoc: {
+    line: number;
+    column: number;
+    offset: number;
+  }): TemplateNode {
+    // Parse all branches (if, else if, else if, ...)
+    const branches: Array<{ condition: ExprAst; body: TemplateNode[] }> = [];
+    let elseBranch: TemplateNode[] | undefined;
+
+    // Parse initial if condition and body
+    const firstBranch = this.parseIfBranch();
+    if (firstBranch) {
+      branches.push(firstBranch);
+    }
+
+    // Check for else/else if chains
+    while (true) {
+      this.skipWhitespace();
+
+      // Check for 'else' keyword
+      if (this.peekAhead(4) === 'else') {
+        this.pos += 4; // consume 'else'
+        this.skipWhitespace();
+
+        // Check if it's 'else if' or just 'else'
+        if (this.peekAhead(2) === 'if') {
+          this.pos += 2; // consume 'if'
+          const branch = this.parseIfBranch();
+          if (branch) {
+            branches.push(branch);
+          }
+        } else {
+          // Plain else - parse body
+          this.consume('{');
+          elseBranch = this.parseBlockBody();
+          this.consume('}');
+          break; // else is always last
+        }
+      } else {
+        break; // No more else/else if
+      }
+    }
+
+    return ast.ifNode.node({
+      branches,
+      elseBranch,
+      location: this.getLocationFrom(startLoc),
+    });
+  }
+
+  private parseIfBranch(): { condition: ExprAst; body: TemplateNode[] } | null {
     this.skipWhitespace();
     this.consume('(');
 
@@ -934,83 +1314,47 @@ export class TemplateParser {
     const condSource = this.source.substring(condStart, this.pos);
     this.advance(); // consume )
 
-    const exprParser = new ExpressionParser(condSource);
+    const exprParser = this.createExpressionParser(condSource);
     const condResult = exprParser.parse();
 
     this.skipWhitespace();
     this.consume('{');
 
-    // Parse then body
-    const thenBody: TemplateNode[] = [];
+    const body = this.parseBlockBody();
+    this.consume('}');
+
+    if (!condResult.value) {
+      this.errors.push({
+        message: 'Invalid if condition',
+        line: this.line,
+        column: this.column,
+        offset: this.pos,
+      });
+      return null;
+    }
+
+    return { condition: condResult.value, body };
+  }
+
+  private parseBlockBody(): TemplateNode[] {
+    const body: TemplateNode[] = [];
     while (!this.isAtEnd() && this.peek() !== '}') {
-      // Check for unexpected closing tag
-      if (this.peek() === '<' && this.peekNext() === '/') {
-        this.errors.push({
-          message: 'Unexpected closing tag in @if body',
-          line: this.line,
-          column: this.column,
-          offset: this.pos,
-        });
-        break;
-      }
       const prevPos = this.pos;
       const node = this.parseNode();
       if (node) {
-        thenBody.push(node);
+        body.push(node);
       } else if (this.pos === prevPos) {
-        // parseNode didn't advance, break to avoid infinite loop
         break;
       }
     }
-    this.consume('}');
-
-    // Check for @else
-    this.skipWhitespace();
-    let elseBody: TemplateNode[] | null = null;
-
-    if (this.peek() === '@' && this.peekAhead(5) === '@else') {
-      this.advance(); // @
-      this.parseIdentifier(); // else
-      this.skipWhitespace();
-      this.consume('{');
-
-      elseBody = [];
-      while (!this.isAtEnd() && this.peek() !== '}') {
-        // Check for unexpected closing tag
-        if (this.peek() === '<' && this.peekNext() === '/') {
-          this.errors.push({
-            message: 'Unexpected closing tag in @else body',
-            line: this.line,
-            column: this.column,
-            offset: this.pos,
-          });
-          break;
-        }
-        const prevPos = this.pos;
-        const node = this.parseNode();
-        if (node) {
-          elseBody.push(node);
-        } else if (this.pos === prevPos) {
-          // parseNode didn't advance, break to avoid infinite loop
-          break;
-        }
-      }
-      this.consume('}');
-    }
-
-    if (!condResult.value) {
-      throw new Error('Invalid if condition');
-    }
-
-    return ast.ifNode.node({
-      condition: condResult.value,
-      then: thenBody,
-      else: elseBody,
-      location: this.getLocationFrom(startLoc),
-    });
+    return body;
   }
 
-  private parseFor(startLoc: { line: number; column: number; offset: number }): TemplateNode {
+  private parseFor(startLoc: {
+    line: number;
+    column: number;
+    offset: number;
+  }): TemplateNode {
     this.skipWhitespace();
     this.consume('(');
 
@@ -1053,7 +1397,7 @@ export class TemplateParser {
     const iterSource = this.source.substring(iterStart, this.pos);
     this.advance(); // consume )
 
-    const exprParser = new ExpressionParser(iterSource);
+    const exprParser = this.createExpressionParser(iterSource);
     const iterResult = exprParser.parse();
 
     this.skipWhitespace();
@@ -1097,7 +1441,11 @@ export class TemplateParser {
     });
   }
 
-  private parseMatch(startLoc: { line: number; column: number; offset: number }): TemplateNode {
+  private parseMatch(startLoc: {
+    line: number;
+    column: number;
+    offset: number;
+  }): TemplateNode {
     this.skipWhitespace();
     this.consume('(');
 
@@ -1112,14 +1460,16 @@ export class TemplateParser {
     const valueSource = this.source.substring(valueStart, this.pos);
     this.advance(); // consume )
 
-    const exprParser = new ExpressionParser(valueSource);
+    const exprParser = this.createExpressionParser(valueSource);
     const valueResult = exprParser.parse();
 
     this.skipWhitespace();
     this.consume('{');
 
     // Parse cases
-    const cases: any[] = [];
+    const cases: MatchCase[] = [];
+    let defaultCase: TemplateNode[] | undefined;
+
     while (!this.isAtEnd() && this.peek() !== '}') {
       this.skipWhitespace();
 
@@ -1131,7 +1481,12 @@ export class TemplateParser {
       // Parse case
       const caseNode = this.parseMatchCase();
       if (caseNode) {
-        cases.push(caseNode);
+        if (caseNode.isDefault) {
+          // This is a default case
+          defaultCase = caseNode.body;
+        } else {
+          cases.push(caseNode);
+        }
       } else if (this.pos === prevPos) {
         // parseMatchCase failed and didn't advance - break to avoid infinite loop
         this.errors.push({
@@ -1154,6 +1509,7 @@ export class TemplateParser {
     return ast.matchNode.node({
       value: valueResult.value,
       cases,
+      defaultCase,
       location: this.getLocationFrom(startLoc),
     });
   }
@@ -1161,40 +1517,60 @@ export class TemplateParser {
   private parseMatchCase(): any {
     const startLoc = this.getLocation();
 
-    // Check for underscore (expression case or default case)
-    if (this.peek() === '_') {
-      const nextChar = this.peekNext();
-      // Check if it's default case: _ { or _ (space) {
-      if (nextChar === ' ' || nextChar === '{') {
-        this.advance(); // consume _
-        this.skipWhitespace();
-        this.consume('{');
+    // Check for default case: * {
+    if (this.peek() === '*') {
+      this.advance(); // consume *
+      this.skipWhitespace();
+      this.consume('{');
 
-        const body: TemplateNode[] = [];
-        while (!this.isAtEnd() && this.peek() !== '}') {
-          const node = this.parseNode();
-          if (node) body.push(node);
-        }
-        this.consume('}');
+      const body = this.parseBlockBody();
+      this.consume('}');
 
-        // Default case - match all
-        return ast.matchNode.literalCase({
-          values: [],
-          body,
-          location: this.getLocationFrom(startLoc),
-        });
-      }
-      // Otherwise it's an expression case like _.startsWith() or _ > 100
-      // Fall through to expression parsing below
+      // Return as default case by returning a special marker
+      return {
+        isDefault: true,
+        body,
+        location: this.getLocationFrom(startLoc),
+      };
     }
 
-    // Check for 'when' keyword
-    const keywordStart = this.pos;
+    // Check for expression case starting with _
+    if (this.peek() === '_') {
+      // This is an expression case like: _.startsWith("error") or _ > 100
+      const exprEnd = this.source.indexOf('{', this.pos);
+      const exprSource = this.source.substring(this.pos, exprEnd).trim();
+      this.pos = exprEnd;
+
+      const exprParser = this.createExpressionParser(exprSource);
+      const exprResult = exprParser.parse();
+
+      this.skipWhitespace();
+      this.consume('{');
+      const body = this.parseBlockBody();
+      this.consume('}');
+
+      if (!exprResult.value) {
+        this.errors.push({
+          message: 'Invalid match case expression',
+          line: this.line,
+          column: this.column,
+          offset: this.pos,
+        });
+        return null;
+      }
+
+      return ast.matchNode.expressionCase({
+        condition: exprResult.value,
+        body,
+        location: this.getLocationFrom(startLoc),
+      });
+    }
+
+    // Check for 'when' keyword for literal cases
     const keyword = this.parseIdentifier();
-    if (keyword !== 'when' && this.peek() !== '_') {
-      // Not 'when' and not starting with underscore - error
+    if (keyword !== 'when') {
       this.errors.push({
-        message: `Expected 'when' in match case, got '${keyword}'`,
+        message: `Expected 'when', '_', or '*' in match case, got '${keyword}'`,
         line: this.line,
         column: this.column,
         offset: this.pos,
@@ -1202,139 +1578,115 @@ export class TemplateParser {
       return null;
     }
 
-    // If we parsed 'when', continue to parse literals/expression
-    // If keyword is actually '_', reset position to parse as expression
-    if (keyword === '_' || this.peek() === '_') {
-      this.pos = keywordStart; // Reset to parse full expression including _
-    }
-
     this.skipWhitespace();
 
-    // Parse case values or expression
-    // Check if it's a literal case or expression case
-    const caseStart = this.pos;
-
-    // Try to parse as literals first
+    // Parse literal values
     const values: (string | number | boolean)[] = [];
-    let isExpressionCase = false;
-    let exprResult: any = null;
+    while (true) {
+      this.skipWhitespace();
 
-    // Check for underscore (wildcard expression case)
-    if (this.peek() === '_') {
-      // This is an expression case like: _.startsWith("error")
-      isExpressionCase = true;
-    } else {
-      // Try to parse literals
-      while (true) {
-        this.skipWhitespace();
-
-        if (this.peek() === '"' || this.peek() === "'") {
-          // String literal
-          const quote = this.peek();
-          this.advance();
-          const start = this.pos;
-          while (!this.isAtEnd() && this.peek() !== quote) {
-            if (this.peek() === '\\') {
-              this.advance();
-            }
+      if (this.peek() === '"' || this.peek() === "'") {
+        // String literal
+        const quote = this.peek();
+        this.advance();
+        const start = this.pos;
+        while (!this.isAtEnd() && this.peek() !== quote) {
+          if (this.peek() === '\\') {
             this.advance();
           }
-          const value = this.source.substring(start, this.pos);
-          this.advance(); // closing quote
-          values.push(value);
-        } else if (this.isDigit(this.peek()) || this.peek() === '-') {
-          // Number literal
-          const start = this.pos;
-          if (this.peek() === '-') this.advance();
+          this.advance();
+        }
+        const value = this.source.substring(start, this.pos);
+        this.advance(); // closing quote
+        values.push(value);
+      } else if (
+        this.isDigit(this.peek()) ||
+        (this.peek() === '-' && this.isDigit(this.peekNext()))
+      ) {
+        // Number literal
+        const start = this.pos;
+        if (this.peek() === '-') this.advance();
+        while (this.isDigit(this.peek())) {
+          this.advance();
+        }
+        if (this.peek() === '.') {
+          this.advance();
           while (this.isDigit(this.peek())) {
             this.advance();
           }
-          if (this.peek() === '.') {
-            this.advance();
-            while (this.isDigit(this.peek())) {
-              this.advance();
-            }
-          }
-          const value = parseFloat(this.source.substring(start, this.pos));
-          values.push(value);
-        } else if (this.peekAhead(4) === 'true') {
-          this.pos += 4;
-          values.push(true);
-        } else if (this.peekAhead(5) === 'false') {
-          this.pos += 5;
-          values.push(false);
-        } else {
-          // Not a literal, must be expression case
-          isExpressionCase = true;
-          break;
         }
-
-        this.skipWhitespace();
-        if (this.peek() === ',') {
-          this.advance();
-        } else {
-          break;
-        }
+        const value = parseFloat(this.source.substring(start, this.pos));
+        values.push(value);
+      } else if (this.peekAhead(4) === 'true') {
+        this.pos += 4;
+        values.push(true);
+      } else if (this.peekAhead(5) === 'false') {
+        this.pos += 5;
+        values.push(false);
+      } else {
+        break;
       }
-    }
 
-    // If expression case, parse the expression NOW before parsing body
-    if (isExpressionCase) {
-      const exprEnd = this.source.indexOf('{', this.pos);
-      const exprSource = this.source.substring(this.pos, exprEnd).trim();
-      this.pos = exprEnd;
-
-      const exprParser = new ExpressionParser(exprSource);
-      exprResult = exprParser.parse();
-
-      if (!exprResult.value) {
-        throw new Error('Invalid match case expression');
+      this.skipWhitespace();
+      if (this.peek() === ',') {
+        this.advance();
+      } else {
+        break;
       }
     }
 
     this.skipWhitespace();
     this.consume('{');
+    const body = this.parseBlockBody();
+    this.consume('}');
 
-    const body: TemplateNode[] = [];
-    while (!this.isAtEnd() && this.peek() !== '}') {
-      // Check for unexpected closing tag
+    return ast.matchNode.literalCase({
+      values,
+      body,
+      location: this.getLocationFrom(startLoc),
+    });
+  }
+
+  private parseFragment(startLoc: {
+    line: number;
+    column: number;
+    offset: number;
+  }): TemplateNode {
+    this.consume('>'); // consume > from <>
+
+    // Parse children until </>
+    const children: TemplateNode[] = [];
+    while (!this.isAtEnd()) {
+      // Check for closing </> tag
       if (this.peek() === '<' && this.peekNext() === '/') {
-        this.errors.push({
-          message: 'Unexpected closing tag in match case body',
-          line: this.line,
-          column: this.column,
-          offset: this.pos,
-        });
-        break;
+        const lookAhead = this.source.substring(this.pos, this.pos + 3);
+        if (lookAhead === '</>') {
+          this.pos += 3; // consume </>
+          break;
+        }
       }
+
       const prevPos = this.pos;
       const node = this.parseNode();
       if (node) {
-        body.push(node);
+        children.push(node);
       } else if (this.pos === prevPos) {
-        // parseNode didn't advance, break to avoid infinite loop
         break;
       }
     }
-    this.consume('}');
 
-    if (isExpressionCase) {
-      return ast.matchNode.expressionCase({
-        condition: exprResult.value,
-        body,
-        location: this.getLocationFrom(startLoc),
-      });
-    } else {
-      // Literal case
-      return ast.matchNode.literalCase({
-        values,
-        body,
-        location: this.getLocationFrom(startLoc),
-      });
-    }
+    return ast.fragment.node({
+      children,
+      preserveWhitespace: true,
+      location: this.getLocationFrom(startLoc),
+    });
   }
 
-  private parseLet(startLoc: { line: number; column: number; offset: number }): TemplateNode {
+  private parseLet(startLoc: {
+    line: number;
+    column: number;
+    offset: number;
+  }): TemplateNode {
     this.skipWhitespace();
 
     // Check for global assignment: let $.var = expr
@@ -1369,7 +1721,7 @@ export class TemplateParser {
     }
 
     const valueSource = this.source.substring(valueStart, end).trim();
-    const exprParser = new ExpressionParser(valueSource);
+    const exprParser = this.createExpressionParser(valueSource);
     const valueResult = exprParser.parse();
 
     if (!valueResult.value) {
@@ -1384,7 +1736,11 @@ export class TemplateParser {
     });
   }
 
-  private parseCodeBlock(startLoc: { line: number; column: number; offset: number }): TemplateNode {
+  private parseCodeBlock(startLoc: {
+    line: number;
+    column: number;
+    offset: number;
+  }): TemplateNode {
     this.skipWhitespace();
     this.consume('{');
 
@@ -1428,8 +1784,9 @@ export class TemplateParser {
 
     // If there's only one statement, return it directly
     // Otherwise, return a fragment containing all statements
-    if (statements.length === 1) {
-      return statements[0];
+    const firstStatement = statements[0];
+    if (statements.length === 1 && firstStatement) {
+      return firstStatement;
     }
 
     return ast.fragment.node({
@@ -1447,7 +1804,11 @@ export class TemplateParser {
 
   private parseIdentifier(): string {
     const start = this.pos;
-    while (this.isAlphaNumeric(this.peek()) || this.peek() === '-' || this.peek() === ':') {
+    while (
+      this.isAlphaNumeric(this.peek()) ||
+      this.peek() === '-' ||
+      this.peek() === ':'
+    ) {
       this.advance();
     }
     return this.source.substring(start, this.pos);
@@ -1457,6 +1818,12 @@ export class TemplateParser {
     while (!this.isAtEnd() && this.isWhitespace(this.peek())) {
       this.advance();
     }
+  }
+
+  private createExpressionParser(source: string): ExpressionParser {
+    return new ExpressionParser(source, {
+      maxExpressionDepth: this.options.maxExpressionDepth,
+    });
   }
 
   private consume(expected: string): void {
@@ -1473,7 +1840,7 @@ export class TemplateParser {
   }
 
   private advance(): string {
-    const char = this.source[this.pos++];
+    const char = this.source[this.pos++] ?? '\0';
     if (char === '\n') {
       this.line++;
       this.column = 1;
@@ -1485,12 +1852,12 @@ export class TemplateParser {
 
   private peek(): string {
     if (this.isAtEnd()) return '\0';
-    return this.source[this.pos];
+    return this.source[this.pos] ?? '\0';
   }
 
   private peekNext(): string {
     if (this.pos + 1 >= this.source.length) return '\0';
-    return this.source[this.pos + 1];
+    return this.source[this.pos + 1] ?? '\0';
   }
 
   private isAtEnd(): boolean {
@@ -1525,7 +1892,11 @@ export class TemplateParser {
     };
   }
 
-  private getLocationFrom(start: { line: number; column: number; offset: number }) {
+  private getLocationFrom(start: {
+    line: number;
+    column: number;
+    offset: number;
+  }) {
     return ast.loc({
       line: start.line,
       column: start.column,
