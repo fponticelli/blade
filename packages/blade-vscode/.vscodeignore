@@ -1,0 +1,35 @@
+# Source files (compiled output is in out/)
+src/**
+
+# TypeScript config
+tsconfig.json
+
+# Node modules
+node_modules/**
+
+# Development files
+.gitignore
+.eslintrc*
+*.map
+
+# Test files
+**/*.test.ts
+**/test/**
+**/tests/**
+
+# Build artifacts
+*.vsix
+
+# Editor configs
+.vscode/**
+.idea/**
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Package lock (not needed for extension)
+package-lock.json
+
+# Changelog if any
+CHANGELOG.md
