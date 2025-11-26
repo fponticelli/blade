@@ -63,7 +63,7 @@ function literal(value: string | number | boolean | null): LiteralNode {
 function path(segments: string[], isGlobal = false): PathNode {
   return {
     kind: 'path',
-    segments: segments.map((s) => ({ kind: 'key' as const, key: s })),
+    segments: segments.map(s => ({ kind: 'key' as const, key: s })),
     isGlobal,
     location: dummyLocation,
   };
@@ -75,7 +75,7 @@ function indexPath(base: string, index: number, ...rest: string[]): PathNode {
     segments: [
       { kind: 'key' as const, key: base },
       { kind: 'index' as const, index },
-      ...rest.map((s) => ({ kind: 'key' as const, key: s })),
+      ...rest.map(s => ({ kind: 'key' as const, key: s })),
     ],
     isGlobal: false,
     location: dummyLocation,
@@ -107,10 +107,8 @@ function call(callee: string, args: ExprAst[]): CallNode {
 }
 
 function wildcard(segments: string[]): ArrayWildcardNode {
-  const pathSegments = segments.flatMap((s) =>
-    s === '*'
-      ? [{ kind: 'star' as const }]
-      : [{ kind: 'key' as const, key: s }]
+  const pathSegments = segments.flatMap(s =>
+    s === '*' ? [{ kind: 'star' as const }] : [{ kind: 'key' as const, key: s }]
   );
   return {
     kind: 'wildcard',
@@ -198,7 +196,9 @@ describe('US1: Simple Data Access', () => {
       const ctx = createContext({
         data: { user: undefined },
       });
-      expect(() => evaluate(path(['user', 'profile', 'name']), ctx)).not.toThrow();
+      expect(() =>
+        evaluate(path(['user', 'profile', 'name']), ctx)
+      ).not.toThrow();
       expect(evaluate(path(['user', 'profile', 'name']), ctx)).toBe(undefined);
     });
   });
@@ -227,7 +227,10 @@ describe('US2: Arithmetic and Comparison', () => {
 
     it('evaluates division', () => {
       const ctx = createContext({ locals: { a: 10, b: 3 } });
-      expect(evaluate(binary('/', path(['a']), path(['b'])), ctx)).toBeCloseTo(3.33, 2);
+      expect(evaluate(binary('/', path(['a']), path(['b'])), ctx)).toBeCloseTo(
+        3.33,
+        2
+      );
     });
 
     it('evaluates modulo', () => {
@@ -282,12 +285,16 @@ describe('US2: Arithmetic and Comparison', () => {
     it('short-circuits AND on falsy left', () => {
       const ctx = createContext({ locals: { a: false } });
       // If short-circuiting works, accessing missing.path won't throw
-      expect(evaluate(binary('&&', path(['a']), path(['missing', 'path'])), ctx)).toBe(false);
+      expect(
+        evaluate(binary('&&', path(['a']), path(['missing', 'path'])), ctx)
+      ).toBe(false);
     });
 
     it('short-circuits OR on truthy left', () => {
       const ctx = createContext({ locals: { a: true } });
-      expect(evaluate(binary('||', path(['a']), path(['missing', 'path'])), ctx)).toBe(true);
+      expect(
+        evaluate(binary('||', path(['a']), path(['missing', 'path'])), ctx)
+      ).toBe(true);
     });
   });
 
@@ -308,8 +315,12 @@ describe('US2: Arithmetic and Comparison', () => {
   describe('T020: Type coercion', () => {
     it('coerces to string when adding string', () => {
       const ctx = createContext();
-      expect(evaluate(binary('+', literal('hello '), literal(42)), ctx)).toBe('hello 42');
-      expect(evaluate(binary('+', literal(42), literal(' world')), ctx)).toBe('42 world');
+      expect(evaluate(binary('+', literal('hello '), literal(42)), ctx)).toBe(
+        'hello 42'
+      );
+      expect(evaluate(binary('+', literal(42), literal(' world')), ctx)).toBe(
+        '42 world'
+      );
     });
 
     it('coerces boolean to number in arithmetic', () => {
@@ -331,23 +342,27 @@ describe('US2: Arithmetic and Comparison', () => {
 describe('US3: Helper Functions', () => {
   describe('T027: Helper currying with scope', () => {
     it('curries helper with scope access', () => {
-      const formatCurrency: HelperFunction = (scope, _setWarning) => (value: unknown) => {
-        const currency = scope.globals.currency ?? 'USD';
-        return `${currency}${value}`;
-      };
+      const formatCurrency: HelperFunction =
+        (scope, _setWarning) => (value: unknown) => {
+          const currency = scope.globals.currency ?? 'USD';
+          return `${currency}${value}`;
+        };
       const ctx = createContext(
         { globals: { currency: 'EUR' } },
         { formatCurrency }
       );
-      expect(evaluate(call('formatCurrency', [literal(100)]), ctx)).toBe('EUR100');
+      expect(evaluate(call('formatCurrency', [literal(100)]), ctx)).toBe(
+        'EUR100'
+      );
     });
   });
 
   describe('T028: Helper with multiple arguments', () => {
     it('passes multiple arguments to helper', () => {
-      const add: HelperFunction = (_scope, _setWarning) => (a: unknown, b: unknown) => {
-        return (a as number) + (b as number);
-      };
+      const add: HelperFunction =
+        (_scope, _setWarning) => (a: unknown, b: unknown) => {
+          return (a as number) + (b as number);
+        };
       const ctx = createContext({}, { add });
       expect(evaluate(call('add', [literal(10), literal(20)]), ctx)).toBe(30);
     });
@@ -357,10 +372,7 @@ describe('US3: Helper Functions', () => {
         if (!Array.isArray(arr)) return 0;
         return arr.reduce((a: number, b: number) => a + b, 0);
       };
-      const ctx = createContext(
-        { data: { numbers: [1, 2, 3] } },
-        { sum }
-      );
+      const ctx = createContext({ data: { numbers: [1, 2, 3] } }, { sum });
       // Test with wildcard to get array
       expect(evaluate(call('sum', [wildcard(['numbers', '*'])]), ctx)).toBe(6);
     });
@@ -369,8 +381,12 @@ describe('US3: Helper Functions', () => {
   describe('T029: Unknown helper error', () => {
     it('throws EvaluationError for unknown helper', () => {
       const ctx = createContext();
-      expect(() => evaluate(call('unknownFn', [literal(5)]), ctx)).toThrow(EvaluationError);
-      expect(() => evaluate(call('unknownFn', [literal(5)]), ctx)).toThrow(/unknownFn/);
+      expect(() => evaluate(call('unknownFn', [literal(5)]), ctx)).toThrow(
+        EvaluationError
+      );
+      expect(() => evaluate(call('unknownFn', [literal(5)]), ctx)).toThrow(
+        /unknownFn/
+      );
     });
   });
 
@@ -395,7 +411,9 @@ describe('US4: Array Wildcards', () => {
       const ctx = createContext({
         data: { items: [{ price: 10 }, { price: 20 }] },
       });
-      expect(evaluate(wildcard(['items', '*', 'price']), ctx)).toEqual([10, 20]);
+      expect(evaluate(wildcard(['items', '*', 'price']), ctx)).toEqual([
+        10, 20,
+      ]);
     });
   });
 
@@ -434,7 +452,10 @@ describe('US5: Conditionals', () => {
     it('returns truthy branch when condition is true', () => {
       const ctx = createContext({ locals: { condition: true } });
       expect(
-        evaluate(ternary(path(['condition']), literal('yes'), literal('no')), ctx)
+        evaluate(
+          ternary(path(['condition']), literal('yes'), literal('no')),
+          ctx
+        )
       ).toBe('yes');
     });
   });
@@ -443,7 +464,10 @@ describe('US5: Conditionals', () => {
     it('returns falsy branch when condition is false', () => {
       const ctx = createContext({ locals: { condition: false } });
       expect(
-        evaluate(ternary(path(['condition']), literal('yes'), literal('no')), ctx)
+        evaluate(
+          ternary(path(['condition']), literal('yes'), literal('no')),
+          ctx
+        )
       ).toBe('no');
     });
   });
@@ -558,7 +582,9 @@ describe('Edge Cases', () => {
 
     it('returns -Infinity for negative/zero', () => {
       const ctx = createContext();
-      expect(evaluate(binary('/', literal(-5), literal(0)), ctx)).toBe(-Infinity);
+      expect(evaluate(binary('/', literal(-5), literal(0)), ctx)).toBe(
+        -Infinity
+      );
     });
 
     it('returns NaN for 0/0', () => {
@@ -595,7 +621,9 @@ describe('Edge Cases', () => {
     it('produces NaN for 5 + undefined', () => {
       const ctx = createContext({ locals: {} });
       // Access an undefined variable
-      expect(evaluate(binary('+', literal(5), path(['missing'])), ctx)).toBeNaN();
+      expect(
+        evaluate(binary('+', literal(5), path(['missing'])), ctx)
+      ).toBeNaN();
     });
   });
 });

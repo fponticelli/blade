@@ -133,11 +133,7 @@ function evaluatePath(node: PathNode, context: EvaluationContext): unknown {
     return undefined;
   }
 
-  let current = resolveFirstSegment(
-    firstSegment.key,
-    isGlobal,
-    context.scope
-  );
+  let current = resolveFirstSegment(firstSegment.key, isGlobal, context.scope);
 
   // Traverse remaining segments
   for (let i = 1; i < segments.length; i++) {
@@ -261,10 +257,10 @@ function evaluateCall(node: CallNode, context: EvaluationContext): unknown {
 
   // Curry the helper with scope
   const warnings: string[] = [];
-  const curriedFn = helper(context.scope, (msg) => warnings.push(msg));
+  const curriedFn = helper(context.scope, msg => warnings.push(msg));
 
   // Evaluate all arguments
-  const args = node.args.map((arg) => evaluate(arg, context));
+  const args = node.args.map(arg => evaluate(arg, context));
 
   // Invoke and return result
   return curriedFn(...args);
@@ -301,15 +297,13 @@ function evaluateWildcard(
 
     if (segment.kind === 'star') {
       // Flatten and expand: each array element becomes multiple results
-      current = current.flatMap((item) =>
-        Array.isArray(item) ? item : []
-      );
+      current = current.flatMap(item => (Array.isArray(item) ? item : []));
     } else if (segment.kind === 'key') {
       // Map property access across all current values
-      current = current.map((item) => accessProperty(item, segment.key));
+      current = current.map(item => accessProperty(item, segment.key));
     } else if (segment.kind === 'index') {
       // Map index access across all current values
-      current = current.map((item) => accessProperty(item, segment.index));
+      current = current.map(item => accessProperty(item, segment.index));
     }
   }
 
@@ -347,7 +341,9 @@ export function evaluate(expr: ExprAst, context: EvaluationContext): unknown {
     default: {
       // Exhaustive check
       const _exhaustive: never = expr;
-      throw new Error(`Unknown expression kind: ${(_exhaustive as ExprAst).kind}`);
+      throw new Error(
+        `Unknown expression kind: ${(_exhaustive as ExprAst).kind}`
+      );
     }
   }
 }

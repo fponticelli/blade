@@ -310,8 +310,11 @@ export class TemplateParser {
         // Extract path mapping if the value is a path expression
         if (prop.value.kind === 'path' && !prop.value.isGlobal) {
           const pathSegments = prop.value.segments
-            .filter((seg: PathItem): seg is { kind: 'key'; key: string } => seg.kind === 'key')
-            .map((seg) => seg.key);
+            .filter(
+              (seg: PathItem): seg is { kind: 'key'; key: string } =>
+                seg.kind === 'key'
+            )
+            .map(seg => seg.key);
           if (pathSegments.length > 0) {
             propPathMapping.set(prop.name, pathSegments);
           }
@@ -980,7 +983,11 @@ export class TemplateParser {
 
       // If only one static segment, return static attribute
       const firstSegment = segments[0];
-      if (segments.length === 1 && firstSegment && firstSegment.kind === 'static') {
+      if (
+        segments.length === 1 &&
+        firstSegment &&
+        firstSegment.kind === 'static'
+      ) {
         return ast.attribute.static({
           name,
           value: firstSegment.value,

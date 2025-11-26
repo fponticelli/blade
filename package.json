@@ -17,6 +17,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
     "typecheck": "turbo typecheck",
+    "check": "turbo check",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {
