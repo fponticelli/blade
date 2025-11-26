@@ -15,7 +15,7 @@ Implement the expression evaluator for Blade templates - the core runtime compon
 **Testing**: Vitest
 **Target Platform**: Node.js and browser (ESM)
 **Project Type**: Monorepo package (`packages/blade`)
-**Performance Goals**: Evaluations should be negligible overhead compared to DOM operations
+**Performance Goals**: N/A (performance optimization deferred to renderer phase)
 **Constraints**: No external runtime dependencies; must handle null/undefined gracefully
 **Scale/Scope**: Evaluates expressions within templates (typically hundreds per render)
 

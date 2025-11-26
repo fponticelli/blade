@@ -118,7 +118,7 @@ As a template author, I want variables to be resolved through a scope hierarchy 
 
 ### Edge Cases
 
-- What happens when dividing by zero? Result is `NaN` (not an error)
+- What happens when dividing by zero? Follows JavaScript semantics: `n/0` returns `Infinity`, `-n/0` returns `-Infinity`, `0/0` returns `NaN`
 - What happens when accessing an array index out of bounds? Result is `undefined`
 - What happens when a helper function throws an error? The error propagates and stops rendering
 - What happens with deeply nested path access on null? Each step returns `undefined` safely (implicit optional chaining)
@@ -145,7 +145,7 @@ As a template author, I want variables to be resolved through a scope hierarchy 
 - **FR-011**: System MUST evaluate array wildcard expressions `array[*].property` returning an array of extracted values
 - **FR-012**: System MUST flatten nested wildcard expressions (e.g., `a[*].b[*].c` returns a single flat array)
 - **FR-013**: System MUST perform type coercion following standard rules for string concatenation, arithmetic, and boolean operations
-- **FR-014**: System MUST return `NaN` for division by zero (not throw an error)
+- **FR-014**: System MUST follow JavaScript semantics for division by zero: `n/0` returns `Infinity`, `0/0` returns `NaN` (not throw an error)
 - **FR-015**: System MUST return `undefined` for array index out of bounds (not throw an error)
 - **FR-016**: System MUST propagate errors thrown by helper functions to the caller
 
