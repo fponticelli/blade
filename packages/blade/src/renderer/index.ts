@@ -414,7 +414,10 @@ function renderText(node: TextNode, ctx: RenderContext): string {
 /**
  * Renders an attribute value, handling static, expression, and mixed attributes.
  */
-function renderAttribute(attr: AttributeNode, ctx: RenderContext): string | null {
+function renderAttribute(
+  attr: AttributeNode,
+  ctx: RenderContext
+): string | null {
   if (attr.kind === 'static') {
     return `${attr.name}="${escapeHtml(attr.value)}"`;
   }
@@ -452,8 +455,20 @@ function renderAttribute(attr: AttributeNode, ctx: RenderContext): string | null
  * Set of void/self-closing HTML elements.
  */
 const VOID_ELEMENTS = new Set([
-  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-  'link', 'meta', 'param', 'source', 'track', 'wbr',
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
 ]);
 
 /**
@@ -630,7 +645,10 @@ function renderMatch(node: MatchNode, ctx: RenderContext): string {
       // Expression case - bind _ to the value and evaluate condition
       const matchScope = createLoopScope(ctx.scope, '_', value);
       const matchCtx = { ...ctx, scope: matchScope };
-      const condition = evaluate(matchCase.condition, createEvalContext(matchCtx));
+      const condition = evaluate(
+        matchCase.condition,
+        createEvalContext(matchCtx)
+      );
       if (condition) {
         return renderChildren(matchCase.body, matchCtx);
       }
@@ -713,7 +731,10 @@ function renderComponent(node: ComponentNode, ctx: RenderContext): string {
         if (typeof propDef.defaultValue === 'string') {
           props[propDef.name] = propDef.defaultValue;
         } else {
-          props[propDef.name] = evaluate(propDef.defaultValue, createEvalContext(ctx));
+          props[propDef.name] = evaluate(
+            propDef.defaultValue,
+            createEvalContext(ctx)
+          );
         }
       }
     }
@@ -810,7 +831,9 @@ function renderNode(node: TemplateNode, ctx: RenderContext): string {
     default: {
       // Exhaustive check
       const _exhaustive: never = node;
-      throw new Error(`Unknown node kind: ${(_exhaustive as TemplateNode).kind}`);
+      throw new Error(
+        `Unknown node kind: ${(_exhaustive as TemplateNode).kind}`
+      );
     }
   }
 }
@@ -818,7 +841,10 @@ function renderNode(node: TemplateNode, ctx: RenderContext): string {
 /**
  * Renders an array of template nodes.
  */
-function renderChildren(nodes: readonly TemplateNode[], ctx: RenderContext): string {
+function renderChildren(
+  nodes: readonly TemplateNode[],
+  ctx: RenderContext
+): string {
   const results: string[] = [];
   for (const node of nodes) {
     results.push(renderNode(node, ctx));

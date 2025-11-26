@@ -1488,7 +1488,7 @@ export class TemplateParser {
       // Parse case
       const caseNode = this.parseMatchCase();
       if (caseNode) {
-        if (caseNode.isDefault) {
+        if ('isDefault' in caseNode) {
           // This is a default case
           defaultCase = caseNode.body;
         } else {
@@ -1521,7 +1521,10 @@ export class TemplateParser {
     });
   }
 
-  private parseMatchCase(): any {
+  private parseMatchCase():
+    | MatchCase
+    | { isDefault: true; body: TemplateNode[] }
+    | null {
     const startLoc = this.getLocation();
 
     // Check for default case: * {

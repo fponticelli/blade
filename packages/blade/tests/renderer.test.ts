@@ -23,7 +23,9 @@ import type {
   MatchNode,
   ComponentDefinition,
   ExprAst,
+  SlotNode,
 } from '../src/ast/types.js';
+import type { RenderOptions, ResourceLimits } from '../src/renderer/index.js';
 
 // =============================================================================
 // Test Helpers
@@ -89,7 +91,21 @@ function path(...segments: string[]): ExprAst {
 function binary(left: ExprAst, op: string, right: ExprAst): ExprAst {
   return {
     kind: 'binary',
-    operator: op as '+' | '-' | '*' | '/' | '==' | '!=' | '<' | '>' | '<=' | '>=' | '&&' | '||' | '??' | '%',
+    operator: op as
+      | '+'
+      | '-'
+      | '*'
+      | '/'
+      | '=='
+      | '!='
+      | '<'
+      | '>'
+      | '<='
+      | '>='
+      | '&&'
+      | '||'
+      | '??'
+      | '%',
     left,
     right,
     location: mockLocation,
@@ -97,7 +113,11 @@ function binary(left: ExprAst, op: string, right: ExprAst): ExprAst {
 }
 
 // Helper to create a text node
-function text(segments: Array<{ kind: 'literal'; text: string } | { kind: 'expr'; expr: ExprAst }>): TextNode {
+function text(
+  segments: Array<
+    { kind: 'literal'; text: string } | { kind: 'expr'; expr: ExprAst }
+  >
+): TextNode {
   return {
     kind: 'text',
     segments: segments.map(s =>
@@ -499,7 +519,9 @@ describe('User Story 1 - Basic Rendering', () => {
 
     it('should render arithmetic expressions', () => {
       const template = createMockTemplate([
-        text([{ kind: 'expr', expr: binary(path('price'), '*', path('quantity')) }]),
+        text([
+          { kind: 'expr', expr: binary(path('price'), '*', path('quantity')) },
+        ]),
       ]);
 
       const renderer = createStringRenderer(template);
@@ -516,7 +538,9 @@ describe('User Story 1 - Basic Rendering', () => {
       const renderer = createStringRenderer(template);
       const result = renderer({ message: "<script>alert('xss')</script>" });
 
-      expect(result.html).toBe('&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;');
+      expect(result.html).toBe(
+        '&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;'
+      );
     });
 
     it('should render undefined values as empty string', () => {
@@ -561,7 +585,14 @@ describe('User Story 1 - Basic Rendering', () => {
       const template = createMockTemplate([
         element(
           'a',
-          [{ kind: 'static', name: 'href', value: '/home', location: mockLocation }],
+          [
+            {
+              kind: 'static',
+              name: 'href',
+              value: '/home',
+              location: mockLocation,
+            },
+          ],
           [text([{ kind: 'literal', text: 'Home' }])]
         ),
       ]);
@@ -576,7 +607,14 @@ describe('User Story 1 - Basic Rendering', () => {
       const template = createMockTemplate([
         element(
           'div',
-          [{ kind: 'expr', name: 'class', expr: path('cls'), location: mockLocation }],
+          [
+            {
+              kind: 'expr',
+              name: 'class',
+              expr: path('cls'),
+              location: mockLocation,
+            },
+          ],
           [text([{ kind: 'literal', text: 'text' }])]
         ),
       ]);
@@ -591,15 +629,17 @@ describe('User Story 1 - Basic Rendering', () => {
       const template = createMockTemplate([
         element(
           'div',
-          [{
-            kind: 'mixed',
-            name: 'class',
-            segments: [
-              { kind: 'static', value: 'status-', location: mockLocation },
-              { kind: 'expr', expr: path('status'), location: mockLocation },
-            ],
-            location: mockLocation,
-          }],
+          [
+            {
+              kind: 'mixed',
+              name: 'class',
+              segments: [
+                { kind: 'static', value: 'status-', location: mockLocation },
+                { kind: 'expr', expr: path('status'), location: mockLocation },
+              ],
+              location: mockLocation,
+            },
+          ],
           []
         ),
       ]);
@@ -614,7 +654,14 @@ describe('User Story 1 - Basic Rendering', () => {
       const template = createMockTemplate([
         element(
           'button',
-          [{ kind: 'expr', name: 'disabled', expr: path('isDisabled'), location: mockLocation }],
+          [
+            {
+              kind: 'expr',
+              name: 'disabled',
+              expr: path('isDisabled'),
+              location: mockLocation,
+            },
+          ],
           [text([{ kind: 'literal', text: 'Click' }])]
         ),
       ]);
@@ -629,7 +676,14 @@ describe('User Story 1 - Basic Rendering', () => {
       const template = createMockTemplate([
         element(
           'button',
-          [{ kind: 'expr', name: 'disabled', expr: path('isDisabled'), location: mockLocation }],
+          [
+            {
+              kind: 'expr',
+              name: 'disabled',
+              expr: path('isDisabled'),
+              location: mockLocation,
+            },
+          ],
           [text([{ kind: 'literal', text: 'Click' }])]
         ),
       ]);
@@ -644,7 +698,14 @@ describe('User Story 1 - Basic Rendering', () => {
       const template = createMockTemplate([
         element(
           'div',
-          [{ kind: 'expr', name: 'title', expr: path('tooltip'), location: mockLocation }],
+          [
+            {
+              kind: 'expr',
+              name: 'title',
+              expr: path('tooltip'),
+              location: mockLocation,
+            },
+          ],
           []
         ),
       ]);
@@ -669,8 +730,18 @@ describe('User Story 1 - Basic Rendering', () => {
         element(
           'img',
           [
-            { kind: 'static', name: 'src', value: '/image.png', location: mockLocation },
-            { kind: 'static', name: 'alt', value: 'An image', location: mockLocation },
+            {
+              kind: 'static',
+              name: 'src',
+              value: '/image.png',
+              location: mockLocation,
+            },
+            {
+              kind: 'static',
+              name: 'alt',
+              value: 'An image',
+              location: mockLocation,
+            },
           ],
           []
         ),
@@ -686,7 +757,14 @@ describe('User Story 1 - Basic Rendering', () => {
       const template = createMockTemplate([
         element(
           'div',
-          [{ kind: 'static', name: 'title', value: 'Say "hello"', location: mockLocation }],
+          [
+            {
+              kind: 'static',
+              name: 'title',
+              value: 'Say "hello"',
+              location: mockLocation,
+            },
+          ],
           []
         ),
       ]);
@@ -699,10 +777,14 @@ describe('User Story 1 - Basic Rendering', () => {
 
     it('should render nested elements', () => {
       const template = createMockTemplate([
-        element('div', [], [
-          element('h1', [], [text([{ kind: 'literal', text: 'Title' }])]),
-          element('p', [], [text([{ kind: 'literal', text: 'Content' }])]),
-        ]),
+        element(
+          'div',
+          [],
+          [
+            element('h1', [], [text([{ kind: 'literal', text: 'Title' }])]),
+            element('p', [], [text([{ kind: 'literal', text: 'Content' }])]),
+          ]
+        ),
       ]);
 
       const renderer = createStringRenderer(template);
@@ -836,7 +918,11 @@ describe('User Story 3 - Loop Rendering', () => {
       itemsExpr: path('items'),
       iterationType: 'of',
       body: [
-        element('li', [], [text([{ kind: 'expr', expr: path('item', 'name') }])]),
+        element(
+          'li',
+          [],
+          [text([{ kind: 'expr', expr: path('item', 'name') }])]
+        ),
       ],
       location: mockLocation,
     };
@@ -856,13 +942,17 @@ describe('User Story 3 - Loop Rendering', () => {
       itemsExpr: path('items'),
       iterationType: 'of',
       body: [
-        element('li', [], [
-          text([
-            { kind: 'expr', expr: path('index') },
-            { kind: 'literal', text: ': ' },
-            { kind: 'expr', expr: path('item') },
-          ]),
-        ]),
+        element(
+          'li',
+          [],
+          [
+            text([
+              { kind: 'expr', expr: path('index') },
+              { kind: 'literal', text: ': ' },
+              { kind: 'expr', expr: path('item') },
+            ]),
+          ]
+        ),
       ],
       location: mockLocation,
     };
@@ -939,7 +1029,9 @@ describe('User Story 3 - Loop Rendering', () => {
     const renderer = createStringRenderer(template);
 
     expect(() =>
-      renderer({ items: Array(101).fill(0) }, { limits: { maxIterationsPerLoop: 100 } } as any)
+      renderer({ items: Array(101).fill(0) }, {
+        limits: { maxIterationsPerLoop: 100 },
+      } as RenderOptions & { limits?: Partial<ResourceLimits> })
     ).toThrow(ResourceLimitError);
   });
 });
@@ -1063,9 +1155,18 @@ describe('User Story 5 - Component Rendering', () => {
       name: 'Card',
       props: [{ name: 'title', required: true, location: mockLocation }],
       body: [
-        element('div', [{ kind: 'static', name: 'class', value: 'card', location: mockLocation }], [
-          element('h2', [], [text([{ kind: 'expr', expr: path('title') }])]),
-        ]),
+        element(
+          'div',
+          [
+            {
+              kind: 'static',
+              name: 'class',
+              value: 'card',
+              location: mockLocation,
+            },
+          ],
+          [element('h2', [], [text([{ kind: 'expr', expr: path('title') }])])]
+        ),
       ],
       location: mockLocation,
     };
@@ -1077,7 +1178,9 @@ describe('User Story 5 - Component Rendering', () => {
         {
           kind: 'component',
           name: 'Card',
-          props: [{ name: 'title', value: path('heading'), location: mockLocation }],
+          props: [
+            { name: 'title', value: path('heading'), location: mockLocation },
+          ],
           children: [],
           propPathMapping: new Map(),
           location: mockLocation,
@@ -1097,9 +1200,11 @@ describe('User Story 5 - Component Rendering', () => {
       name: 'Card',
       props: [],
       body: [
-        element('div', [], [
-          { kind: 'slot', location: mockLocation } as any,
-        ]),
+        element(
+          'div',
+          [],
+          [{ kind: 'slot', location: mockLocation } as SlotNode]
+        ),
       ],
       location: mockLocation,
     };
@@ -1131,13 +1236,17 @@ describe('User Story 5 - Component Rendering', () => {
       name: 'Card',
       props: [],
       body: [
-        element('div', [], [
-          {
-            kind: 'slot',
-            fallback: [text([{ kind: 'literal', text: 'Default content' }])],
-            location: mockLocation,
-          } as any,
-        ]),
+        element(
+          'div',
+          [],
+          [
+            {
+              kind: 'slot',
+              fallback: [text([{ kind: 'literal', text: 'Default content' }])],
+              location: mockLocation,
+            } as SlotNode,
+          ]
+        ),
       ],
       location: mockLocation,
     };
@@ -1220,7 +1329,14 @@ describe('User Story 5 - Component Rendering', () => {
     // Create a component that calls itself
     const recursiveDef: ComponentDefinition = {
       name: 'Recursive',
-      props: [{ name: 'depth', required: false, defaultValue: literal(0), location: mockLocation }],
+      props: [
+        {
+          name: 'depth',
+          required: false,
+          defaultValue: literal(0),
+          location: mockLocation,
+        },
+      ],
       body: [
         {
           kind: 'component',
@@ -1252,9 +1368,11 @@ describe('User Story 5 - Component Rendering', () => {
 
     const renderer = createStringRenderer(template);
 
-    expect(() => renderer({}, { limits: { maxComponentDepth: 3 } } as any)).toThrow(
-      ResourceLimitError
-    );
+    expect(() =>
+      renderer({}, { limits: { maxComponentDepth: 3 } } as RenderOptions & {
+        limits?: Partial<ResourceLimits>;
+      })
+    ).toThrow(ResourceLimitError);
   });
 });
 
@@ -1317,7 +1435,12 @@ describe('User Story 6 - Variable Declarations', () => {
 describe('Configuration Options', () => {
   it('should include HTML comments when enabled', () => {
     const template = createMockTemplate([
-      { kind: 'comment', style: 'html', text: 'This is a comment', location: mockLocation },
+      {
+        kind: 'comment',
+        style: 'html',
+        text: 'This is a comment',
+        location: mockLocation,
+      },
     ]);
 
     const renderer = createStringRenderer(template);
@@ -1328,7 +1451,12 @@ describe('Configuration Options', () => {
 
   it('should exclude HTML comments by default', () => {
     const template = createMockTemplate([
-      { kind: 'comment', style: 'html', text: 'This is a comment', location: mockLocation },
+      {
+        kind: 'comment',
+        style: 'html',
+        text: 'This is a comment',
+        location: mockLocation,
+      },
     ]);
 
     const renderer = createStringRenderer(template);
@@ -1339,8 +1467,18 @@ describe('Configuration Options', () => {
 
   it('should skip non-HTML comments even when includeComments is true', () => {
     const template = createMockTemplate([
-      { kind: 'comment', style: 'line', text: 'Line comment', location: mockLocation },
-      { kind: 'comment', style: 'block', text: 'Block comment', location: mockLocation },
+      {
+        kind: 'comment',
+        style: 'line',
+        text: 'Line comment',
+        location: mockLocation,
+      },
+      {
+        kind: 'comment',
+        style: 'block',
+        text: 'Block comment',
+        location: mockLocation,
+      },
     ]);
 
     const renderer = createStringRenderer(template);
@@ -1355,7 +1493,10 @@ describe('Configuration Options', () => {
     ]);
 
     const renderer = createStringRenderer(template);
-    const result = renderer({ html: '<b>bold</b>' }, { config: { htmlEscape: false } });
+    const result = renderer(
+      { html: '<b>bold</b>' },
+      { config: { htmlEscape: false } }
+    );
 
     expect(result.html).toBe('<b>bold</b>');
   });

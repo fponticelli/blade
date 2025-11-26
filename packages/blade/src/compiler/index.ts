@@ -4,6 +4,7 @@ import type {
   CompiledTemplate,
   TemplateNode,
   ComponentDefinition,
+  PathItem,
 } from '../ast/types.js';
 import * as ast from '../ast/builders.js';
 import { parseTemplate } from '../parser/index.js';
@@ -55,7 +56,7 @@ function collectMetadata(
           }
         }
         const pathStr = expr.segments
-          .map((seg: any) => {
+          .map((seg: PathItem) => {
             if (seg.kind === 'key') return seg.key;
             if (seg.kind === 'index') return `[${seg.index}]`;
             if (seg.kind === 'star') return '[*]';
