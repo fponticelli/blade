@@ -1,0 +1,19 @@
+<template:Card title! subtitle="Default">
+  <div class="card">
+    <h2>$title</h2>
+    @if(subtitle) {
+      <p class="subtitle">${subtitle}</p>
+    }
+    <slot />
+  </div>
+</template:Card>
+
+@@ {
+  let items = ["Apple", "Banana", "Cherry"];
+}
+
+<Card title="Fruits">
+  @for(item, index of items) {
+    <li>${index + 1}. $item</li>
+  }
+</Card>

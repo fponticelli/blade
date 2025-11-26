@@ -1,0 +1,146 @@
+{
+  "name": "blade-templates",
+  "displayName": "Blade Templates",
+  "description": "Language support for Blade template files (.blade) - syntax highlighting, diagnostics, autocompletion, and code navigation",
+  "version": "0.1.0",
+  "publisher": "fponticelli",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fponticelli/blade.git",
+    "directory": "packages/blade-vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Snippets"
+  ],
+  "keywords": [
+    "blade",
+    "template",
+    "html",
+    "syntax highlighting"
+  ],
+  "activationEvents": [
+    "onLanguage:blade"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "blade",
+        "aliases": [
+          "Blade",
+          "blade"
+        ],
+        "extensions": [
+          ".blade"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "blade",
+        "scopeName": "text.blade",
+        "path": "./syntaxes/blade.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.expression.blade": "javascript"
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Blade",
+      "properties": {
+        "blade.lsp.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable diagnostics"
+        },
+        "blade.lsp.diagnostics.unusedVariables": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "hint",
+            "off"
+          ],
+          "default": "warning",
+          "description": "Severity for unused variable warnings"
+        },
+        "blade.lsp.diagnostics.deprecatedHelpers": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "hint",
+            "off"
+          ],
+          "default": "warning",
+          "description": "Severity for deprecated helper warnings"
+        },
+        "blade.lsp.diagnostics.deepNesting": {
+          "type": "string",
+          "enum": [
+            "warning",
+            "hint",
+            "off"
+          ],
+          "default": "warning",
+          "description": "Severity for deep nesting warnings"
+        },
+        "blade.lsp.diagnostics.deepNestingThreshold": {
+          "type": "number",
+          "default": 4,
+          "description": "Maximum nesting depth before warning"
+        },
+        "blade.lsp.completion.dataSchemaPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to JSON schema file for data completions"
+        },
+        "blade.lsp.completion.helpersDefinitionPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to helpers definition file for completion"
+        },
+        "blade.lsp.completion.snippets": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable snippet completions for directives"
+        },
+        "blade.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace communication between VS Code and the language server"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --no-dependencies",
+    "lint": "eslint src --ext ts",
+    "vsix:install": "code --install-extension blade-templates-0.1.0.vsix",
+    "vscode": "npm run build && npm run package && npm run vsix:install"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.1",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}
