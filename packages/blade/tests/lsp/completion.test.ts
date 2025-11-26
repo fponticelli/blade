@@ -219,8 +219,6 @@ describe('Completion Provider', () => {
 
   describe('Filtering', () => {
     it('should filter completions by partial input', () => {
-      const content = '<div>${na}</div>';
-      const offset = 9; // After 'na'
       const doc = createDocument(
         'test://test.blade',
         '@@ { let name = "test"; let age = 25; }<div>${na}</div>'

@@ -235,15 +235,6 @@ ${"Total: " + total}
 </template:PriceBreakdown>
 ```
 
-**Loading:**
-```html
-@load('PriceBreakdown')
-@load('Header', 'Footer')
-
-<!-- Later in template -->
-<PriceBreakdown subtotal=$order.subtotal tax=$order.tax />
-```
-
 **Usage:**
 ```html
 <PriceBreakdown 
@@ -481,7 +472,6 @@ interface RenderContext {
   data: any;              // Data passed to render()
   globals: Record<string, any>;  // Global variables
   helpers: HelperRegistry;       // Helper functions
-  loader?: TemplateLoader;       // Component loader
   config: EngineConfig;          // Configuration
 }
 ```
@@ -873,11 +863,10 @@ async function compile(
 - Parse expressions into ExprAst
 - Build initial IR tree
 
-**Phase 3: Component Loading**
-- Process `@load` directives
-- Recursively compile loaded components
+**Phase 3: Component Resolution**
+- Resolve inline component definitions
+- Build component registry from `<template:Name>` blocks
 - Detect circular dependencies
-- Build component registry
 
 **Phase 4: Static Analysis**
 - Extract all paths, helpers, globals referenced
@@ -900,56 +889,22 @@ async function compile(
 
 ```typescript
 interface CompileOptions {
-  // Component loading
-  loader?: TemplateLoader;
-  maxLoadDepth?: number;          // Default: 10
-  
   // Validation
   validate?: boolean;              // Default: false
   strict?: boolean;                // Warnings as errors
   dataSchema?: JSONSchema;         // For path validation
-  
+
   // Output options
   includeSourceMap?: boolean;      // Default: false
   includeMetadata?: boolean;       // Default: true
-  
+
   // Resource limits
   maxExpressionDepth?: number;     // Default: 10
   maxFunctionDepth?: number;       // Default: 10
-  
+
   // Configuration
   globalPrefix?: string;           // Default: "$"
 }
-
-interface TemplateLoader {
-  load(name: string): Promise<ComponentDefinition> | ComponentDefinition;
-}
-```
-
-### 7.3 Loader Behavior
-
-**Loading rules:**
-- `@load` must appear at template root only
-- Components loaded at compile time (not runtime)
-- Each component compiled once per compilation (cached during compile)
-- Circular dependencies cause compilation failure
-- Missing components cause compilation failure
-- Maximum load depth prevents infinite chains
-
-**Loader implementation example:**
-```typescript
-const loader: TemplateLoader = {
-  load: async (name: string) => {
-    const source = await database.getTemplate(name);
-    const compiled = await compile(source, { loader: this });
-    return {
-      name,
-      props: compiled.root.components.get(name)!.props,
-      body: compiled.root.components.get(name)!.body,
-      location: compiled.root.location
-    };
-  }
-};
 ```
 
 ---
@@ -968,7 +923,6 @@ function render(
 interface RenderOptions {
   globals?: Record<string, any>;
   helpers?: HelperRegistry;
-  loader?: TemplateLoader;  // For dynamic component resolution
   config?: EngineConfig;
 }
 
@@ -1220,10 +1174,7 @@ interface ResourceLimits {
   // Recursion limits
   maxRecursionDepth: number;     // Default: 50
   maxComponentDepth: number;     // Default: 10
-  
-  // Compilation limits
-  maxLoadDepth: number;          // Default: 10
-  
+
   // No limits on:
   // - Template size
   // - Execution time
@@ -1832,8 +1783,7 @@ call = identifier "(" [ expr { "," expr } ] ")" ;
 directive = if_directive
           | for_directive
           | match_directive
-          | let_directive
-          | load_directive ;
+          | let_directive ;
 
 if_directive = "@if" "(" expr ")" block
                { "else" "if" "(" expr ")" block }
@@ -1859,8 +1809,6 @@ let_directive = "@@" "{"
 let_declaration = "let" identifier "=" ( expr | function_expr ) ";" ;
 
 function_expr = "(" [ identifier { "," identifier } ] ")" "=>" expr ;
-
-load_directive = "@load" "(" string { "," string } ")" ;
 
 (* Components *)
 
@@ -1916,8 +1864,6 @@ null = "null" ;
 ### Example 1: Simple Invoice
 
 ```html
-@load('PriceBreakdown')
-
 @@ {
   let subtotal = sum(order.lines[*].amount);
   let tax = subtotal * 0.08;
@@ -2002,8 +1948,6 @@ null = "null" ;
 ### Example 3: Complex Matching and Slots
 
 ```html
-@load('StatusBadge', 'Card')
-
 <div class="order-list">
   @for(order of orders) {
     <Card>

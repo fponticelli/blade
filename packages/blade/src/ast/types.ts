@@ -849,8 +849,7 @@ export interface CommentNode extends BaseNode {
 /**
  * Component definition (template).
  *
- * Components are defined with <template:Name> syntax and can be loaded
- * at compile time via @load directive or through a TemplateLoader.
+ * Components are defined inline with <template:Name> syntax.
  *
  * @property name - Component name (must be capitalized)
  * @property props - Component prop definitions with defaults and required flags
