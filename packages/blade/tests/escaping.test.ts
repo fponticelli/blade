@@ -82,7 +82,9 @@ describe('Escape Sequences', () => {
 
   describe('Escapes in attribute values', () => {
     it('processes escapes in attribute values', async () => {
-      const ast = await compile('<a href="mailto:user\\@example.com">Email</a>');
+      const ast = await compile(
+        '<a href="mailto:user\\@example.com">Email</a>'
+      );
       const result = render(ast, {});
       expect(result.html).toContain('user@example.com');
     });
@@ -102,7 +104,9 @@ describe('Escape Sequences', () => {
     });
 
     it('mixes escaped and real variables', async () => {
-      const ast = await compile('Cost: \\$50 for {$item}', { projectRoot: undefined });
+      const ast = await compile('Cost: \\$50 for {$item}', {
+        projectRoot: undefined,
+      });
       const result = render(ast, { item: 'widget' });
       expect(result.html).toContain('$50');
       expect(result.html).toContain('widget');

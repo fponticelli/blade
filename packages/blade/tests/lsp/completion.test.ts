@@ -339,7 +339,9 @@ describe('Completion Provider', () => {
       const completions = getCompletions(context, doc.scope);
 
       // Should have helper functions
-      const formatCurrency = completions.find(c => c.label === 'formatCurrency');
+      const formatCurrency = completions.find(
+        c => c.label === 'formatCurrency'
+      );
       const formatDate = completions.find(c => c.label === 'formatDate');
 
       expect(formatCurrency).toBeDefined();

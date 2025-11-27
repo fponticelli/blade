@@ -53,10 +53,18 @@ function getCompletionsAt(content: string, line: number, column: number) {
 /**
  * Helper to insert a character and get completions at that position
  */
-function insertAndGetCompletions(content: string, line: number, column: number, insertChar: string) {
+function insertAndGetCompletions(
+  content: string,
+  line: number,
+  column: number,
+  insertChar: string
+) {
   const lines = content.split('\n');
   const lineContent = lines[line - 1] ?? '';
-  lines[line - 1] = lineContent.slice(0, column - 1) + insertChar + lineContent.slice(column - 1);
+  lines[line - 1] =
+    lineContent.slice(0, column - 1) +
+    insertChar +
+    lineContent.slice(column - 1);
   const newContent = lines.join('\n');
 
   // Get completions at position after inserted character
@@ -100,7 +108,12 @@ describe('LSP Integration Tests - index.blade', () => {
     it('should detect expression context when typing $ on line 5', () => {
       // Line 5: "    <h2>$title</h2>"
       // Insert $ after <h2>
-      const { context } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 5, 9, '$');
+      const { context } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        5,
+        9,
+        '$'
+      );
 
       expect(context.contextKind).toBe('expression');
     });
@@ -112,7 +125,11 @@ describe('LSP Integration Tests - index.blade', () => {
       const line7 = lines[6]; // 0-indexed
       const dollarPos = line7.indexOf('${');
 
-      const { context } = getCompletionsAt(INDEX_BLADE_CONTENT, 7, dollarPos + 3);
+      const { context } = getCompletionsAt(
+        INDEX_BLADE_CONTENT,
+        7,
+        dollarPos + 3
+      );
 
       expect(context.contextKind).toBe('expression');
     });
@@ -123,7 +140,11 @@ describe('LSP Integration Tests - index.blade', () => {
       const line15 = lines[14]; // 0-indexed
       const dollarPos = line15.indexOf('${');
 
-      const { context } = getCompletionsAt(INDEX_BLADE_CONTENT, 15, dollarPos + 3);
+      const { context } = getCompletionsAt(
+        INDEX_BLADE_CONTENT,
+        15,
+        dollarPos + 3
+      );
 
       expect(context.contextKind).toBe('expression');
     });
@@ -132,7 +153,12 @@ describe('LSP Integration Tests - index.blade', () => {
   describe('@props Completions Outside Loops', () => {
     it('should show title, subtitle, items when typing $ on line 5 (inside template)', () => {
       // Line 5 is inside <template:Card>, outside any loop
-      const { completions } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 5, 9, '$');
+      const { completions } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        5,
+        9,
+        '$'
+      );
 
       const labels = completions.map(c => c.label);
 
@@ -142,7 +168,12 @@ describe('LSP Integration Tests - index.blade', () => {
     });
 
     it('should show props as "Component prop" detail', () => {
-      const { completions } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 5, 9, '$');
+      const { completions } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        5,
+        9,
+        '$'
+      );
 
       const titleCompletion = completions.find(c => c.label === 'title');
       expect(titleCompletion?.detail).toBe('Component prop');
@@ -150,7 +181,12 @@ describe('LSP Integration Tests - index.blade', () => {
 
     it('should NOT show @for loop variables (item, index) outside the loop', () => {
       // Line 5 is before the @for loop on line 14
-      const { completions } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 5, 9, '$');
+      const { completions } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        5,
+        9,
+        '$'
+      );
 
       const labels = completions.map(c => c.label);
 
@@ -168,7 +204,12 @@ describe('LSP Integration Tests - index.blade', () => {
       // Find position after $item to insert a new $
       const itemPos = line15.indexOf('$item');
 
-      const { completions } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 15, itemPos + 1, '$');
+      const { completions } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        15,
+        itemPos + 1,
+        '$'
+      );
 
       const labels = completions.map(c => c.label);
 
@@ -181,7 +222,12 @@ describe('LSP Integration Tests - index.blade', () => {
       const line15 = lines[14];
       const itemPos = line15.indexOf('$item');
 
-      const { completions } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 15, itemPos + 1, '$');
+      const { completions } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        15,
+        itemPos + 1,
+        '$'
+      );
 
       const itemCompletion = completions.find(c => c.label === 'item');
       const indexCompletion = completions.find(c => c.label === 'index');
@@ -195,7 +241,12 @@ describe('LSP Integration Tests - index.blade', () => {
       const line15 = lines[14];
       const itemPos = line15.indexOf('$item');
 
-      const { completions } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 15, itemPos + 1, '$');
+      const { completions } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        15,
+        itemPos + 1,
+        '$'
+      );
 
       const labels = completions.map(c => c.label);
 
@@ -208,7 +259,12 @@ describe('LSP Integration Tests - index.blade', () => {
 
   describe('Helper Function Completions', () => {
     it('should show helper functions when typing $', () => {
-      const { completions } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 5, 9, '$');
+      const { completions } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        5,
+        9,
+        '$'
+      );
 
       const labels = completions.map(c => c.label);
 
@@ -220,9 +276,16 @@ describe('LSP Integration Tests - index.blade', () => {
     });
 
     it('should show helper functions with proper signatures', () => {
-      const { completions } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 5, 9, '$');
+      const { completions } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        5,
+        9,
+        '$'
+      );
 
-      const formatCurrency = completions.find(c => c.label === 'formatCurrency');
+      const formatCurrency = completions.find(
+        c => c.label === 'formatCurrency'
+      );
       expect(formatCurrency?.detail).toContain('number');
     });
   });
@@ -230,13 +293,23 @@ describe('LSP Integration Tests - index.blade', () => {
   describe('Directive Context Detection', () => {
     it('should detect directive context when typing @', () => {
       // Insert @ at beginning of a new line
-      const { context } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 12, 1, '@');
+      const { context } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        12,
+        1,
+        '@'
+      );
 
       expect(context.contextKind).toBe('directive');
     });
 
     it('should provide directive completions for @', () => {
-      const { completions } = insertAndGetCompletions(INDEX_BLADE_CONTENT, 12, 1, '@');
+      const { completions } = insertAndGetCompletions(
+        INDEX_BLADE_CONTENT,
+        12,
+        1,
+        '@'
+      );
 
       const labels = completions.map(c => c.label);
 
@@ -255,7 +328,9 @@ describe('LSP Integration Tests - index.blade', () => {
       const propsLineLength = '@props(title, subtitle?, items)\n'.length;
 
       // Check that there are scope entries at adjusted positions
-      const offsets = Array.from(doc.scope.variables.keys()).sort((a, b) => a - b);
+      const offsets = Array.from(doc.scope.variables.keys()).sort(
+        (a, b) => a - b
+      );
 
       // First entry should be at 0 (for props available at start)
       expect(offsets[0]).toBe(0);
@@ -294,7 +369,11 @@ describe('LSP Integration Tests - index.blade', () => {
       const dollarPos = line5.indexOf('$title');
 
       // Position right after the $
-      const { context } = getCompletionsAt(INDEX_BLADE_CONTENT, 5, dollarPos + 2);
+      const { context } = getCompletionsAt(
+        INDEX_BLADE_CONTENT,
+        5,
+        dollarPos + 2
+      );
 
       expect(context.contextKind).toBe('expression');
     });
@@ -305,7 +384,11 @@ describe('LSP Integration Tests - index.blade', () => {
       const dollarBracePos = line7.indexOf('${');
 
       // Position inside ${ }
-      const { context } = getCompletionsAt(INDEX_BLADE_CONTENT, 7, dollarBracePos + 3);
+      const { context } = getCompletionsAt(
+        INDEX_BLADE_CONTENT,
+        7,
+        dollarBracePos + 3
+      );
 
       expect(context.contextKind).toBe('expression');
     });
