@@ -868,11 +868,15 @@ export class TemplateParser {
     this.consume('=');
     this.skipWhitespace();
 
-    // Check for expression attribute: name=$expr or name=${expr}
-    if (this.peek() === '$') {
-      if (this.peekNext() === '{') {
-        // Complex expression: name=${expr}
-        this.advance(); // $
+    // Check for expression attribute: name={expr}, name=$expr or name=${expr}
+    if (this.peek() === '{' || this.peek() === '$') {
+      // Handle both {expr} and ${expr} syntax
+      if (
+        this.peek() === '{' ||
+        (this.peek() === '$' && this.peekNext() === '{')
+      ) {
+        // Complex expression: name={expr} or name=${expr}
+        if (this.peek() === '$') this.advance(); // $ (optional)
         this.advance(); // {
 
         const exprStart = this.pos;
