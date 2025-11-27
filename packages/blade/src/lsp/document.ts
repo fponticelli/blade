@@ -68,7 +68,11 @@ export function parseDocument(doc: BladeDocument): BladeDocument {
     ...result.errors.map(e => ({
       ...e,
       // Offset line numbers to account for stripped @props
-      line: e.line + (propsResult.remainingOffset > 0 ? countLines(doc.content.slice(0, propsResult.remainingOffset)) : 0),
+      line:
+        e.line +
+        (propsResult.remainingOffset > 0
+          ? countLines(doc.content.slice(0, propsResult.remainingOffset))
+          : 0),
     })),
   ];
 
@@ -81,7 +85,10 @@ export function parseDocument(doc: BladeDocument): BladeDocument {
   // The AST offsets are relative to remainingSource, but we need them relative to original content
   const propsOffset = propsResult.remainingOffset;
   if (propsOffset > 0) {
-    const adjustedVariables = new Map<number, typeof scope.variables extends Map<number, infer V> ? V : never>();
+    const adjustedVariables = new Map<
+      number,
+      typeof scope.variables extends Map<number, infer V> ? V : never
+    >();
     for (const [offset, vars] of scope.variables) {
       adjustedVariables.set(offset + propsOffset, vars);
     }
@@ -227,7 +234,7 @@ export function getPathAtOffset(
   offset: number
 ): { path: string; start: number; end: number; basePath: string } | null {
   // Path characters: alphanumeric, underscore, dollar sign, dot, brackets, numbers, asterisk
-  const isPathChar = (char: string) => /[\w$.\[\]*]/.test(char);
+  const isPathChar = (char: string) => /[\w$.[\]*]/.test(char);
 
   let start = offset;
   let end = offset;
@@ -249,7 +256,7 @@ export function getPathAtOffset(
   const path = content.slice(start, end);
 
   // Don't return if it's just dots or brackets
-  if (/^[.\[\]*]+$/.test(path)) {
+  if (/^[.[\]*]+$/.test(path)) {
     return null;
   }
 

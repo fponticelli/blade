@@ -1,0 +1,90 @@
+{
+  "blog": {
+    "name": "Code & Coffee",
+    "description": "Thoughts on software development, technology, and the occasional espresso",
+    "url": "https://codeandcoffee.dev"
+  },
+  "post": {
+    "title": "Understanding TypeScript Generics: A Practical Guide",
+    "slug": "understanding-typescript-generics",
+    "excerpt": "Generics are one of TypeScript's most powerful features. Learn how to use them effectively in your projects.",
+    "content": "<p>TypeScript generics allow you to write flexible, reusable code while maintaining type safety. In this guide, we'll explore practical examples...</p><p>Let's start with a simple example of a generic function that works with any type...</p>",
+    "publishedAt": "2024-11-15T10:30:00Z",
+    "updatedAt": "2024-11-20T14:15:00Z",
+    "readingTime": 8,
+    "featured": true,
+    "author": {
+      "name": "Sarah Chen",
+      "avatar": "/avatars/sarah.jpg",
+      "bio": "Senior Software Engineer at TechCorp. TypeScript enthusiast and open source contributor.",
+      "twitter": "@sarahcodes"
+    },
+    "tags": ["TypeScript", "Programming", "Tutorial", "Web Development"],
+    "comments": [
+      {
+        "id": "c1",
+        "author": "Alex Rivera",
+        "email": "alex@example.com",
+        "content": "This is exactly what I needed! The examples are so clear. I've been struggling with generics for months.",
+        "createdAt": "2024-11-15T14:22:00Z",
+        "likes": 24,
+        "replies": [
+          {
+            "author": "Sarah Chen",
+            "content": "Glad it helped, Alex! Feel free to reach out if you have questions.",
+            "createdAt": "2024-11-15T15:10:00Z"
+          }
+        ]
+      },
+      {
+        "id": "c2",
+        "author": "Jordan Kim",
+        "email": "jkim@example.com",
+        "content": "Could you do a follow-up on conditional types? Those are even more confusing to me.",
+        "createdAt": "2024-11-16T09:45:00Z",
+        "likes": 18,
+        "replies": []
+      },
+      {
+        "id": "c3",
+        "author": "Morgan Smith",
+        "email": "msmith@example.com",
+        "content": "The comparison with Java generics was really helpful for understanding the differences.",
+        "createdAt": "2024-11-17T11:30:00Z",
+        "likes": 7,
+        "replies": [
+          {
+            "author": "Pat Wilson",
+            "content": "Agreed! Coming from a Java background, this bridged the gap nicely.",
+            "createdAt": "2024-11-17T13:20:00Z"
+          },
+          {
+            "author": "Sarah Chen",
+            "content": "Thanks! I'll keep that comparative approach in future articles.",
+            "createdAt": "2024-11-17T14:05:00Z"
+          }
+        ]
+      }
+    ]
+  },
+  "relatedPosts": [
+    {
+      "title": "Type-Safe API Clients with TypeScript",
+      "slug": "type-safe-api-clients",
+      "excerpt": "Build API clients that catch errors at compile time.",
+      "publishedAt": "2024-11-01T09:00:00Z"
+    },
+    {
+      "title": "Advanced TypeScript Patterns",
+      "slug": "advanced-typescript-patterns",
+      "excerpt": "Explore utility types, mapped types, and more.",
+      "publishedAt": "2024-10-20T10:00:00Z"
+    },
+    {
+      "title": "Migrating from JavaScript to TypeScript",
+      "slug": "js-to-ts-migration",
+      "excerpt": "A step-by-step guide for large codebases.",
+      "publishedAt": "2024-10-05T08:30:00Z"
+    }
+  ]
+}

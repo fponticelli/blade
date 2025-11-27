@@ -1,0 +1,261 @@
+@props(user, isOwnProfile?, isFollowing?)
+
+@@{
+  let joinDate = parseDate(user.joinedAt);
+  let lastActiveDate = parseDate(user.lastActive);
+  let memberDays = abs(diffDays(now(), joinDate));
+  let memberYears = trunc(memberDays / 365);
+  let isOnline = diffDays(now(), lastActiveDate) == 0;
+  let totalEndorsements = sum(default(user.skills, [])[*].endorsed);
+  let topSkills = slice(default(user.skills, []), 0, 3);
+  let hasProjects = len(default(user.projects, [])) > 0;
+  let totalStars = sum(default(user.projects, [])[*].stars);
+}
+
+<!DOCTYPE html>
+<html lang="en" data-theme="${default(user.settings.theme, 'light')}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${user.displayName ?? user.username} - Profile</title>
+</head>
+<body>
+  <main class="profile-page">
+    <!-- Profile Header -->
+    <header class="profile-header">
+      <div class="avatar-section">
+        @if(user.avatar) {
+          <img src=$user.avatar alt=$user.username class="avatar-large" />
+        } else {
+          <div class="avatar-placeholder">
+            ${uppercase(charAt(user.username, 0))}
+          </div>
+        }
+        @if(isOnline) {
+          <span class="online-indicator" title="Online now"></span>
+        }
+      </div>
+
+      <div class="profile-info">
+        <h1 class="display-name">
+          ${default(user.displayName, user.username)}
+          @if(user.verified) {
+            <span class="verified-badge" title="Verified">✓</span>
+          }
+          @match(user.role) {
+            when "admin" { <span class="role-badge admin">Admin</span> }
+            when "moderator" { <span class="role-badge mod">Mod</span> }
+            * {}
+          }
+        </h1>
+
+        <p class="username">@$user.username</p>
+
+        @if(user.bio) {
+          <p class="bio">$user.bio</p>
+        }
+
+        <div class="meta-info">
+          @if(user.location) {
+            <span class="location">📍 $user.location</span>
+          }
+          @if(user.website) {
+            <a href=$user.website class="website">🔗 ${user.website}</a>
+          }
+          <span class="joined">
+            📅 Joined ${formatDate(joinDate, "MMMM yyyy")}
+            @if(memberYears >= 1) {
+              (${memberYears}+ ${memberYears == 1 ? 'year' : 'years'})
+            }
+          </span>
+        </div>
+      </div>
+
+      <div class="profile-actions">
+        @if(isOwnProfile) {
+          <a href="/settings" class="btn btn-secondary">Edit Profile</a>
+        } else {
+          @if(isFollowing) {
+            <button class="btn btn-secondary">Following ✓</button>
+          } else {
+            <button class="btn btn-primary">Follow</button>
+          }
+          <button class="btn btn-secondary">Message</button>
+        }
+      </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <section class="stats-bar">
+      <div class="stat">
+        <span class="stat-value">${formatNumber(user.stats.followers)}</span>
+        <span class="stat-label">Followers</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">${formatNumber(user.stats.following)}</span>
+        <span class="stat-label">Following</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">${formatNumber(user.stats.posts)}</span>
+        <span class="stat-label">Posts</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">${formatNumber(user.stats.reputation)}</span>
+        <span class="stat-label">Reputation</span>
+      </div>
+      @if(hasProjects) {
+        <div class="stat">
+          <span class="stat-value">${formatNumber(totalStars)}</span>
+          <span class="stat-label">GitHub Stars</span>
+        </div>
+      }
+    </section>
+
+    <!-- Badges -->
+    @if(len(default(user.badges, [])) > 0) {
+      <section class="badges-section">
+        <h2>Badges <span class="count">(${len(user.badges)})</span></h2>
+        <div class="badges-grid">
+          @for(badge of user.badges) {
+            <div class="badge" title=$badge.description>
+              <span class="badge-icon">$badge.icon</span>
+              <span class="badge-name">$badge.name</span>
+              <span class="badge-date">
+                ${formatDate(parseDate(badge.earnedAt), "MMM yyyy")}
+              </span>
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Skills -->
+    @if(len(default(user.skills, [])) > 0) {
+      <section class="skills-section">
+        <h2>Skills <span class="endorsements">(${formatNumber(totalEndorsements)} total endorsements)</span></h2>
+        <div class="skills-list">
+          @for(skill of user.skills) {
+            <SkillBar skill=$skill />
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Experience -->
+    @if(len(default(user.experience, [])) > 0) {
+      <section class="experience-section">
+        <h2>Experience</h2>
+        <div class="experience-timeline">
+          @for(exp of user.experience) {
+            <ExperienceCard experience=$exp />
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Projects -->
+    @if(hasProjects) {
+      <section class="projects-section">
+        <h2>Projects</h2>
+        <div class="projects-grid">
+          @for(project of user.projects) {
+            <a href=$project.url class="project-card" target="_blank">
+              <h3 class="project-name">$project.name</h3>
+              <p class="project-description">${truncate(project.description, 100)}</p>
+              <div class="project-meta">
+                @if(project.language) {
+                  <span class="language">
+                    <span class="lang-dot" data-lang="${lowercase(project.language)}"></span>
+                    $project.language
+                  </span>
+                }
+                <span class="stars">⭐ ${formatNumber(project.stars)}</span>
+              </div>
+              @if(len(default(project.tags, [])) > 0) {
+                <div class="project-tags">
+                  @for(tag of slice(project.tags, 0, 3)) {
+                    <span class="tag">$tag</span>
+                  }
+                </div>
+              }
+            </a>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Social Links -->
+    @if(len(default(user.socialLinks, [])) > 0) {
+      <section class="social-section">
+        <h2>Connect</h2>
+        <div class="social-links">
+          @for(link of user.socialLinks) {
+            <a href=$link.url class="social-link" target="_blank">
+              <span class="platform">${link.platform}</span>
+              <span class="username">$link.username</span>
+            </a>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Recent Activity -->
+    @if(len(default(user.recentActivity, [])) > 0 && (isOwnProfile || user.settings.privacy.showActivity)) {
+      <section class="activity-section">
+        <h2>Recent Activity</h2>
+        <ul class="activity-feed">
+          @for(activity of user.recentActivity) {
+            @@{
+              let activityTime = parseDate(activity.timestamp);
+              let hoursAgo = abs(diffDays(now(), activityTime)) * 24;
+            }
+            <li class="activity-item activity-$activity.type">
+              <span class="activity-icon">
+                @match(activity.type) {
+                  when "post" { 📝 }
+                  when "comment" { 💬 }
+                  when "like" { ❤️ }
+                  when "follow" { 👤 }
+                  when "achievement" { 🏆 }
+                  * { 📌 }
+                }
+              </span>
+              <div class="activity-content">
+                <a href=$activity.targetUrl>$activity.description</a>
+                <time>
+                  @if(hoursAgo < 1) {
+                    Just now
+                  } else if(hoursAgo < 24) {
+                    ${round(hoursAgo)} ${round(hoursAgo) == 1 ? 'hour' : 'hours'} ago
+                  } else if(hoursAgo < 48) {
+                    Yesterday
+                  } else {
+                    ${formatDate(activityTime, "MMM d")}
+                  }
+                </time>
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <!-- Privacy Notice -->
+    @if(!isOwnProfile && !user.settings.privacy.profilePublic) {
+      <div class="privacy-notice">
+        <p>This profile has limited visibility. Some information may be hidden.</p>
+      </div>
+    }
+  </main>
+
+  <footer class="profile-footer">
+    <p>Last active:
+      @if(isOnline) {
+        <strong>Online now</strong>
+      } else {
+        ${formatDate(lastActiveDate, "MMM d, yyyy")} at ${formatDate(lastActiveDate, "HH:mm")}
+      }
+    </p>
+  </footer>
+</body>
+</html>

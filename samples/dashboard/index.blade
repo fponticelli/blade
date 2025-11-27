@@ -1,0 +1,226 @@
+@props(dashboard, metrics, salesByRegion?, topProducts?, recentActivity, alerts?)
+
+@@{
+  let totalRegionSales = sum(default(salesByRegion, [])[*].sales);
+  let avgGrowth = avg(default(salesByRegion, [])[*].growth);
+  let completionRate = metrics.orders.completed / metrics.orders.total;
+  let revenueGrowth = (metrics.revenue.current - metrics.revenue.previous) / metrics.revenue.previous;
+  let updateTime = parseDate(dashboard.lastUpdated);
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>$dashboard.title</title>
+</head>
+<body>
+  <header class="dashboard-header">
+    <h1>$dashboard.title</h1>
+    <div class="date-range">
+      ${formatDate(parseDate(dashboard.dateRange.start), "MMM d")} -
+      ${formatDate(parseDate(dashboard.dateRange.end), "MMM d, yyyy")}
+    </div>
+    <div class="last-updated">
+      Last updated: ${formatDate(updateTime, "MMM d")} at ${hour(updateTime)}:${padStart(toString(minute(updateTime)), 2, "0")}
+    </div>
+  </header>
+
+  @if(len(default(alerts, [])) > 0) {
+    <AlertBanner alerts=$alerts />
+  }
+
+  <main class="dashboard-content">
+    <!-- Key Metrics Row -->
+    <section class="metrics-grid">
+      <MetricCard
+        title="Revenue"
+        value=$metrics.revenue.current
+        previousValue=$metrics.revenue.previous
+        target=$metrics.revenue.target
+        format="currency"
+        icon="💰"
+      />
+
+      <MetricCard
+        title="Active Users"
+        value=$metrics.users.active
+        previousValue=${metrics.users.total - metrics.users.new}
+        icon="👥"
+      />
+
+      <MetricCard
+        title="Conversion Rate"
+        value=$metrics.conversion.rate
+        previousValue=$metrics.conversion.previousRate
+        format="percent"
+        icon="📈"
+      />
+
+      <MetricCard
+        title="Avg Order Value"
+        value=$metrics.orders.avgValue
+        format="currency"
+        icon="🛒"
+      />
+    </section>
+
+    <!-- Orders Summary -->
+    <section class="orders-summary">
+      <h2>Orders Overview</h2>
+      <div class="order-stats">
+        <div class="stat">
+          <span class="stat-value">${formatNumber(metrics.orders.total)}</span>
+          <span class="stat-label">Total Orders</span>
+        </div>
+        <div class="stat completed">
+          <span class="stat-value">${formatNumber(metrics.orders.completed)}</span>
+          <span class="stat-label">Completed (${formatPercent(completionRate, 1)})</span>
+        </div>
+        <div class="stat pending">
+          <span class="stat-value">${formatNumber(metrics.orders.pending)}</span>
+          <span class="stat-label">Pending</span>
+        </div>
+        <div class="stat cancelled">
+          <span class="stat-value">${formatNumber(metrics.orders.cancelled)}</span>
+          <span class="stat-label">Cancelled</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sales by Region -->
+    @if(len(default(salesByRegion, [])) > 0) {
+      <section class="region-sales">
+        <h2>Sales by Region</h2>
+        <p class="section-subtitle">
+          Total: <strong>${formatCurrency(totalRegionSales, "USD")}</strong> |
+          Avg Growth: <strong>${formatPercent(avgGrowth, 1)}</strong>
+        </p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Region</th>
+              <th>Sales</th>
+              <th>Share</th>
+              <th>Growth</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for(region, index of salesByRegion) {
+              <tr class="${index % 2 == 0 ? 'even' : 'odd'}">
+                <td>$region.region</td>
+                <td>${formatCurrency(region.sales, "USD")}</td>
+                <td>${formatPercent(region.sales / totalRegionSales, 1)}</td>
+                <td class="${region.growth >= 0 ? 'positive' : 'negative'}">
+                  ${region.growth >= 0 ? '+' : ''}${formatPercent(region.growth, 1)}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    <!-- Top Products -->
+    @if(len(default(topProducts, [])) > 0) {
+      <section class="top-products">
+        <h2>Top Products</h2>
+        <div class="products-list">
+          @for(product, rank of topProducts) {
+            <div class="product-row">
+              <span class="rank">#${rank + 1}</span>
+              <span class="product-name">$product.name</span>
+              <span class="product-revenue">${formatCurrency(product.revenue, "USD")}</span>
+              <span class="product-units">${formatNumber(product.units)} units</span>
+              <span class="product-trend trend-$product.trend">
+                @match(product.trend) {
+                  when "up" { 📈 }
+                  when "down" { 📉 }
+                  * { ➡️ }
+                }
+              </span>
+            </div>
+          }
+        </div>
+        <p class="products-total">
+          Total from top ${len(topProducts)} products:
+          <strong>${formatCurrency(sum(topProducts[*].revenue), "USD")}</strong>
+        </p>
+      </section>
+    }
+
+    <!-- Recent Activity -->
+    <section class="activity-feed">
+      <h2>Recent Activity</h2>
+      <ul class="activity-list">
+        @for(activity of recentActivity) {
+          @@{
+            let activityTime = parseDate(activity.timestamp);
+            let hoursAgo = abs(diffDays(now(), activityTime) * 24);
+          }
+          <li class="activity-item activity-$activity.type">
+            <span class="activity-icon">
+              @match(activity.type) {
+                when "sale" { 💵 }
+                when "signup" { 👤 }
+                when "support" { 🎫 }
+                when "alert" { 🔔 }
+                * { 📝 }
+              }
+            </span>
+            <div class="activity-content">
+              <p class="activity-message">$activity.message</p>
+              @if(activity.value) {
+                <span class="activity-value">
+                  @match(activity.type) {
+                    when "sale" { ${formatCurrency(activity.value, "USD")} }
+                    when "signup" { +${activity.value} users }
+                    * { $activity.value }
+                  }
+                </span>
+              }
+            </div>
+            <time class="activity-time">
+              @if(hoursAgo < 1) {
+                Just now
+              } else if(hoursAgo < 24) {
+                ${round(hoursAgo)}h ago
+              } else {
+                ${formatDate(activityTime, "MMM d")}
+              }
+            </time>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <!-- User Stats -->
+    <section class="user-stats">
+      <h2>User Metrics</h2>
+      <div class="user-grid">
+        <div class="user-stat">
+          <span class="big-number">${formatNumber(metrics.users.total)}</span>
+          <span class="label">Total Users</span>
+        </div>
+        <div class="user-stat highlight">
+          <span class="big-number">${formatNumber(metrics.users.new)}</span>
+          <span class="label">New This Month</span>
+        </div>
+        <div class="user-stat">
+          <span class="big-number">${formatPercent(metrics.users.active / metrics.users.total, 1)}</span>
+          <span class="label">Active Rate</span>
+        </div>
+        <div class="user-stat ${metrics.users.churnRate > 0.05 ? 'warning' : ''}">
+          <span class="big-number">${formatPercent(metrics.users.churnRate, 2)}</span>
+          <span class="label">Churn Rate</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="dashboard-footer">
+    <p>Dashboard generated on ${formatDate(now(), "MMMM d, yyyy")} at ${formatDate(now(), "HH:mm")}</p>
+  </footer>
+</body>
+</html>

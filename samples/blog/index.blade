@@ -1,0 +1,139 @@
+@props(blog, post, relatedPosts?)
+
+@@{
+  let commentCount = len(default(post.comments, []));
+  let totalLikes = sum(default(post.comments, [])[*].likes);
+  let publishDate = parseDate(post.publishedAt);
+  let updateDate = post.updatedAt ? parseDate(post.updatedAt) : null;
+  let wasUpdated = updateDate && isBefore(publishDate, updateDate);
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>$post.title - $blog.name</title>
+  <meta name="description" content="${default(post.excerpt, truncate(post.content, 160))}" />
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" class="blog-name">$blog.name</a>
+    <p class="blog-description">$blog.description</p>
+  </header>
+
+  <article class="blog-post">
+    @if(post.featured) {
+      <span class="featured-badge">⭐ Featured Post</span>
+    }
+
+    <h1 class="post-title">$post.title</h1>
+
+    <div class="post-meta">
+      <div class="author-info">
+        @if(post.author.avatar) {
+          <img src=$post.author.avatar alt=$post.author.name class="avatar" />
+        }
+        <div class="author-details">
+          <span class="author-name">$post.author.name</span>
+          @if(post.author.twitter) {
+            <a href="https://twitter.com/${post.author.twitter}" class="twitter-link">
+              $post.author.twitter
+            </a>
+          }
+        </div>
+      </div>
+
+      <div class="post-info">
+        <time datetime=$post.publishedAt>
+          ${formatDate(publishDate, "MMMM d, yyyy")}
+        </time>
+        @if(wasUpdated) {
+          <span class="updated">
+            (Updated ${formatDate(updateDate, "MMM d")})
+          </span>
+        }
+        @if(post.readingTime) {
+          <span class="reading-time">
+            · ${post.readingTime} min read
+          </span>
+        }
+      </div>
+    </div>
+
+    @if(len(default(post.tags, [])) > 0) {
+      <div class="post-tags">
+        @for(tag of post.tags) {
+          <a href="/tag/${lowercase(tag)}" class="tag">
+            #${lowercase(tag)}
+          </a>
+        }
+      </div>
+    }
+
+    <div class="post-content">
+      $post.content
+    </div>
+
+    @if(post.author.bio) {
+      <aside class="author-bio">
+        <h3>About the Author</h3>
+        <p>$post.author.bio</p>
+      </aside>
+    }
+  </article>
+
+  <section class="comments-section">
+    <h2>
+      Comments
+      @if(commentCount > 0) {
+        <span class="comment-count">($commentCount)</span>
+      }
+    </h2>
+
+    @if(totalLikes > 0) {
+      <p class="engagement-stats">
+        ${formatNumber(totalLikes)} total likes on comments
+      </p>
+    }
+
+    @if(commentCount > 0) {
+      <div class="comments-list">
+        @for(comment of post.comments) {
+          <Comment comment=$comment />
+        }
+      </div>
+    } else {
+      <p class="no-comments">No comments yet. Be the first to share your thoughts</p>
+    }
+
+    <form class="comment-form">
+      <h3>Leave a Comment</h3>
+      <input type="text" name="author" placeholder="Your name" required />
+      <input type="email" name="email" placeholder="Your email" required />
+      <textarea name="content" placeholder="Share your thoughts..." required></textarea>
+      <button type="submit">Post Comment</button>
+    </form>
+  </section>
+
+  @if(len(default(relatedPosts, [])) > 0) {
+    <aside class="related-posts">
+      <h2>Related Posts</h2>
+      <div class="related-grid">
+        @for(related of relatedPosts) {
+          <a href="/post/${related.slug}" class="related-card">
+            <h3>${truncate(related.title, 50)}</h3>
+            <p>${truncate(related.excerpt, 100)}</p>
+            <time>${formatDate(parseDate(related.publishedAt), "MMM d, yyyy")}</time>
+          </a>
+        }
+      </div>
+    </aside>
+  }
+
+  <footer class="site-footer">
+    <p>&copy; ${year(now())} $blog.name</p>
+    <a href=$blog.url>$blog.url</a>
+  </footer>
+</body>
+</html>

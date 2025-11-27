@@ -1,0 +1,255 @@
+@props(company, customer, order, recommendations?)
+
+@@{
+  let orderDate = parseDate(order.date);
+  let deliveryDate = order.shipping.estimatedDelivery ? parseDate(order.shipping.estimatedDelivery) : null;
+  let daysUntilDelivery = deliveryDate ? diffDays(deliveryDate, now()) : 0;
+  let itemCount = sum(order.items[*].quantity);
+  let hasDiscount = order.totals.discount > 0;
+  let freeShipping = order.totals.shipping == 0;
+  let memberYears = diffDays(now(), parseDate(customer.memberSince)) / 365;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order Confirmation - $order.id</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+
+  <!-- Header -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
+    <tr>
+      <td style="text-align: center; padding: 20px; background: #f8f8f8;">
+        @if(company.logo) {
+          <img src=$company.logo alt=$company.name style="max-height: 50px;" />
+        } else {
+          <h1 style="margin: 0; color: #333;">$company.name</h1>
+        }
+      </td>
+    </tr>
+  </table>
+
+  <!-- Greeting -->
+  <div style="margin-bottom: 30px;">
+    <h2 style="color: #2c3e50; margin-bottom: 10px;">
+      @if(customer.isVip) {
+        ⭐ Thank you for your VIP order, ${customer.firstName}!
+      } else {
+        Thank you for your order, ${customer.firstName}!
+      }
+    </h2>
+
+    @if(customer.isVip && memberYears >= 1) {
+      <p style="color: #666; font-style: italic;">
+        We appreciate your loyalty! You've been a valued member for
+        ${round(memberYears)} ${round(memberYears) == 1 ? 'year' : 'years'}.
+        @if(customer.loyaltyPoints) {
+          You have <strong>${formatNumber(customer.loyaltyPoints)}</strong> loyalty points.
+        }
+      </p>
+    }
+
+    <p>Your order <strong>$order.id</strong> has been confirmed and is being prepared.</p>
+  </div>
+
+  <!-- Order Status -->
+  <div style="background: #e8f5e9; padding: 15px; border-radius: 5px; margin-bottom: 30px;">
+    <p style="margin: 0; font-size: 16px;">
+      <strong>Order Status:</strong>
+      @match(order.status) {
+        when "confirmed" { ✅ Confirmed }
+        when "processing" { 📦 Processing }
+        when "shipped" { 🚚 Shipped }
+        when "delivered" { 🎉 Delivered }
+        * { ${capitalize(order.status)} }
+      }
+    </p>
+    @if(deliveryDate) {
+      <p style="margin: 10px 0 0 0; color: #2e7d32;">
+        @if(daysUntilDelivery == 0) {
+          Expected delivery: <strong>Today</strong>
+        } else if(daysUntilDelivery == 1) {
+          Expected delivery: <strong>Tomorrow</strong>
+        } else {
+          Expected delivery: <strong>${formatDate(deliveryDate, "EEEE, MMMM d")}</strong>
+          (${daysUntilDelivery} days)
+        }
+      </p>
+    }
+  </div>
+
+  <!-- Order Items -->
+  <div style="margin-bottom: 30px;">
+    <h3 style="border-bottom: 2px solid #eee; padding-bottom: 10px;">
+      Order Details (${itemCount} ${itemCount == 1 ? 'item' : 'items'})
+    </h3>
+
+    <table width="100%" cellpadding="10" cellspacing="0" style="border-collapse: collapse;">
+      @for(item, index of order.items) {
+        @@{
+          let itemTotal = item.price * item.quantity;
+          let itemDiscount = default(item.discount, 0);
+          let finalPrice = itemTotal - itemDiscount;
+        }
+        <tr style="border-bottom: 1px solid #eee; ${index % 2 == 0 ? 'background: #fafafa;' : ''}">
+          <td style="width: 60px;">
+            @if(item.image) {
+              <img src=$item.image alt=$item.name style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" />
+            }
+          </td>
+          <td>
+            <strong>$item.name</strong>
+            @if(item.sku) {
+              <br /><small style="color: #888;">SKU: $item.sku</small>
+            }
+            <br /><small>Qty: $item.quantity × ${formatCurrency(item.price, "USD")}</small>
+          </td>
+          <td style="text-align: right;">
+            @if(itemDiscount > 0) {
+              <span style="text-decoration: line-through; color: #999;">${formatCurrency(itemTotal, "USD")}</span>
+              <br />
+              <strong style="color: #c0392b;">${formatCurrency(finalPrice, "USD")}</strong>
+            } else {
+              <strong>${formatCurrency(itemTotal, "USD")}</strong>
+            }
+          </td>
+        </tr>
+      }
+    </table>
+  </div>
+
+  <!-- Order Totals -->
+  <div style="background: #f9f9f9; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+    <table width="100%" cellpadding="5" cellspacing="0">
+      <tr>
+        <td>Subtotal</td>
+        <td style="text-align: right;">${formatCurrency(order.totals.subtotal, "USD")}</td>
+      </tr>
+      @if(hasDiscount) {
+        <tr style="color: #27ae60;">
+          <td>
+            Discount
+            @if(order.couponCode) {
+              <small>(Code: $order.couponCode)</small>
+            }
+          </td>
+          <td style="text-align: right;">-${formatCurrency(order.totals.discount, "USD")}</td>
+        </tr>
+      }
+      <tr>
+        <td>
+          Shipping
+          @if(freeShipping) {
+            <small style="color: #27ae60;">(FREE)</small>
+          }
+        </td>
+        <td style="text-align: right;">
+          @if(freeShipping) {
+            <span style="color: #27ae60;">$0.00</span>
+          } else {
+            ${formatCurrency(order.totals.shipping, "USD")}
+          }
+        </td>
+      </tr>
+      @if(order.totals.tax > 0) {
+        <tr>
+          <td>Tax</td>
+          <td style="text-align: right;">${formatCurrency(order.totals.tax, "USD")}</td>
+        </tr>
+      }
+      <tr style="font-size: 18px; border-top: 2px solid #ddd;">
+        <td><strong>Total</strong></td>
+        <td style="text-align: right;"><strong>${formatCurrency(order.totals.total, "USD")}</strong></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Shipping Address -->
+  @if(order.shipping && order.shipping.address) {
+    <div style="margin-bottom: 30px;">
+      <h3 style="border-bottom: 2px solid #eee; padding-bottom: 10px;">Shipping Address</h3>
+      <p style="margin: 0;">
+        <strong>$customer.name</strong><br />
+        $order.shipping.address.street<br />
+        ${order.shipping.address.city}, ${order.shipping.address.state} $order.shipping.address.zip<br />
+        $order.shipping.address.country
+      </p>
+      <p style="margin-top: 10px;">
+        <strong>Shipping Method:</strong> ${order.shipping.method}
+        @if(order.shipping.trackingNumber) {
+          <br /><strong>Tracking:</strong> $order.shipping.trackingNumber
+        }
+      </p>
+    </div>
+  }
+
+  <!-- Payment Info -->
+  @if(order.payment) {
+    <div style="margin-bottom: 30px;">
+      <h3 style="border-bottom: 2px solid #eee; padding-bottom: 10px;">Payment Method</h3>
+      <p>
+        $order.payment.method ending in $order.payment.last4
+      </p>
+    </div>
+  }
+
+  <!-- Gift Message -->
+  @if(order.isGift && order.giftMessage) {
+    <div style="background: #fff3e0; padding: 15px; border-radius: 5px; margin-bottom: 30px;">
+      <h3 style="margin-top: 0;">🎁 Gift Message</h3>
+      <p style="font-style: italic; margin-bottom: 0;">"$order.giftMessage"</p>
+    </div>
+  }
+
+  <!-- Recommendations -->
+  @if(len(default(recommendations, [])) > 0) {
+    <div style="margin-bottom: 30px;">
+      <h3 style="border-bottom: 2px solid #eee; padding-bottom: 10px;">You Might Also Like</h3>
+      <table width="100%" cellpadding="10" cellspacing="0">
+        <tr>
+          @for(rec of recommendations) {
+            <td style="text-align: center; width: 33%;">
+              @if(rec.image) {
+                <a href=$rec.url>
+                  <img src=$rec.image alt=$rec.name style="width: 100%; max-width: 150px; border-radius: 4px;" />
+                </a>
+              }
+              <p style="margin: 10px 0 5px 0; font-size: 14px;">
+                <a href=$rec.url style="color: #333; text-decoration: none;">
+                  ${truncate(rec.name, 25)}
+                </a>
+              </p>
+              <p style="margin: 0; font-weight: bold; color: #2c3e50;">
+                ${formatCurrency(rec.price, "USD")}
+              </p>
+            </td>
+          }
+        </tr>
+      </table>
+    </div>
+  }
+
+  <!-- Footer -->
+  <div style="border-top: 2px solid #eee; padding-top: 20px; text-align: center; color: #888; font-size: 14px;">
+    <p>
+      Questions about your order? Contact us at
+      <a href="mailto:$company.email" style="color: #3498db;">$company.email</a>
+      @if(company.phone) {
+        or call $company.phone
+      }
+    </p>
+    <p style="margin-top: 15px;">
+      $company.name<br />
+      $company.address<br />
+      <a href=$company.website style="color: #3498db;">$company.website</a>
+    </p>
+    <p style="font-size: 12px; color: #aaa;">
+      This email was sent on ${formatDate(now(), "MMMM d, yyyy")} to $customer.email
+    </p>
+  </div>
+
+</body>
+</html>

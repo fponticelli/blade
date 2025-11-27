@@ -1,0 +1,29 @@
+@props(alerts)
+
+@@{
+  let criticalAlerts = compact(alerts[*].level == "critical" ? alerts : null);
+  let warningAlerts = compact(alerts[*].level == "warning" ? alerts : null);
+  let hasCritical = len(criticalAlerts) > 0;
+}
+
+@if(len(alerts) > 0) {
+  <div class="alert-banner">
+    @for(alert of alerts) {
+      <div class="alert alert-${alert.level}">
+        <span class="alert-icon">
+          @match(alert.level) {
+            when "critical" { 🚨 }
+            when "warning" { ⚠️ }
+            when "info" { ℹ️ }
+            * { 📌 }
+          }
+        </span>
+        <div class="alert-content">
+          <strong>$alert.title</strong>
+          <p>$alert.message</p>
+        </div>
+        <button class="alert-dismiss">×</button>
+      </div>
+    }
+  </div>
+}

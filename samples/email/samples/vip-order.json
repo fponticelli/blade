@@ -1,0 +1,95 @@
+{
+  "company": {
+    "name": "StyleHub",
+    "logo": "https://stylehub.com/logo.png",
+    "email": "orders@stylehub.com",
+    "phone": "1-800-STYLE-HUB",
+    "address": "123 Fashion Ave, New York, NY 10001",
+    "website": "https://stylehub.com"
+  },
+  "customer": {
+    "name": "Emily Johnson",
+    "firstName": "Emily",
+    "email": "emily.johnson@email.com",
+    "isVip": true,
+    "memberSince": "2021-03-15",
+    "loyaltyPoints": 4850
+  },
+  "order": {
+    "id": "ORD-2024-78542",
+    "date": "2024-11-26T10:30:00Z",
+    "status": "confirmed",
+    "items": [
+      {
+        "name": "Cashmere Blend Sweater",
+        "sku": "CSW-BLK-M",
+        "quantity": 1,
+        "price": 189.00,
+        "discount": 28.35,
+        "image": "https://stylehub.com/images/sweater-black.jpg"
+      },
+      {
+        "name": "Slim Fit Wool Trousers",
+        "sku": "SFT-NAV-32",
+        "quantity": 2,
+        "price": 145.00,
+        "discount": 0,
+        "image": "https://stylehub.com/images/trousers-navy.jpg"
+      },
+      {
+        "name": "Italian Leather Belt",
+        "sku": "ILB-BRN-M",
+        "quantity": 1,
+        "price": 85.00,
+        "discount": 12.75,
+        "image": "https://stylehub.com/images/belt-brown.jpg"
+      }
+    ],
+    "totals": {
+      "subtotal": 564.00,
+      "discount": 41.10,
+      "shipping": 0,
+      "tax": 45.75,
+      "total": 568.65
+    },
+    "shipping": {
+      "method": "Express (2-Day)",
+      "address": {
+        "street": "456 Park Avenue, Apt 12B",
+        "city": "New York",
+        "state": "NY",
+        "zip": "10022",
+        "country": "United States"
+      },
+      "estimatedDelivery": "2024-11-28",
+      "trackingNumber": "1Z999AA10123456784"
+    },
+    "payment": {
+      "method": "Visa",
+      "last4": "4242"
+    },
+    "couponCode": "VIP15",
+    "giftMessage": null,
+    "isGift": false
+  },
+  "recommendations": [
+    {
+      "name": "Silk Pocket Square Set",
+      "price": 65.00,
+      "image": "https://stylehub.com/images/pocket-squares.jpg",
+      "url": "https://stylehub.com/products/silk-pocket-square-set"
+    },
+    {
+      "name": "Merino Wool Scarf",
+      "price": 95.00,
+      "image": "https://stylehub.com/images/wool-scarf.jpg",
+      "url": "https://stylehub.com/products/merino-wool-scarf"
+    },
+    {
+      "name": "Leather Card Holder",
+      "price": 55.00,
+      "image": "https://stylehub.com/images/card-holder.jpg",
+      "url": "https://stylehub.com/products/leather-card-holder"
+    }
+  ]
+}
