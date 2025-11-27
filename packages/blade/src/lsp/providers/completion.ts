@@ -19,6 +19,7 @@ import {
 } from '../document.js';
 import { getVariablesAtOffset } from '../analyzer/scope.js';
 import { getSchemaCompletions } from '../../project/schema.js';
+import { helperMetadata } from '../../helpers/metadata.js';
 
 /**
  * Completion item kind (from LSP spec)
@@ -705,72 +706,14 @@ function getComponentPropCompletions(
 }
 
 /**
- * Get builtin helper function completions
+ * Get builtin helper function completions from metadata registry
  */
 function getBuiltinHelperCompletions(): CompletionItem[] {
-  const helpers = [
-    {
-      name: 'formatCurrency',
-      sig: '(value: number, currency?: string) => string',
-      detail: 'Format number as currency',
-    },
-    {
-      name: 'formatDate',
-      sig: '(date: Date | string, format?: string) => string',
-      detail: 'Format date',
-    },
-    {
-      name: 'formatNumber',
-      sig: '(value: number, options?: object) => string',
-      detail: 'Format number',
-    },
-    {
-      name: 'uppercase',
-      sig: '(value: string) => string',
-      detail: 'Convert to uppercase',
-    },
-    {
-      name: 'lowercase',
-      sig: '(value: string) => string',
-      detail: 'Convert to lowercase',
-    },
-    {
-      name: 'capitalize',
-      sig: '(value: string) => string',
-      detail: 'Capitalize first letter',
-    },
-    {
-      name: 'truncate',
-      sig: '(value: string, length: number) => string',
-      detail: 'Truncate string',
-    },
-    {
-      name: 'sum',
-      sig: '(values: number[]) => number',
-      detail: 'Sum array of numbers',
-    },
-    {
-      name: 'avg',
-      sig: '(values: number[]) => number',
-      detail: 'Average of numbers',
-    },
-    {
-      name: 'count',
-      sig: '(values: any[]) => number',
-      detail: 'Count array items',
-    },
-    {
-      name: 'join',
-      sig: '(values: any[], separator?: string) => string',
-      detail: 'Join array items',
-    },
-  ];
-
-  return helpers.map(h => ({
+  return Object.values(helperMetadata).map(h => ({
     label: h.name,
     kind: CompletionItemKind.Function,
-    detail: h.sig,
-    documentation: h.detail,
+    detail: h.signature,
+    documentation: `${h.description}\n\nExamples:\n${h.examples.map(e => `  ${e}`).join('\n')}`,
     sortText: '1' + h.name, // After variables
   }));
 }
