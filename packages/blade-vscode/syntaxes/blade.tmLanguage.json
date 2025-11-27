@@ -637,7 +637,7 @@
         { "include": "#expression-simple" },
         {
           "name": "string.quoted.double.blade",
-          "match": "[^\"]+"
+          "match": "[^\"$]+"
         }
       ]
     },
