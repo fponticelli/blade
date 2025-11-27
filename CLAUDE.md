@@ -11,6 +11,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-25
 - Filesystem-based (project folders, .blade files, schema.json, samples/*.json) (005-project-template-compilation)
 - TypeScript 5.7.2 (ESM modules) + None (pure TypeScript, internal AST types) (006-template-helpers-escaping)
 - N/A (in-memory template processing) (006-template-helpers-escaping)
+- TypeScript 5.7.2 (ESM modules) + vscode ^1.85.0, vscode-languageclient ^9.0.1, existing @fponticelli/blade package (007-vscode-preview-mode)
+- VSCode workspace state (for persisting selected sample per project) (007-vscode-preview-mode)
 
 - TypeScript 5.x (ESM modules) + None (pure TypeScript, depends only on internal AST types) (001-expression-evaluator)
 
@@ -30,9 +32,9 @@ npm test && npm run lint
 TypeScript 5.x (ESM modules): Follow standard conventions
 
 ## Recent Changes
+- 007-vscode-preview-mode: Added TypeScript 5.7.2 (ESM modules) + vscode ^1.85.0, vscode-languageclient ^9.0.1, existing @fponticelli/blade package
 - 006-template-helpers-escaping: Added TypeScript 5.7.2 (ESM modules) + None (pure TypeScript, internal AST types)
 - 005-project-template-compilation: Added TypeScript 5.7.2 (ESM modules) + vscode-languageserver ^9.0.1, vscode-languageclient ^9.0.1 (existing)
-- 004-remove-load-directive: Added TypeScript 5.x (ESM modules) + None for this change (pure deletion task)
 
 
 <!-- MANUAL ADDITIONS START -->
