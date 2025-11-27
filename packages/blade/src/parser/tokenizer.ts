@@ -69,6 +69,7 @@ export enum TokenType {
   MATCH = 'MATCH',
   WHEN = 'WHEN',
   LET = 'LET',
+  PROPS = 'PROPS',
   COMPONENT = 'COMPONENT',
   SLOT = 'SLOT',
 
@@ -369,6 +370,8 @@ export class Tokenizer {
         return TokenType.WHEN;
       case 'let':
         return TokenType.LET;
+      case 'props':
+        return TokenType.PROPS;
       default:
         return TokenType.IDENTIFIER;
     }

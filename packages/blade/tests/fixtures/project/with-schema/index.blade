@@ -1,0 +1,14 @@
+<div>
+  <h1>Hello, ${$user.name}!</h1>
+  <p>Email: ${$user.email}</p>
+
+  @if($user.address) {
+    <p>City: ${$user.address.city}</p>
+  }
+
+  <ul>
+    @for($item of $items) {
+      <li>${$item.name} - ${$item.price}</li>
+    }
+  </ul>
+</div>

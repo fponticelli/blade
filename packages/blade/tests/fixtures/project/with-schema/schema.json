@@ -1,0 +1,71 @@
+{
+  "type": "object",
+  "properties": {
+    "user": {
+      "type": "object",
+      "description": "Current user information",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "User's display name"
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address"
+        },
+        "age": {
+          "type": "number",
+          "description": "User's age in years"
+        },
+        "address": {
+          "type": "object",
+          "description": "User's address",
+          "properties": {
+            "street": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            },
+            "country": {
+              "type": "string"
+            },
+            "zipCode": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "description": "List of items",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "theme": {
+          "type": "string",
+          "enum": ["light", "dark", "auto"]
+        },
+        "notifications": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

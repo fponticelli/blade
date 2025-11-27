@@ -1,0 +1,8 @@
+@props(title, body = null)
+
+<div class="card">
+  <h2>{$title}</h2>
+  @if ($body) {
+    <p>{$body}</p>
+  }
+</div>

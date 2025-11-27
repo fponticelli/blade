@@ -76,9 +76,18 @@ export {
   isHelperDeprecated,
   generateDeprecatedHelperDiagnostics,
   LspDiagnosticSeverityEnum,
+  validateSamples,
+  getProjectDiagnostics,
+  validatePropsAgainstSchema,
+  generatePropsValidationDiagnostics,
 } from './providers/diagnostic.js';
 
-export type { LspDiagnostic } from './providers/diagnostic.js';
+export type {
+  LspDiagnostic,
+  SampleValidationResult,
+  SampleValidationError,
+  PropsValidationError,
+} from './providers/diagnostic.js';
 
 // Completion provider
 export {
@@ -90,7 +99,11 @@ export {
 export type { CompletionItem } from './providers/completion.js';
 
 // Definition provider
-export { findDefinition, findReferences } from './providers/definition.js';
+export {
+  findDefinition,
+  findReferences,
+  getComponentDefinition,
+} from './providers/definition.js';
 
 export type { DefinitionLocation } from './providers/definition.js';
 
@@ -98,3 +111,17 @@ export type { DefinitionLocation } from './providers/definition.js';
 export { getHoverInfo } from './providers/hover.js';
 
 export type { HoverInfo } from './providers/hover.js';
+
+// Project context
+export {
+  initializeProjectContext,
+  getProjectSchemaCompletions,
+  getProjectComponent,
+  getAllProjectComponents,
+  shouldRefreshContext,
+  refreshProjectContext,
+  getProjectSampleValues,
+  getProjectSampleHint,
+} from './project-context.js';
+
+export type { ProjectLspContext } from './project-context.js';

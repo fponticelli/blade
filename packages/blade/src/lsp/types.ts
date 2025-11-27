@@ -63,6 +63,8 @@ export interface ScopeVariable {
   location: SourceLocation;
   /** Inferred or declared type */
   valueType?: string;
+  /** For for-item variables, the name of the source array being iterated */
+  sourceVar?: string;
 }
 
 export interface ComponentInfo {
@@ -261,7 +263,8 @@ export type DiagnosticCode =
   | 'DEPRECATED_HELPER'
   | 'POTENTIALLY_UNDEFINED'
   | 'DEEP_NESTING'
-  | 'CIRCULAR_COMPONENT';
+  | 'CIRCULAR_COMPONENT'
+  | 'UNKNOWN_PROP';
 
 // ============================================================================
 // Default Configuration

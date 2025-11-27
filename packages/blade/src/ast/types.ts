@@ -985,3 +985,179 @@ export interface Diagnostic {
   readonly location: SourceLocation;
   readonly code?: string;
 }
+
+// =============================================================================
+// Project-based Template Compilation Types
+// =============================================================================
+
+/**
+ * A single prop declaration from @props() directive.
+ *
+ * Used to declare component inputs explicitly at the top of a .blade file.
+ *
+ * @property name - Variable name without $ prefix
+ * @property required - True if no default value provided
+ * @property defaultValue - Default value expression (undefined if required)
+ * @property location - Source location for error reporting
+ *
+ * @example
+ * @props($name) → { name: 'name', required: true, defaultValue: undefined }
+ * @props($disabled = false) → { name: 'disabled', required: false, defaultValue: LiteralNode(false) }
+ */
+export interface PropDeclaration {
+  readonly name: string;
+  readonly required: boolean;
+  readonly defaultValue: ExprAst | undefined;
+  readonly location: SourceLocation;
+}
+
+/**
+ * The @props() directive AST node.
+ *
+ * Parsed from the beginning of a .blade file to declare component inputs.
+ *
+ * @property type - Always 'PropsDirective'
+ * @property props - Array of declared props
+ * @property location - Source location of the directive
+ *
+ * @example
+ * @props($label, $disabled = false) → {
+ *   type: 'PropsDirective',
+ *   props: [
+ *     { name: 'label', required: true },
+ *     { name: 'disabled', required: false, defaultValue: LiteralNode(false) }
+ *   ]
+ * }
+ */
+export interface PropsDirective {
+  readonly type: 'PropsDirective';
+  readonly props: readonly PropDeclaration[];
+  readonly location: SourceLocation;
+}
+
+/**
+ * Configuration for a Blade project.
+ *
+ * A project is a folder containing an index.blade entry point.
+ *
+ * @property rootPath - Absolute path to project root (folder containing index.blade)
+ * @property entry - Entry point filename (default: 'index.blade')
+ * @property schema - Parsed JSON Schema from schema.json (if present)
+ * @property samples - Loaded sample data from samples/*.json
+ */
+export interface ProjectConfig {
+  readonly rootPath: string;
+  readonly entry: string;
+  readonly schema: JsonSchema | undefined;
+  readonly samples: ReadonlyMap<string, unknown>;
+}
+
+/**
+ * Information about a discovered component.
+ *
+ * Components are .blade files discovered in the project folder structure.
+ *
+ * @property tagName - Tag name for usage (e.g., 'Button', 'Components.Form.Input')
+ * @property filePath - Absolute path to .blade file
+ * @property namespace - Namespace segments (e.g., ['Components', 'Form'] for Components.Form.Input)
+ * @property props - Parsed prop declarations (lazy-loaded)
+ * @property propsInferred - True if props were inferred from variable usage (no @props directive)
+ *
+ * @example
+ * button.blade → { tagName: 'Button', filePath: '/path/button.blade', namespace: [] }
+ * components/form/input.blade → { tagName: 'Components.Form.Input', namespace: ['Components', 'Form'] }
+ */
+export interface ComponentInfo {
+  readonly tagName: string;
+  readonly filePath: string;
+  readonly namespace: readonly string[];
+  props: readonly PropDeclaration[] | undefined;
+  propsInferred: boolean;
+}
+
+/**
+ * Runtime context for project compilation.
+ *
+ * Contains all discovered components and project configuration.
+ *
+ * @property config - Project configuration
+ * @property components - Discovered components keyed by tag name
+ * @property templateComponents - Components passed via template (shadow discovered)
+ * @property warnings - Collected warnings during discovery
+ * @property errors - Collected errors during discovery
+ */
+export interface ProjectContext {
+  readonly config: ProjectConfig;
+  readonly components: Map<string, ComponentInfo>;
+  readonly templateComponents: ReadonlyMap<string, ComponentDefinition>;
+  readonly warnings: Diagnostic[];
+  readonly errors: Diagnostic[];
+}
+
+/**
+ * Subset of JSON Schema needed for completion extraction.
+ *
+ * Used for LSP property completions from schema.json.
+ */
+export interface JsonSchema {
+  readonly type?: string | readonly string[];
+  readonly properties?: Readonly<Record<string, JsonSchema>>;
+  readonly items?: JsonSchema;
+  readonly required?: readonly string[];
+  readonly description?: string;
+  readonly default?: unknown;
+  readonly enum?: readonly unknown[];
+}
+
+/**
+ * Extracted property info from JSON Schema.
+ *
+ * Flattened representation for LSP completions.
+ *
+ * @property path - Dot-separated path from root (e.g., 'user.name')
+ * @property type - JSON Schema type(s)
+ * @property required - Whether required in parent object
+ * @property description - Description from schema
+ * @property enumValues - Enum values if constrained
+ */
+export interface SchemaPropertyInfo {
+  readonly path: string;
+  readonly type: string | readonly string[];
+  readonly required: boolean;
+  readonly description?: string;
+  readonly enumValues?: readonly unknown[];
+}
+
+/**
+ * Result from compileProject().
+ *
+ * @property ast - Compiled AST with all components resolved
+ * @property context - Project context used during compilation
+ * @property warnings - Non-fatal warnings (e.g., @props syntax errors with fallback)
+ * @property errors - Fatal errors preventing successful compilation
+ * @property success - True if compilation succeeded (errors is empty)
+ */
+export interface ProjectResult {
+  readonly ast: RootNode;
+  readonly context: ProjectContext;
+  readonly warnings: readonly Diagnostic[];
+  readonly errors: readonly Diagnostic[];
+  readonly success: boolean;
+}
+
+/**
+ * Options for compileProject().
+ */
+export interface ProjectOptions {
+  /**
+   * Entry point filename.
+   * @default 'index.blade'
+   */
+  readonly entry?: string;
+
+  /**
+   * Enable source tracking attributes on rendered output.
+   * @default true
+   */
+  readonly sourceTracking?: boolean;
+}

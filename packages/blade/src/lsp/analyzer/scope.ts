@@ -129,7 +129,10 @@ function analyzeNode(node: TemplateNode, context: AnalysisContext): void {
   const { scope } = context;
 
   // Record current variables at this node's location
-  recordVariablesAtLocation(node.location, context);
+  // Skip for nodes that introduce new scope (for, if) - they handle their own recording
+  if (node.kind !== 'for' && node.kind !== 'if' && node.kind !== 'match') {
+    recordVariablesAtLocation(node.location, context);
+  }
 
   switch (node.kind) {
     case 'text':
@@ -219,6 +222,36 @@ function analyzeIfNode(node: IfNode, context: AnalysisContext): void {
 }
 
 /**
+ * Extract the source variable name from a for loop's items expression.
+ * Returns the variable name for simple paths like "items", "user.orders", etc.
+ */
+function extractSourceVarName(itemsExpr: ForNode['itemsExpr']): string | undefined {
+  if (itemsExpr.kind === 'path') {
+    // Get the first segment as the source variable name
+    // For "items" → "items", for "user.orders" → "user.orders"
+    const segments = itemsExpr.segments;
+    if (segments.length > 0) {
+      const pathParts: string[] = [];
+      for (const seg of segments) {
+        if (seg.kind === 'key') {
+          pathParts.push(seg.key);
+        } else if (seg.kind === 'index') {
+          // For array access like items[0], return "items"
+          break;
+        } else {
+          // Complex expression (star), can't extract simple path
+          break;
+        }
+      }
+      if (pathParts.length > 0) {
+        return pathParts.join('.');
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
  * Analyze for node - introduces loop variables
  */
 function analyzeForNode(node: ForNode, context: AnalysisContext): void {
@@ -227,11 +260,15 @@ function analyzeForNode(node: ForNode, context: AnalysisContext): void {
   // Create new variable scope for the loop
   const loopVariables: ScopeVariable[] = [...context.currentVariables];
 
+  // Extract source variable name for type narrowing in hover
+  const sourceVarName = extractSourceVarName(node.itemsExpr);
+
   // Add item variable
   loopVariables.push({
     name: node.itemVar,
     kind: node.iterationType === 'of' ? 'for-item' : 'for-key',
     location: node.location,
+    sourceVar: sourceVarName,
   });
 
   // Add index variable if present
@@ -248,6 +285,14 @@ function analyzeForNode(node: ForNode, context: AnalysisContext): void {
     ...context,
     currentVariables: loopVariables,
   };
+
+  // Record loop variables at the for node's start offset (so they're available
+  // when looking up scope at any position inside the body)
+  context.scope.variables.set(node.location.start.offset, [...loopVariables]);
+
+  // Also record at a high offset to cover the entire body range
+  // This ensures getVariablesAtOffset finds loop vars for any position inside
+  context.scope.variables.set(node.location.end.offset - 1, [...loopVariables]);
 
   analyzeNodes(node.body, bodyContext);
 

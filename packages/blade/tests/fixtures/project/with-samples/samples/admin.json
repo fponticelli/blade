@@ -1,0 +1,9 @@
+{
+  "user": {
+    "name": "Admin User",
+    "email": "admin@example.com",
+    "age": 35,
+    "role": "admin"
+  },
+  "items": []
+}

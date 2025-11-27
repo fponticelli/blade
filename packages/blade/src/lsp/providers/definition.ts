@@ -10,7 +10,14 @@ import type {
   Position,
   Range,
 } from '../types.js';
-import { isInsideExpression, getWordAtOffset, getOffset } from '../document.js';
+import type { ProjectLspContext } from '../project-context.js';
+import {
+  isInsideExpression,
+  getWordAtOffset,
+  getOffset,
+  isInsideTag,
+} from '../document.js';
+import { pathToFileURL } from 'url';
 
 /**
  * Location result for definition lookup
@@ -22,19 +29,39 @@ export interface DefinitionLocation {
 
 /**
  * Find definition for the symbol at the given position
+ *
+ * @param doc - The document to search in
+ * @param position - Cursor position
+ * @param projectContext - Optional project context for cross-file navigation
  */
 export function findDefinition(
   doc: BladeDocument,
-  position: Position
+  position: Position,
+  projectContext?: ProjectLspContext
 ): DefinitionLocation | null {
   const offset = getOffset(doc.content, position.line, position.character);
+
+  // Check if we're inside a component tag - prioritize this for project navigation
+  const tagInfo = isInsideTag(doc.content, offset);
+  if (tagInfo && /^[A-Z]/.test(tagInfo.tagName)) {
+    // Check project context first for cross-file components
+    if (projectContext) {
+      const projectComponentDef = findProjectComponentDefinition(
+        tagInfo.tagName,
+        projectContext
+      );
+      if (projectComponentDef) {
+        return projectComponentDef;
+      }
+    }
+  }
 
   // Check if we're inside an expression
   if (isInsideExpression(doc.content, offset)) {
     return findExpressionDefinition(doc, offset);
   }
 
-  // Check for component tag definition
+  // Check for component tag definition (in-document components)
   const componentDef = findComponentDefinition(doc, offset);
   if (componentDef) {
     return componentDef;
@@ -130,6 +157,51 @@ function findVariableByName(
     }
   }
   return null;
+}
+
+/**
+ * Find definition for a project component (cross-file navigation)
+ *
+ * @param componentName - The component tag name (e.g., "Button" or "Form.Input")
+ * @param projectContext - The project context with discovered components
+ * @returns Definition location or null if not found
+ */
+function findProjectComponentDefinition(
+  componentName: string,
+  projectContext: ProjectLspContext
+): DefinitionLocation | null {
+  const componentInfo = projectContext.components.get(componentName);
+  if (!componentInfo || !componentInfo.filePath) {
+    return null;
+  }
+
+  // Convert file path to URI
+  const uri = pathToFileURL(componentInfo.filePath).href;
+
+  // Return location pointing to the start of the file
+  // (line 0, char 0 since we don't have exact location info)
+  return {
+    uri,
+    range: {
+      start: { line: 0, character: 0 },
+      end: { line: 0, character: 0 },
+    },
+  };
+}
+
+/**
+ * Gets the component definition location for a given component name.
+ * Exported for use in LSP server.
+ *
+ * @param componentName - The component tag name
+ * @param projectContext - The project context
+ * @returns Definition location or null
+ */
+export function getComponentDefinition(
+  componentName: string,
+  projectContext: ProjectLspContext
+): DefinitionLocation | null {
+  return findProjectComponentDefinition(componentName, projectContext);
 }
 
 /**

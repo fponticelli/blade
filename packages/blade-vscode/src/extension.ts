@@ -17,9 +17,9 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext): void {
   // Path to the server module
-  // The server is in the blade package's dist/lsp/server.js
+  // The server is bundled in out/server/server.js
   const serverModule = context.asAbsolutePath(
-    path.join('..', 'blade', 'dist', 'lsp', 'server.js')
+    path.join('out', 'server', 'server.js')
   );
 
   // Server options - run in Node.js

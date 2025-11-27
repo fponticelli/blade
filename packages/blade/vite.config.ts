@@ -11,15 +11,27 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
+      entry: {
+        index: resolve(__dirname, 'src/index.ts'),
+        'lsp/server': resolve(__dirname, 'src/lsp/server.ts'),
+      },
       name: 'Blade',
       formats: ['es'],
-      fileName: 'index',
     },
     rollupOptions: {
-      external: [],
+      // Node.js built-ins and vscode LSP packages are external
+      external: [
+        'fs/promises',
+        'path',
+        'fs',
+        'url',
+        'vscode-languageserver/node.js',
+        'vscode-languageserver-textdocument',
+      ],
       output: {
         exports: 'named',
+        // Preserve directory structure for lsp/server.js
+        entryFileNames: '[name].js',
       },
     },
     sourcemap: true,

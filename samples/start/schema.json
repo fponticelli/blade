@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "The main title of the card"
+    },
+    "subtitle": {
+      "type": "string",
+      "description": "Optional subtitle"
+    },
+    "items": {
+      "type": "array",
+      "description": "List of items to display",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Item name"
+          },
+          "price": {
+            "type": "number",
+            "description": "Item price in dollars"
+          },
+          "inStock": {
+            "type": "boolean",
+            "description": "Whether the item is in stock"
+          }
+        },
+        "required": ["name", "price"]
+      }
+    }
+  },
+  "required": [
+    "title",
+    "items"
+  ]
+}

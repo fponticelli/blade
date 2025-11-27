@@ -1,3 +1,5 @@
+@props(title, subtitle?, items)
+
 <template:Card title! subtitle="Default">
   <div class="card">
     <h2>$title</h2>
@@ -8,12 +10,10 @@
   </div>
 </template:Card>
 
-@@ {
-  let items = ["Apple", "Banana", "Cherry"];
-}
-
-<Card title="Fruits">
+<Card title=$title>
+  Items: ${concat(items[*].name)}
+  First Item: ${concat(items[0].name)}
   @for(item, index of items) {
-    <li>${index + 1}. $item</li>
+    <li>${index + 1}. $item.name</li>
   }
 </Card>

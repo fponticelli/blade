@@ -127,34 +127,35 @@ describe('Completion Provider', () => {
       const offset = 1;
       const completions = getCompletionsAtOffset(content, offset);
 
-      const ifCompletion = completions.find(c => c.label === '@if');
+      const ifCompletion = completions.find(c => c.label === 'if');
       expect(ifCompletion).toBeDefined();
     });
 
-    it('should provide @for completion', () => {
+    it('should provide for completion', () => {
       const content = '@';
       const offset = 1;
       const completions = getCompletionsAtOffset(content, offset);
 
-      const forCompletion = completions.find(c => c.label === '@for');
+      const forCompletion = completions.find(c => c.label === 'for');
       expect(forCompletion).toBeDefined();
     });
 
-    it('should provide @match completion', () => {
+    it('should provide match completion', () => {
       const content = '@';
       const offset = 1;
       const completions = getCompletionsAtOffset(content, offset);
 
-      const matchCompletion = completions.find(c => c.label === '@match');
+      const matchCompletion = completions.find(c => c.label === 'match');
       expect(matchCompletion).toBeDefined();
     });
 
-    it('should provide @@ completion', () => {
+    it('should provide @@ completion for variable declaration', () => {
       const content = '@';
       const offset = 1;
       const completions = getCompletionsAtOffset(content, offset);
 
-      const letCompletion = completions.find(c => c.label === '@@');
+      // The label is '@' for the @@ directive (adds another @)
+      const letCompletion = completions.find(c => c.label === '@');
       expect(letCompletion).toBeDefined();
     });
   });
@@ -228,6 +229,121 @@ describe('Completion Provider', () => {
 
       // Should include 'name' but ideally not 'age' (depends on implementation)
       expect(Array.isArray(completions)).toBe(true);
+    });
+  });
+
+  describe('@props Variables', () => {
+    it('should include @props variables in expression completions', () => {
+      const content = '@props(title, subtitle?, items)\n<div>$</div>';
+      const doc = createDocument('test://test.blade', content);
+
+      // Find offset right after $
+      const offset = content.indexOf('$') + 1;
+      const context = getCompletionContext(doc, offset);
+      const completions = getCompletions(context, doc.scope);
+
+      // Should have title, subtitle, items from @props
+      const titleCompletion = completions.find(c => c.label === 'title');
+      const subtitleCompletion = completions.find(c => c.label === 'subtitle');
+      const itemsCompletion = completions.find(c => c.label === 'items');
+
+      expect(titleCompletion).toBeDefined();
+      expect(titleCompletion?.detail).toBe('Component prop');
+      expect(subtitleCompletion).toBeDefined();
+      expect(itemsCompletion).toBeDefined();
+    });
+
+    it('should include @props variables inside ${...} expressions', () => {
+      const content = '@props(name, age)\n<div>${}</div>';
+      const doc = createDocument('test://test.blade', content);
+
+      // Find offset inside ${}
+      const offset = content.indexOf('${}') + 2;
+      const context = getCompletionContext(doc, offset);
+      const completions = getCompletions(context, doc.scope);
+
+      const nameCompletion = completions.find(c => c.label === 'name');
+      const ageCompletion = completions.find(c => c.label === 'age');
+
+      expect(nameCompletion).toBeDefined();
+      expect(ageCompletion).toBeDefined();
+    });
+
+    it('should detect expression context when typing $', () => {
+      const content = '@props(title)\n<div>$</div>';
+      const doc = createDocument('test://test.blade', content);
+
+      // Offset right after $
+      const offset = content.indexOf('<div>$') + 6;
+      const context = getCompletionContext(doc, offset);
+
+      expect(context.contextKind).toBe('expression');
+    });
+  });
+
+  describe('Scope-aware Variable Visibility', () => {
+    it('should NOT show @for variables outside the loop', () => {
+      const content = `@props(title)
+<div>$</div>
+@for(item of items) {
+  <span>$item</span>
+}`;
+      const doc = createDocument('test://test.blade', content);
+
+      // Offset at $ on line 2 (outside @for)
+      const offset = content.indexOf('<div>$') + 6;
+      const context = getCompletionContext(doc, offset);
+      const completions = getCompletions(context, doc.scope);
+
+      // Should have 'title' from @props
+      const titleCompletion = completions.find(c => c.label === 'title');
+      expect(titleCompletion).toBeDefined();
+
+      // Should NOT have 'item' from @for (it's defined later and in different scope)
+      const itemCompletion = completions.find(c => c.label === 'item');
+      expect(itemCompletion).toBeUndefined();
+    });
+
+    it('should show @for variables inside the loop', () => {
+      const content = `@props(title)
+@for(item, index of items) {
+  <span>$</span>
+}`;
+      const doc = createDocument('test://test.blade', content);
+
+      // Find offset at $ inside the @for loop
+      const spanStart = content.indexOf('<span>$');
+      const offset = spanStart + 7; // After $
+      const context = getCompletionContext(doc, offset);
+      const completions = getCompletions(context, doc.scope);
+
+      // Should have 'title' from @props
+      const titleCompletion = completions.find(c => c.label === 'title');
+      expect(titleCompletion).toBeDefined();
+
+      // Should have 'item' and 'index' from @for
+      const itemCompletion = completions.find(c => c.label === 'item');
+      const indexCompletion = completions.find(c => c.label === 'index');
+      expect(itemCompletion).toBeDefined();
+      expect(itemCompletion?.detail).toBe('Loop item');
+      expect(indexCompletion).toBeDefined();
+      expect(indexCompletion?.detail).toBe('Loop index');
+    });
+
+    it('should show helper functions in expression context', () => {
+      const content = '@props(title)\n<div>$</div>';
+      const doc = createDocument('test://test.blade', content);
+
+      const offset = content.indexOf('<div>$') + 6;
+      const context = getCompletionContext(doc, offset);
+      const completions = getCompletions(context, doc.scope);
+
+      // Should have helper functions
+      const formatCurrency = completions.find(c => c.label === 'formatCurrency');
+      const formatDate = completions.find(c => c.label === 'formatDate');
+
+      expect(formatCurrency).toBeDefined();
+      expect(formatDate).toBeDefined();
     });
   });
 });
