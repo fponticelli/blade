@@ -12,7 +12,6 @@ import {
   TextDocumentSyncKind,
   DidChangeConfigurationNotification,
   CompletionItem,
-  CompletionItemKind,
   Diagnostic,
   DiagnosticSeverity,
   TextDocumentPositionParams,
@@ -27,6 +26,13 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { WorkspaceManager } from './analyzer/workspace.js';
 import type { LspConfig } from './types.js';
 import { DEFAULT_LSP_CONFIG } from './types.js';
+import { getCompletionContext, getCompletions } from './providers/completion.js';
+import { getHoverInfo } from './providers/hover.js';
+import { getOffset } from './document.js';
+import type { ProjectLspContext } from './project-context.js';
+import { initializeProjectContext } from './project-context.js';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -35,11 +41,16 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 // Workspace manager
 let workspaceManager: WorkspaceManager;
 
+// Project contexts keyed by project root
+const projectContexts: Map<string, ProjectLspContext> = new Map();
+
 // Configuration
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 
 connection.onInitialize((params: InitializeParams): InitializeResult => {
+  connection.console.log('[Server] Initializing Blade Language Server...');
+
   const capabilities = params.capabilities;
 
   hasConfigurationCapability = !!(
@@ -52,6 +63,8 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   // Initialize workspace manager with default config
   workspaceManager = new WorkspaceManager(DEFAULT_LSP_CONFIG);
 
+  connection.console.log('[Server] Workspace manager initialized');
+
   const result: InitializeResult = {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Full,
@@ -62,10 +75,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       hoverProvider: true,
       definitionProvider: true,
       referencesProvider: true,
-      diagnosticProvider: {
-        interFileDependencies: true,
-        workspaceDiagnostics: false,
-      },
+      // Using push-based diagnostics via sendDiagnostics instead of pull-based
     },
   };
 
@@ -130,14 +140,64 @@ async function updateConfiguration(): Promise<void> {
   }
 }
 
+/**
+ * Gets the project root from a document URI.
+ * The project root is the directory containing the .blade file.
+ */
+function getProjectRoot(uri: string): string {
+  const filePath = fileURLToPath(uri);
+  return dirname(filePath);
+}
+
+/**
+ * Gets or initializes the project context for a document.
+ */
+async function getProjectContext(uri: string): Promise<ProjectLspContext | undefined> {
+  const projectRoot = getProjectRoot(uri);
+
+  // Check if we already have context for this project
+  const cachedContext = projectContexts.get(projectRoot);
+  if (cachedContext) {
+    return cachedContext;
+  }
+
+  // Initialize new project context
+  connection.console.log(`[Server] Initializing project context for: ${projectRoot}`);
+  const newContext = await initializeProjectContext(projectRoot);
+
+  if (newContext) {
+    projectContexts.set(projectRoot, newContext);
+    connection.console.log(`[Server] Project context loaded. Schema: ${!!newContext.schema}, Components: ${newContext.components.size}`);
+    if (newContext.schema) {
+      connection.console.log(`[Server] Schema properties: ${newContext.schema.properties.map(p => p.path).join(', ')}`);
+    }
+    return newContext;
+  } else {
+    connection.console.log(`[Server] No project context found (no schema.json)`);
+    return undefined;
+  }
+}
+
 // Document lifecycle events
-documents.onDidOpen(event => {
+documents.onDidOpen(async event => {
   const { document } = event;
+  connection.console.log(`[Server] Document opened: ${document.uri}`);
+  connection.console.log(`[Server] Document content length: ${document.getText().length}`);
   workspaceManager.openDocument(
     document.uri,
     document.getText(),
     document.version
   );
+  const bladeDoc = workspaceManager.getDocument(document.uri);
+  connection.console.log(`[Server] BladeDoc created: ${!!bladeDoc}`);
+  if (bladeDoc) {
+    connection.console.log(`[Server] BladeDoc errors: ${bladeDoc.errors.length}`);
+    connection.console.log(`[Server] BladeDoc scope variables count: ${bladeDoc.scope.variables.size}`);
+  }
+
+  // Load project context for this document
+  await getProjectContext(document.uri);
+
   validateDocument(document);
 });
 
@@ -196,30 +256,65 @@ function validateDocument(textDocument: TextDocument): void {
 
 // Completion handler
 connection.onCompletion(
-  (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-    // This is a basic implementation - will be extended in User Story 3
-    const items: CompletionItem[] = [];
+  async (params: TextDocumentPositionParams): Promise<CompletionItem[]> => {
+    connection.console.log(
+      `[Completion] Request for ${params.textDocument.uri} at line ${params.position.line}, char ${params.position.character}`
+    );
 
-    // Add directive completions
-    const directives = [
-      { label: '@if', detail: 'Conditional block' },
-      { label: '@for', detail: 'Loop block' },
-      { label: '@match', detail: 'Pattern matching block' },
-      { label: '@@', detail: 'Variable declaration block' },
-      { label: '@component', detail: 'Component definition' },
-      { label: '@end', detail: 'End block' },
-      { label: '@else', detail: 'Else branch' },
-    ];
-
-    for (const dir of directives) {
-      items.push({
-        label: dir.label,
-        kind: CompletionItemKind.Keyword,
-        detail: dir.detail,
-      });
+    const doc = workspaceManager.getDocument(params.textDocument.uri);
+    if (!doc) {
+      connection.console.log('[Completion] Document not found in workspace');
+      return [];
     }
 
-    return items;
+    // Get project context for schema-based completions
+    const projectContext = await getProjectContext(params.textDocument.uri);
+
+    // Get offset from position
+    const offset = getOffset(
+      doc.content,
+      params.position.line,
+      params.position.character
+    );
+
+    connection.console.log(
+      `[Completion] Offset: ${offset}, char before: ${JSON.stringify(doc.content[offset - 1])}`
+    );
+
+    // Get completion context
+    const context = getCompletionContext(doc, offset);
+
+    connection.console.log(`[Completion] Context kind: ${context.contextKind}`);
+
+    // Get completions from provider with project context
+    const completions = getCompletions(context, doc.scope, projectContext);
+
+    connection.console.log(
+      `[Completion] Returning ${completions.length} completions: ${completions
+        .slice(0, 5)
+        .map(c => c.label)
+        .join(', ')}...`
+    );
+
+    // Convert to LSP CompletionItems
+    // For expression context (typing $), add $ prefix to filterText and insertText
+    // For expression-path context (drilling into objects), just insert the property name
+    const isTopLevelExpression = context.contextKind === 'expression';
+    const isPathExpression = context.contextKind === 'expression-path';
+
+    return completions.map(item => ({
+      label: item.label,
+      kind: item.kind,
+      detail: item.detail,
+      documentation: item.documentation,
+      // For top-level expressions ($foo), insert with $ prefix
+      // For path expressions (foo.bar), just insert the property name
+      insertText: isTopLevelExpression ? `$${item.insertText || item.label}` : item.insertText,
+      insertTextFormat: item.insertTextFormat,
+      sortText: item.sortText,
+      // Add $ prefix to filterText only for top-level expressions
+      filterText: isTopLevelExpression ? `$${item.label}` : (isPathExpression ? item.label : item.filterText),
+    }));
   }
 );
 
@@ -230,9 +325,44 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
 });
 
 // Hover handler
-connection.onHover((_params: TextDocumentPositionParams): Hover | null => {
-  // Will be implemented in User Story 8
-  return null;
+connection.onHover(async (params: TextDocumentPositionParams): Promise<Hover | null> => {
+  const doc = workspaceManager.getDocument(params.textDocument.uri);
+  if (!doc) {
+    return null;
+  }
+
+  // Get project context for schema-based type info
+  const projectContext = await getProjectContext(params.textDocument.uri);
+
+  // getHoverInfo expects a Position object
+  const position = {
+    line: params.position.line,
+    character: params.position.character,
+  };
+
+  const hoverInfo = getHoverInfo(doc, position, projectContext);
+  if (!hoverInfo) {
+    return null;
+  }
+
+  return {
+    contents: {
+      kind: 'markdown',
+      value: hoverInfo.contents,
+    },
+    range: hoverInfo.range
+      ? {
+          start: {
+            line: hoverInfo.range.start.line,
+            character: hoverInfo.range.start.character,
+          },
+          end: {
+            line: hoverInfo.range.end.line,
+            character: hoverInfo.range.end.character,
+          },
+        }
+      : undefined,
+  };
 });
 
 // Go to definition handler

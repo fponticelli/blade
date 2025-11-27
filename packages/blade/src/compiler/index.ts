@@ -5,9 +5,21 @@ import type {
   TemplateNode,
   ComponentDefinition,
   PathItem,
+  ComponentInfo,
 } from '../ast/types.js';
 import * as ast from '../ast/builders.js';
 import { parseTemplate } from '../parser/index.js';
+import { discoverComponents } from '../project/discovery.js';
+import {
+  collectComponentReferences,
+  createMissingComponentDiagnostic,
+} from '../project/resolver.js';
+import {
+  parseComponentProps,
+  createMissingPropDiagnostic,
+} from '../project/props.js';
+import { readFile } from 'fs/promises';
+import { relative } from 'path';
 
 export interface CompileOptions {
   validate?: boolean;
@@ -16,6 +28,13 @@ export interface CompileOptions {
   includeMetadata?: boolean;
   maxExpressionDepth?: number;
   maxFunctionDepth?: number;
+  /**
+   * Path to the project root directory.
+   * When specified, enables project component resolution from the filesystem.
+   * Components in the project directory will be auto-discovered and available
+   * for validation (e.g., missing component errors, prop validation).
+   */
+  projectRoot?: string;
 }
 
 interface MetadataCollector {
@@ -261,6 +280,208 @@ function validate(
   return diagnostics;
 }
 
+/**
+ * Validates component references against project components.
+ * Checks for missing components and missing required props.
+ */
+async function validateProjectComponents(
+  rootNode: { children: readonly TemplateNode[] },
+  templateComponents: ReadonlyMap<string, ComponentDefinition>,
+  projectRoot: string
+): Promise<
+  Array<{
+    level: 'error' | 'warning';
+    message: string;
+    location: ReturnType<typeof ast.loc>;
+  }>
+> {
+  const diagnostics: Array<{
+    level: 'error' | 'warning';
+    message: string;
+    location: ReturnType<typeof ast.loc>;
+  }> = [];
+
+  // Try to discover project components
+  let projectComponents: Map<string, ComponentInfo>;
+  try {
+    projectComponents = await discoverComponents(projectRoot);
+  } catch {
+    // If discovery fails (e.g., no index.blade), just return empty - no project validation
+    return diagnostics;
+  }
+
+  // Collect component references from the AST
+  const references = collectComponentReferences(rootNode);
+
+  // Cache for parsed component props
+  const propsCache = new Map<
+    string,
+    Awaited<ReturnType<typeof parseComponentProps>>
+  >();
+
+  async function getComponentProps(comp: ComponentInfo) {
+    if (!propsCache.has(comp.tagName)) {
+      const source = await readFile(comp.filePath, 'utf-8');
+      propsCache.set(comp.tagName, parseComponentProps(source));
+    }
+    return propsCache.get(comp.tagName)!;
+  }
+
+  for (const tagName of references) {
+    // Skip HTML elements (lowercase) and template-defined components
+    if (tagName === tagName.toLowerCase()) continue;
+    if (templateComponents.has(tagName)) continue;
+
+    // Check if component exists in project
+    const component = projectComponents.get(tagName);
+    if (!component) {
+      const location = findComponentLocationInNodes(rootNode.children, tagName);
+      const diag = createMissingComponentDiagnostic(
+        tagName,
+        location ?? { start: { line: 1, column: 1 } },
+        projectRoot
+      );
+      diagnostics.push({
+        level: diag.level,
+        message: diag.message,
+        location: ast.loc({
+          line: diag.location.start.line,
+          column: diag.location.start.column,
+          offset: diag.location.start.offset,
+        }),
+      });
+      continue;
+    }
+
+    // Validate required props
+    const propsResult = await getComponentProps(component);
+    const usages = findAllComponentUsagesInNodes(rootNode.children, tagName);
+
+    for (const usage of usages) {
+      const providedProps = new Set(usage.props.map(p => p.name));
+
+      for (const propDef of propsResult.props) {
+        if (propDef.required && !providedProps.has(propDef.name)) {
+          const diag = createMissingPropDiagnostic(
+            propDef.name,
+            tagName,
+            usage.location,
+            {
+              file: relative(projectRoot, component.filePath),
+              line: propDef.location.start.line,
+            }
+          );
+          diagnostics.push({
+            level: diag.level,
+            message: diag.message,
+            location: ast.loc({
+              line: diag.location.start.line,
+              column: diag.location.start.column,
+              offset: diag.location.start.offset,
+            }),
+          });
+        }
+      }
+    }
+  }
+
+  return diagnostics;
+}
+
+/**
+ * Finds the source location of a component usage in the AST nodes.
+ */
+function findComponentLocationInNodes(
+  nodes: readonly TemplateNode[],
+  tagName: string
+): { start: { line: number; column: number } } | undefined {
+  for (const node of nodes) {
+    if (node.kind === 'component' && node.name === tagName) {
+      return { start: node.location.start };
+    }
+    if ('children' in node && Array.isArray(node.children)) {
+      const result = findComponentLocationInNodes(node.children, tagName);
+      if (result) return result;
+    }
+    if (node.kind === 'if') {
+      for (const branch of node.branches) {
+        const result = findComponentLocationInNodes(branch.body, tagName);
+        if (result) return result;
+      }
+      if (node.elseBranch) {
+        const result = findComponentLocationInNodes(node.elseBranch, tagName);
+        if (result) return result;
+      }
+    }
+    if (node.kind === 'for') {
+      const result = findComponentLocationInNodes(node.body, tagName);
+      if (result) return result;
+    }
+    if (node.kind === 'match') {
+      for (const c of node.cases) {
+        const result = findComponentLocationInNodes(c.body, tagName);
+        if (result) return result;
+      }
+      if (node.defaultCase) {
+        const result = findComponentLocationInNodes(node.defaultCase, tagName);
+        if (result) return result;
+      }
+    }
+  }
+  return undefined;
+}
+
+interface ComponentUsageInfo {
+  props: readonly { name: string }[];
+  location: { start: { line: number; column: number } };
+}
+
+/**
+ * Finds all usages of a component in the AST nodes.
+ */
+function findAllComponentUsagesInNodes(
+  nodes: readonly TemplateNode[],
+  tagName: string
+): ComponentUsageInfo[] {
+  const usages: ComponentUsageInfo[] = [];
+
+  function visit(nodeList: readonly TemplateNode[]): void {
+    for (const node of nodeList) {
+      if (node.kind === 'component' && node.name === tagName) {
+        usages.push({
+          props: node.props,
+          location: { start: node.location.start },
+        });
+      }
+      if ('children' in node && Array.isArray(node.children)) {
+        visit(node.children);
+      }
+      if (node.kind === 'if') {
+        for (const branch of node.branches) {
+          visit(branch.body);
+        }
+        if (node.elseBranch) {
+          visit(node.elseBranch);
+        }
+      }
+      if (node.kind === 'for') {
+        visit(node.body);
+      }
+      if (node.kind === 'match') {
+        for (const c of node.cases) {
+          visit(c.body);
+        }
+        if (node.defaultCase) {
+          visit(node.defaultCase);
+        }
+      }
+    }
+  }
+
+  visit(nodes);
+  return usages;
+}
+
 export async function compile(
   source: string,
   options?: CompileOptions
@@ -316,6 +537,16 @@ export async function compile(
     options
   );
   diagnostics.push(...validationDiagnostics);
+
+  // If projectRoot is specified, validate project components
+  if (options?.projectRoot) {
+    const projectDiagnostics = await validateProjectComponents(
+      rootNode,
+      parseResult.components,
+      options.projectRoot
+    );
+    diagnostics.push(...projectDiagnostics);
+  }
 
   // Generate source map if requested
   const result: CompiledTemplate = {

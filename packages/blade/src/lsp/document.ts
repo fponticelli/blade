@@ -4,6 +4,7 @@
  */
 
 import { parseTemplate } from '../parser/index.js';
+import { parseProps } from '../parser/props-parser.js';
 import type { BladeDocument, LspConfig } from './types.js';
 import { createEmptyScope } from './types.js';
 import { analyzeScope } from './analyzer/scope.js';
@@ -49,21 +50,88 @@ export function updateDocument(
  * Parse document content and update AST, errors, components, and scope
  */
 export function parseDocument(doc: BladeDocument): BladeDocument {
-  const result = parseTemplate(doc.content);
+  // First, parse @props directive if present (strips it from source)
+  const propsResult = parseProps(doc.content);
 
-  const scope =
+  // Parse the remaining template (after @props is stripped)
+  const result = parseTemplate(propsResult.remainingSource);
+
+  // Combine props warnings with template errors
+  const allErrors = [
+    ...propsResult.warnings.map(w => ({
+      message: w.message,
+      line: w.line,
+      column: w.column,
+      offset: w.offset,
+    })),
+    // Adjust line numbers for template errors if @props was present
+    ...result.errors.map(e => ({
+      ...e,
+      // Offset line numbers to account for stripped @props
+      line: e.line + (propsResult.remainingOffset > 0 ? countLines(doc.content.slice(0, propsResult.remainingOffset)) : 0),
+    })),
+  ];
+
+  let scope =
     result.errors.length === 0 && result.value.length > 0
       ? analyzeScope(result.value, result.components)
       : createEmptyScope();
 
+  // Adjust scope offsets to account for stripped @props directive
+  // The AST offsets are relative to remainingSource, but we need them relative to original content
+  const propsOffset = propsResult.remainingOffset;
+  if (propsOffset > 0) {
+    const adjustedVariables = new Map<number, typeof scope.variables extends Map<number, infer V> ? V : never>();
+    for (const [offset, vars] of scope.variables) {
+      adjustedVariables.set(offset + propsOffset, vars);
+    }
+    scope = { ...scope, variables: adjustedVariables };
+  }
+
+  // Add @props variables to scope as prop variables available everywhere
+  const directiveProps = propsResult.directive?.props ?? [];
+  if (directiveProps.length > 0) {
+    const propsVars = directiveProps.map(p => ({
+      name: p.name,
+      kind: 'prop' as const,
+      location: propsResult.directive?.location ?? {
+        start: { line: 1, column: 1, offset: 0 },
+        end: { line: 1, column: 1, offset: 0 },
+      },
+    }));
+
+    // Add props to all existing scope entries
+    for (const [offset, vars] of scope.variables) {
+      const existingNames = new Set(vars.map(v => v.name));
+      const newProps = propsVars.filter(pv => !existingNames.has(pv.name));
+      scope.variables.set(offset, [...newProps, ...vars]);
+    }
+
+    // Also ensure there's an entry at offset 0 with just props (before the template starts)
+    if (!scope.variables.has(0)) {
+      scope.variables.set(0, [...propsVars]);
+    }
+  }
+
   return {
     ...doc,
     ast: result.value,
-    errors: result.errors,
+    errors: allErrors,
     components: result.components,
     scope,
     lastParsed: Date.now(),
   };
+}
+
+/**
+ * Count the number of newlines in a string
+ */
+function countLines(str: string): number {
+  let count = 0;
+  for (const char of str) {
+    if (char === '\n') count++;
+  }
+  return count;
 }
 
 /**
@@ -152,13 +220,14 @@ export function getWordAtOffset(
 
 /**
  * Get the path expression at offset (e.g., "user.name" from "${user.name}")
+ * Also handles array access like "items[0].name" and wildcard "items[*].name"
  */
 export function getPathAtOffset(
   content: string,
   offset: number
-): { path: string; start: number; end: number } | null {
-  // Path characters: alphanumeric, underscore, dollar sign, dot
-  const isPathChar = (char: string) => /[\w$.]/.test(char);
+): { path: string; start: number; end: number; basePath: string } | null {
+  // Path characters: alphanumeric, underscore, dollar sign, dot, brackets, numbers, asterisk
+  const isPathChar = (char: string) => /[\w$.\[\]*]/.test(char);
 
   let start = offset;
   let end = offset;
@@ -179,12 +248,21 @@ export function getPathAtOffset(
 
   const path = content.slice(start, end);
 
-  // Don't return if it's just dots
-  if (/^\.+$/.test(path)) {
+  // Don't return if it's just dots or brackets
+  if (/^[.\[\]*]+$/.test(path)) {
     return null;
   }
 
-  return { path, start, end };
+  // Extract the base path for schema lookups:
+  // "items[0].name" -> "items[].name"
+  // "items[*].name" -> "items[].name"
+  // "items[0]." -> "items[]"
+  // "$user.address.city" -> "user.address.city"
+  let basePath = path.replace(/^\$/, ''); // Remove leading $
+  basePath = basePath.replace(/\[\d+\]/g, '[]'); // Normalize numeric array indices
+  basePath = basePath.replace(/\[\*\]/g, '[]'); // Normalize wildcard array indices
+
+  return { path, start, end, basePath };
 }
 
 /**

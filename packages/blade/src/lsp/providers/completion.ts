@@ -9,12 +9,16 @@ import type {
   CompletionContext,
   ScopeVariable,
 } from '../types.js';
+import type { ProjectLspContext } from '../project-context.js';
 import {
   isInsideExpression,
   isAfterDirective,
   isInsideTag,
   getPathAtOffset,
+  getOffset,
 } from '../document.js';
+import { getVariablesAtOffset } from '../analyzer/scope.js';
+import { getSchemaCompletions } from '../../project/schema.js';
 
 /**
  * Completion item kind (from LSP spec)
@@ -73,15 +77,26 @@ export function getCompletionContext(
 
   // Check for expression context
   if (isInsideExpression(content, offset)) {
-    // Check if we're after a dot (path completion)
+    // Check if we're after a dot (path completion) or array access
     const pathInfo = getPathAtOffset(content, offset);
-    if (pathInfo && pathInfo.path.includes('.')) {
+    // Trigger path completion if:
+    // - path contains a dot (e.g., "user.name")
+    // - path ends with array access followed by dot (e.g., "items[0].")
+    const isPathContext = pathInfo && (
+      pathInfo.path.includes('.') ||
+      /\[\d*\]\.$/.test(pathInfo.path) ||
+      /\[\d*\]$/.test(pathInfo.path)
+    );
+    if (isPathContext) {
+      // Extract the partial token - everything after the last dot
+      const lastDotIndex = pathInfo.path.lastIndexOf('.');
+      const partialToken = lastDotIndex >= 0 ? pathInfo.path.slice(lastDotIndex + 1) : '';
       return {
         document: doc,
         position,
         contextKind: 'expression-path',
         scopeVariables: getVariablesAtOffset(doc.scope, offset),
-        partialToken: pathInfo.path.split('.').pop() || '',
+        partialToken,
       };
     }
     return {
@@ -154,6 +169,28 @@ export function getCompletionContext(
     };
   }
 
+  // Check if we just typed $ (start of simple expression like $title)
+  if (charBefore === '$') {
+    return {
+      document: doc,
+      position,
+      contextKind: 'expression',
+      scopeVariables: getVariablesAtOffset(doc.scope, offset),
+      partialToken: '',
+    };
+  }
+
+  // Check if we're inside @props() arguments
+  if (isInsidePropsDirective(content, offset)) {
+    return {
+      document: doc,
+      position,
+      contextKind: 'directive-argument',
+      scopeVariables: [],
+      partialToken: getPartialToken(content, offset),
+    };
+  }
+
   // Default to text context
   return {
     document: doc,
@@ -166,25 +203,39 @@ export function getCompletionContext(
 
 /**
  * Get completions based on context
+ *
+ * @param context - The completion context
+ * @param scope - Document scope with variables
+ * @param projectContext - Optional project context for schema-based completions
  */
 export function getCompletions(
   context: CompletionContext,
-  scope: DocumentScope
+  scope: DocumentScope,
+  projectContext?: ProjectLspContext
 ): CompletionItem[] {
   const items: CompletionItem[] = [];
 
   switch (context.contextKind) {
     case 'expression':
+      items.push(...getExpressionCompletions(context, scope, projectContext));
+      break;
+
     case 'expression-path':
-      items.push(...getExpressionCompletions(context, scope));
+      // For path completions (drilling into objects), only show schema properties
+      items.push(...getPathCompletions(context, projectContext));
       break;
 
     case 'directive':
-      items.push(...getDirectiveCompletions());
+      items.push(...getDirectiveCompletions(projectContext));
+      break;
+
+    case 'directive-argument':
+      // Inside @props() or other directive arguments
+      items.push(...getDirectiveArgumentCompletions(context, projectContext));
       break;
 
     case 'html-tag':
-      items.push(...getHtmlTagCompletions());
+      items.push(...getHtmlTagCompletions(projectContext));
       break;
 
     case 'html-attribute':
@@ -192,7 +243,7 @@ export function getCompletions(
       break;
 
     case 'component-prop':
-      items.push(...getComponentPropCompletions(context));
+      items.push(...getComponentPropCompletions(context, projectContext));
       break;
 
     case 'text':
@@ -207,13 +258,21 @@ export function getCompletions(
  * Get expression-related completions
  */
 function getExpressionCompletions(
-  _context: CompletionContext,
-  scope: DocumentScope
+  context: CompletionContext,
+  scope: DocumentScope,
+  projectContext?: ProjectLspContext
 ): CompletionItem[] {
   const items: CompletionItem[] = [];
 
-  // Add scope variables
-  const variables = getVariablesAtOffset(scope, 0); // Get all variables for now
+  // Calculate offset from position for proper scope lookup
+  const offset = getOffset(
+    context.document.content,
+    context.position.line,
+    context.position.character
+  );
+
+  // Add scope variables at the current position
+  const variables = getVariablesAtOffset(scope, offset);
   for (const variable of variables) {
     items.push({
       label: variable.name,
@@ -223,6 +282,12 @@ function getExpressionCompletions(
     });
   }
 
+  // Add schema-based completions if available
+  if (projectContext?.schema) {
+    const schemaItems = getSchemaBasedCompletions(context, projectContext);
+    items.push(...schemaItems);
+  }
+
   // Add common helpers (would come from configuration)
   items.push(...getBuiltinHelperCompletions());
 
@@ -230,80 +295,242 @@ function getExpressionCompletions(
 }
 
 /**
+ * Get completions for path expressions (drilling into objects/arrays)
+ * Only returns schema properties, no variables or helpers
+ */
+function getPathCompletions(
+  context: CompletionContext,
+  projectContext?: ProjectLspContext
+): CompletionItem[] {
+  if (!projectContext?.schema) {
+    return [];
+  }
+
+  const items: CompletionItem[] = [];
+  const partialToken = context.partialToken || '';
+
+  // Extract the base path from the full path expression
+  const content = context.document.content;
+  const offset = getOffset(content, context.position.line, context.position.character);
+  const pathInfo = getPathAtOffset(content, offset);
+
+  if (!pathInfo) {
+    return [];
+  }
+
+  // Use the normalized basePath which converts array indices to []
+  // e.g., "items[0]." -> "items[]"
+  // e.g., "$user.address." -> "user.address"
+  let basePath = pathInfo.basePath;
+
+  // Remove the partial token from the end if present
+  if (partialToken && basePath.endsWith('.' + partialToken)) {
+    basePath = basePath.slice(0, -(partialToken.length + 1));
+  } else if (basePath.endsWith('.')) {
+    basePath = basePath.slice(0, -1);
+  }
+
+  // Get completions from schema for this path
+  const schemaCompletions = getSchemaCompletions(projectContext.schema, basePath);
+
+  for (const prop of schemaCompletions) {
+    // Extract just the property name (last part of the path)
+    const pathParts = prop.path.split('.');
+    const propName = pathParts[pathParts.length - 1] || prop.path;
+
+    // Skip if it doesn't match partial token
+    if (partialToken && !propName.toLowerCase().startsWith(partialToken.toLowerCase())) {
+      continue;
+    }
+
+    items.push({
+      label: propName,
+      kind: prop.hasChildren ? CompletionItemKind.Module : CompletionItemKind.Property,
+      detail: `${prop.type}${prop.description ? ' - ' + prop.description : ''}`,
+      documentation: prop.description,
+      sortText: '0' + propName,
+    });
+  }
+
+  return items;
+}
+
+/**
+ * Get schema-based completions for top-level variables (used in expression context)
+ */
+function getSchemaBasedCompletions(
+  context: CompletionContext,
+  projectContext: ProjectLspContext
+): CompletionItem[] {
+  if (!projectContext.schema) {
+    return [];
+  }
+
+  const items: CompletionItem[] = [];
+  const partialToken = context.partialToken || '';
+
+  // For regular expression context, only return top-level schema properties
+  const schemaCompletions = getSchemaCompletions(projectContext.schema, '');
+
+  for (const prop of schemaCompletions) {
+    const propName = prop.path;
+
+    // Skip if it doesn't match partial token
+    if (partialToken && !propName.toLowerCase().startsWith(partialToken.toLowerCase())) {
+      continue;
+    }
+
+    items.push({
+      label: propName,
+      kind: prop.hasChildren ? CompletionItemKind.Module : CompletionItemKind.Property,
+      detail: `${prop.type}${prop.description ? ' - ' + prop.description : ''}`,
+      documentation: prop.description,
+      sortText: '0' + propName,
+    });
+  }
+
+  return items;
+}
+
+/**
  * Get directive completions
  */
-function getDirectiveCompletions(): CompletionItem[] {
+function getDirectiveCompletions(
+  _projectContext?: ProjectLspContext
+): CompletionItem[] {
   return [
     {
-      label: '@if',
+      label: 'if',
       kind: CompletionItemKind.Keyword,
       detail: 'Conditional block',
-      insertText: '@if(${1:condition}) {\n\t$0\n}',
+      insertText: 'if(${1:condition}) {\n\t$0\n}',
       insertTextFormat: 2,
       sortText: '0if',
     },
     {
-      label: '@else if',
+      label: 'else if',
       kind: CompletionItemKind.Keyword,
       detail: 'Else-if branch',
-      insertText: '@else if(${1:condition}) {\n\t$0\n}',
+      insertText: 'else if(${1:condition}) {\n\t$0\n}',
       insertTextFormat: 2,
       sortText: '0elseif',
     },
     {
-      label: '@else',
+      label: 'else',
       kind: CompletionItemKind.Keyword,
       detail: 'Else branch',
-      insertText: '@else {\n\t$0\n}',
+      insertText: 'else {\n\t$0\n}',
       insertTextFormat: 2,
       sortText: '0else',
     },
     {
-      label: '@for',
+      label: 'for',
       kind: CompletionItemKind.Keyword,
       detail: 'Loop block',
-      insertText: '@for(${1:item} of ${2:items}) {\n\t$0\n}',
+      insertText: 'for(${1:item} of ${2:items}) {\n\t$0\n}',
       insertTextFormat: 2,
       sortText: '0for',
     },
     {
-      label: '@match',
+      label: 'match',
       kind: CompletionItemKind.Keyword,
       detail: 'Pattern matching block',
       insertText:
-        '@match(${1:value}) {\n\twhen ${2:"case"} {\n\t\t$0\n\t}\n\t* {\n\t\t\n\t}\n}',
+        'match(${1:value}) {\n\twhen ${2:"case"} {\n\t\t$0\n\t}\n\t* {\n\t\t\n\t}\n}',
       insertTextFormat: 2,
       sortText: '0match',
     },
     {
-      label: '@@',
+      label: '@',
       kind: CompletionItemKind.Keyword,
       detail: 'Variable declaration block',
-      insertText: '@@ {\n\tlet ${1:name} = ${2:value};\n}',
+      insertText: '@ {\n\tlet ${1:name} = ${2:value};\n}',
       insertTextFormat: 2,
       sortText: '0let',
     },
     {
-      label: '@component',
+      label: 'component',
       kind: CompletionItemKind.Keyword,
       detail: 'Component definition',
-      insertText: '@component ${1:Name}(${2:props})',
+      insertText: 'component ${1:Name}(${2:props})',
       insertTextFormat: 2,
       sortText: '0component',
     },
     {
-      label: '@end',
+      label: 'props',
       kind: CompletionItemKind.Keyword,
-      detail: 'End block',
-      sortText: '0end',
+      detail: 'Declare component props',
+      insertText: 'props(${1:\\$prop1}, ${2:\\$prop2})',
+      insertTextFormat: 2,
+      sortText: '0props',
+    },
+    {
+      label: 'slot',
+      kind: CompletionItemKind.Keyword,
+      detail: 'Named slot',
+      insertText: 'slot ${1:name}',
+      insertTextFormat: 2,
+      sortText: '0slot',
     },
   ];
 }
 
 /**
+ * Get completions for directive arguments (e.g., inside @props())
+ */
+function getDirectiveArgumentCompletions(
+  context: CompletionContext,
+  projectContext?: ProjectLspContext
+): CompletionItem[] {
+  const items: CompletionItem[] = [];
+
+  // Check if we're inside @props()
+  const content = context.document.content;
+  const offset =
+    getOffset(content, context.position.line, context.position.character);
+
+  // Look back for @props(
+  const before = content.slice(Math.max(0, offset - 50), offset);
+  const propsMatch = /@props\s*\([^)]*$/.test(before);
+
+  if (propsMatch && projectContext?.schema) {
+    // Provide completions from schema for @props (no $ prefix)
+    const schemaProps = getSchemaCompletions(projectContext.schema, '');
+    for (const prop of schemaProps) {
+      items.push({
+        label: prop.path,
+        kind: CompletionItemKind.Variable,
+        detail: `${prop.type} - from schema`,
+        documentation: prop.description,
+        insertText: prop.path,
+        sortText: '0' + prop.path,
+      });
+    }
+  }
+
+  return items;
+}
+
+/**
  * Get HTML tag completions
  */
-function getHtmlTagCompletions(): CompletionItem[] {
+function getHtmlTagCompletions(
+  projectContext?: ProjectLspContext
+): CompletionItem[] {
+  const items: CompletionItem[] = [];
+
+  // Add project components first
+  if (projectContext) {
+    for (const [name] of projectContext.components) {
+      items.push({
+        label: name,
+        kind: CompletionItemKind.Class,
+        detail: 'Component',
+        sortText: '0' + name, // Components first
+      });
+    }
+  }
+
   const commonTags = [
     // Block elements
     { tag: 'div', detail: 'Generic container' },
@@ -358,12 +585,17 @@ function getHtmlTagCompletions(): CompletionItem[] {
     { tag: 'meta', detail: 'Meta' },
   ];
 
-  return commonTags.map((t, index) => ({
-    label: t.tag,
-    kind: CompletionItemKind.Property,
-    detail: t.detail,
-    sortText: index.toString().padStart(3, '0'),
-  }));
+  // Add HTML tags after components
+  items.push(
+    ...commonTags.map((t, index) => ({
+      label: t.tag,
+      kind: CompletionItemKind.Property,
+      detail: t.detail,
+      sortText: (100 + index).toString().padStart(3, '0'), // After components
+    }))
+  );
+
+  return items;
 }
 
 /**
@@ -435,17 +667,41 @@ function getHtmlAttributeCompletions(
  * Get component prop completions
  */
 function getComponentPropCompletions(
-  _context: CompletionContext
+  context: CompletionContext,
+  projectContext?: ProjectLspContext
 ): CompletionItem[] {
-  // This would look up the component definition to get its props
-  // For now, return generic prop suggestions
-  return [
-    {
-      label: 'key',
-      kind: CompletionItemKind.Property,
-      detail: 'Unique key for lists',
-    },
-  ];
+  const items: CompletionItem[] = [];
+
+  // Try to find the component and its props
+  const content = context.document.content;
+  const offset =
+    getOffset(content, context.position.line, context.position.character);
+
+  // Look back to find the component name
+  const tagInfo = isInsideTag(content, offset);
+  if (tagInfo && projectContext) {
+    const componentInfo = projectContext.components.get(tagInfo.tagName);
+    if (componentInfo?.props) {
+      for (const prop of componentInfo.props) {
+        items.push({
+          label: prop.name,
+          kind: CompletionItemKind.Property,
+          detail: prop.required ? 'required' : 'optional',
+          sortText: prop.required ? '0' + prop.name : '1' + prop.name,
+        });
+      }
+    }
+  }
+
+  // Add generic prop suggestions
+  items.push({
+    label: 'key',
+    kind: CompletionItemKind.Property,
+    detail: 'Unique key for lists',
+    sortText: '2key',
+  });
+
+  return items;
 }
 
 /**
@@ -520,31 +776,6 @@ function getBuiltinHelperCompletions(): CompletionItem[] {
 }
 
 /**
- * Get variables available at a given offset
- */
-function getVariablesAtOffset(
-  scope: DocumentScope,
-  _offset: number
-): ScopeVariable[] {
-  // The scope.variables is a Map<number, ScopeVariable[]>
-  // For now, collect all variables (a more sophisticated implementation
-  // would only return variables visible at the given offset)
-  const allVariables: ScopeVariable[] = [];
-  const seenNames = new Set<string>();
-
-  for (const [, vars] of scope.variables) {
-    for (const v of vars) {
-      if (!seenNames.has(v.name)) {
-        seenNames.add(v.name);
-        allVariables.push(v);
-      }
-    }
-  }
-
-  return allVariables;
-}
-
-/**
  * Get variable kind label
  */
 function getVariableKindLabel(kind: ScopeVariable['kind']): string {
@@ -592,4 +823,35 @@ function getPartialToken(content: string, offset: number): string {
   }
 
   return content.slice(start, offset);
+}
+
+/**
+ * Check if the cursor is inside @props() directive arguments
+ */
+function isInsidePropsDirective(content: string, offset: number): boolean {
+  // Look backward for @props( that isn't closed
+  let depth = 0;
+
+  for (let i = offset - 1; i >= 0; i--) {
+    const char = content[i];
+
+    if (char === ')') {
+      depth++;
+    } else if (char === '(') {
+      if (depth === 0) {
+        // Check if this is preceded by @props
+        const before = content.slice(Math.max(0, i - 6), i);
+        if (before.endsWith('@props')) {
+          return true;
+        }
+        return false;
+      }
+      depth--;
+    } else if (char === '\n') {
+      // @props should be on a single line
+      return false;
+    }
+  }
+
+  return false;
 }

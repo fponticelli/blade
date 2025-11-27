@@ -1,0 +1,26 @@
+{
+  "title": "Fruits",
+  "subtitle": "Stuff you should eat",
+  "items": [
+    {
+      "name": "apple",
+      "color": "red",
+      "calories": 250
+    },
+    {
+      "name": "banana",
+      "color": "yellow",
+      "calories": 250
+    },
+    {
+      "name": "kiwi",
+      "color": "green",
+      "calories": 250
+    },
+    {
+      "name": "orange",
+      "color": "orange",
+      "calories": 250
+    }
+  ]
+}

@@ -155,7 +155,8 @@ export class TemplateParser {
       return this.parseFragment(startLoc);
     }
 
-    const tagName = this.parseIdentifier();
+    // Allow dots in tag names for component namespacing (e.g., Components.Form.Input)
+    const tagName = this.parseIdentifier(true);
 
     // Handle empty tag name (malformed HTML like <!DOCTYPE or <!)
     if (tagName === '') {
@@ -253,7 +254,8 @@ export class TemplateParser {
     if (this.peek() === '<' && this.peekNext() === '/') {
       this.advance(); // <
       this.advance(); // /
-      const closingTag = this.parseIdentifier();
+      // Allow dots in closing tag names for component namespacing
+      const closingTag = this.parseIdentifier(true);
       if (closingTag !== tagName) {
         this.errors.push({
           message: `Mismatched closing tag: expected </${tagName}>, got </${closingTag}>`,
@@ -364,7 +366,8 @@ export class TemplateParser {
     if (this.peek() === '<' && this.peekNext() === '/') {
       this.advance(); // <
       this.advance(); // /
-      const closingTag = this.parseIdentifier();
+      // Allow dots in closing tag names for component namespacing
+      const closingTag = this.parseIdentifier(true);
       if (closingTag !== tagName) {
         this.errors.push({
           message: `Mismatched closing tag: expected </${tagName}>, got </${closingTag}>`,
@@ -1812,12 +1815,13 @@ export class TemplateParser {
     return this.source.substring(this.pos, this.pos + count);
   }
 
-  private parseIdentifier(): string {
+  private parseIdentifier(allowDots = false): string {
     const start = this.pos;
     while (
       this.isAlphaNumeric(this.peek()) ||
       this.peek() === '-' ||
-      this.peek() === ':'
+      this.peek() === ':' ||
+      (allowDots && this.peek() === '.')
     ) {
       this.advance();
     }

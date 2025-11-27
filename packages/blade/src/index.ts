@@ -24,3 +24,6 @@ export * from './helpers/index.js';
 
 // LSP (Language Server Protocol)
 export * as lsp from './lsp/index.js';
+
+// Project compilation
+export * as project from './project/index.js';

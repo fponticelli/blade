@@ -25,6 +25,7 @@
 
     "directive": {
       "patterns": [
+        { "include": "#directive-props" },
         { "include": "#directive-if" },
         { "include": "#directive-else-if" },
         { "include": "#directive-else" },
@@ -33,9 +34,50 @@
         { "include": "#directive-when" },
         { "include": "#directive-let-block" },
         { "include": "#directive-component" },
+        { "include": "#directive-slot" },
         { "include": "#directive-load" },
         { "include": "#directive-end" }
       ]
+    },
+
+    "directive-props": {
+      "name": "meta.directive.props.blade",
+      "begin": "(@props)\\s*(\\()",
+      "end": "(\\))",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.props.blade" },
+        "2": { "name": "punctuation.definition.parameters.begin.blade" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.parameters.end.blade" }
+      },
+      "patterns": [
+        {
+          "match": "([a-zA-Z_$][a-zA-Z0-9_$]*)(\\?)?",
+          "captures": {
+            "1": { "name": "variable.parameter.prop.blade" },
+            "2": { "name": "keyword.operator.optional.blade" }
+          }
+        },
+        {
+          "match": "=",
+          "name": "keyword.operator.assignment.blade"
+        },
+        { "include": "#expression-content" },
+        {
+          "match": ",",
+          "name": "punctuation.separator.comma.blade"
+        }
+      ]
+    },
+
+    "directive-slot": {
+      "name": "meta.directive.slot.blade",
+      "match": "(@slot)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.slot.blade" },
+        "2": { "name": "variable.other.slot.blade" }
+      }
     },
 
     "directive-if": {
@@ -440,6 +482,13 @@
     },
 
     "component": {
+      "patterns": [
+        { "include": "#component-opening" },
+        { "include": "#component-closing" }
+      ]
+    },
+
+    "component-opening": {
       "name": "meta.tag.component.blade",
       "begin": "(<)([A-Z][a-zA-Z0-9]*)",
       "end": "(/?>)",
@@ -453,6 +502,16 @@
       "patterns": [
         { "include": "#attribute" }
       ]
+    },
+
+    "component-closing": {
+      "name": "meta.tag.component.blade",
+      "match": "(</)([A-Z][a-zA-Z0-9]*)(>)",
+      "captures": {
+        "1": { "name": "punctuation.definition.tag.begin.blade" },
+        "2": { "name": "entity.name.type.class.component.blade" },
+        "3": { "name": "punctuation.definition.tag.end.blade" }
+      }
     },
 
     "html-tag": {
