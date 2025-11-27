@@ -93,7 +93,7 @@ When a developer has multiple `.blade` files open and switches between tabs, the
 - **FR-003**: System MUST provide a keyboard shortcut to toggle the preview panel.
 - **FR-004**: Preview panel MUST display a dropdown selector showing all `.json` files from the project's `samples/` folder.
 - **FR-005**: System MUST render the active `.blade` template using the selected sample data and display the HTML output.
-- **FR-006**: Preview MUST automatically refresh when the template file is modified.
+- **FR-006**: Preview MUST automatically refresh on every keystroke with debounce (live preview during typing).
 - **FR-007**: Preview MUST automatically refresh when the selected sample JSON file is modified.
 - **FR-008**: System MUST display clear error messages when template compilation fails.
 - **FR-009**: System MUST display clear error messages when sample JSON is malformed.
@@ -105,7 +105,7 @@ When a developer has multiple `.blade` files open and switches between tabs, the
 
 ### Key Entities
 
-- **Preview Panel**: A VSCode webview panel that displays rendered template output alongside the editor.
+- **Preview Panel**: A VSCode webview panel that displays rendered template output in a side-by-side split view to the right of the editor.
 - **Sample Selector**: A dropdown UI element showing available sample JSON files from the project's `samples/` folder.
 - **Project Context**: The Blade project root containing `index.blade`, `schema.json`, and `samples/` folder.
 
@@ -118,6 +118,13 @@ When a developer has multiple `.blade` files open and switches between tabs, the
 - **SC-003**: Sample file switching updates the preview within 500ms.
 - **SC-004**: 100% of compilation errors are displayed with line number and meaningful message.
 - **SC-005**: Developers can preview any template in the existing sample projects (`ecommerce`, `blog`, `dashboard`, `email`, `profile`) without errors.
+
+## Clarifications
+
+### Session 2025-11-27
+
+- Q: What should trigger preview refresh - on save, live typing, or manual only? → A: Refresh on every keystroke (live typing) with debounce
+- Q: Where should the preview panel open relative to the editor? → A: Side panel (split editor view, like Markdown preview)
 
 ## Assumptions
 
