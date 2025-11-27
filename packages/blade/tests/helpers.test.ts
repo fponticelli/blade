@@ -18,7 +18,10 @@ function createScope(globals: Record<string, unknown> = {}): Scope {
 }
 
 // Helper to create a warning collector
-function createWarningCollector(): { warnings: string[]; setWarning: (msg: string) => void } {
+function createWarningCollector(): {
+  warnings: string[];
+  setWarning: (msg: string) => void;
+} {
   const warnings: string[] = [];
   return {
     warnings,
@@ -158,7 +161,12 @@ describe('Array Helpers', () => {
 
   describe('flatten', () => {
     it('flattens one level', () => {
-      const { result } = invokeHelper('flatten', [[[1, 2], [3, 4]]]);
+      const { result } = invokeHelper('flatten', [
+        [
+          [1, 2],
+          [3, 4],
+        ],
+      ]);
       expect(result).toEqual([1, 2, 3, 4]);
     });
 
@@ -175,19 +183,27 @@ describe('Array Helpers', () => {
     });
 
     it('keeps falsy values except null/undefined', () => {
-      const { result } = invokeHelper('compact', [[0, '', false, null, undefined]]);
+      const { result } = invokeHelper('compact', [
+        [0, '', false, null, undefined],
+      ]);
       expect(result).toEqual([0, '', false]);
     });
   });
 
   describe('pluck', () => {
     it('extracts property from objects', () => {
-      const { result } = invokeHelper('pluck', [[{ name: 'A' }, { name: 'B' }], 'name']);
+      const { result } = invokeHelper('pluck', [
+        [{ name: 'A' }, { name: 'B' }],
+        'name',
+      ]);
       expect(result).toEqual(['A', 'B']);
     });
 
     it('returns undefined for missing property', () => {
-      const { result } = invokeHelper('pluck', [[{ name: 'A' }, { id: 1 }], 'name']);
+      const { result } = invokeHelper('pluck', [
+        [{ name: 'A' }, { id: 1 }],
+        'name',
+      ]);
       expect(result).toEqual(['A', undefined]);
     });
   });
@@ -416,35 +432,45 @@ describe('Date Helpers', () => {
 
   describe('addYears', () => {
     it('adds years', () => {
-      const { result } = invokeHelper('addYears', [testDate, 1]) as { result: Date };
+      const { result } = invokeHelper('addYears', [testDate, 1]) as {
+        result: Date;
+      };
       expect(result.getFullYear()).toBe(2026);
     });
   });
 
   describe('addMonths', () => {
     it('adds months', () => {
-      const { result } = invokeHelper('addMonths', [testDate, 3]) as { result: Date };
+      const { result } = invokeHelper('addMonths', [testDate, 3]) as {
+        result: Date;
+      };
       expect(result.getMonth()).toBe(8); // September (0-indexed)
     });
   });
 
   describe('addWeeks', () => {
     it('adds weeks', () => {
-      const { result } = invokeHelper('addWeeks', [testDate, 2]) as { result: Date };
+      const { result } = invokeHelper('addWeeks', [testDate, 2]) as {
+        result: Date;
+      };
       expect(result.getDate()).toBe(29);
     });
   });
 
   describe('addHours', () => {
     it('adds hours', () => {
-      const { result } = invokeHelper('addHours', [testDate, 5]) as { result: Date };
+      const { result } = invokeHelper('addHours', [testDate, 5]) as {
+        result: Date;
+      };
       expect(result.getUTCHours()).toBe(15);
     });
   });
 
   describe('addMinutes', () => {
     it('adds minutes', () => {
-      const { result } = invokeHelper('addMinutes', [testDate, 30]) as { result: Date };
+      const { result } = invokeHelper('addMinutes', [testDate, 30]) as {
+        result: Date;
+      };
       expect(result.getUTCMinutes()).toBe(0);
       expect(result.getUTCHours()).toBe(11);
     });
@@ -452,7 +478,9 @@ describe('Date Helpers', () => {
 
   describe('addSeconds', () => {
     it('adds seconds', () => {
-      const { result } = invokeHelper('addSeconds', [testDate, 45]) as { result: Date };
+      const { result } = invokeHelper('addSeconds', [testDate, 45]) as {
+        result: Date;
+      };
       expect(result.getUTCSeconds()).toBe(30);
       expect(result.getUTCMinutes()).toBe(31);
     });
@@ -553,14 +581,18 @@ describe('Date Helpers', () => {
 
   describe('parseDate', () => {
     it('parses date string', () => {
-      const { result } = invokeHelper('parseDate', ['2025-11-26']) as { result: Date };
+      const { result } = invokeHelper('parseDate', ['2025-11-26']) as {
+        result: Date;
+      };
       expect(result.getUTCFullYear()).toBe(2025);
       expect(result.getUTCMonth()).toBe(10); // November (0-indexed)
       expect(result.getUTCDate()).toBe(26);
     });
 
     it('returns epoch for invalid date with warning', () => {
-      const { result, warnings } = invokeHelper('parseDate', ['not-a-date']) as { result: Date; warnings: string[] };
+      const { result, warnings } = invokeHelper('parseDate', [
+        'not-a-date',
+      ]) as { result: Date; warnings: string[] };
       expect(result.getTime()).toBe(0);
       expect(warnings.length).toBe(1);
     });
@@ -648,7 +680,9 @@ describe('Number Helpers', () => {
 
   describe('randomInt', () => {
     it('returns integer in range', () => {
-      const { result } = invokeHelper('randomInt', [1, 10]) as { result: number };
+      const { result } = invokeHelper('randomInt', [1, 10]) as {
+        result: number;
+      };
       expect(result).toBeGreaterThanOrEqual(1);
       expect(result).toBeLessThanOrEqual(10);
       expect(Number.isInteger(result)).toBe(true);

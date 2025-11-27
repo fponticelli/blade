@@ -225,7 +225,9 @@ function analyzeIfNode(node: IfNode, context: AnalysisContext): void {
  * Extract the source variable name from a for loop's items expression.
  * Returns the variable name for simple paths like "items", "user.orders", etc.
  */
-function extractSourceVarName(itemsExpr: ForNode['itemsExpr']): string | undefined {
+function extractSourceVarName(
+  itemsExpr: ForNode['itemsExpr']
+): string | undefined {
   if (itemsExpr.kind === 'path') {
     // Get the first segment as the source variable name
     // For "items" → "items", for "user.orders" → "user.orders"

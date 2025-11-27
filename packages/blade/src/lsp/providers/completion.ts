@@ -83,15 +83,16 @@ export function getCompletionContext(
     // Trigger path completion if:
     // - path contains a dot (e.g., "user.name")
     // - path ends with array access followed by dot (e.g., "items[0].")
-    const isPathContext = pathInfo && (
-      pathInfo.path.includes('.') ||
-      /\[\d*\]\.$/.test(pathInfo.path) ||
-      /\[\d*\]$/.test(pathInfo.path)
-    );
+    const isPathContext =
+      pathInfo &&
+      (pathInfo.path.includes('.') ||
+        /\[\d*\]\.$/.test(pathInfo.path) ||
+        /\[\d*\]$/.test(pathInfo.path));
     if (isPathContext) {
       // Extract the partial token - everything after the last dot
       const lastDotIndex = pathInfo.path.lastIndexOf('.');
-      const partialToken = lastDotIndex >= 0 ? pathInfo.path.slice(lastDotIndex + 1) : '';
+      const partialToken =
+        lastDotIndex >= 0 ? pathInfo.path.slice(lastDotIndex + 1) : '';
       return {
         document: doc,
         position,
@@ -312,7 +313,11 @@ function getPathCompletions(
 
   // Extract the base path from the full path expression
   const content = context.document.content;
-  const offset = getOffset(content, context.position.line, context.position.character);
+  const offset = getOffset(
+    content,
+    context.position.line,
+    context.position.character
+  );
   const pathInfo = getPathAtOffset(content, offset);
 
   if (!pathInfo) {
@@ -332,7 +337,10 @@ function getPathCompletions(
   }
 
   // Get completions from schema for this path
-  const schemaCompletions = getSchemaCompletions(projectContext.schema, basePath);
+  const schemaCompletions = getSchemaCompletions(
+    projectContext.schema,
+    basePath
+  );
 
   for (const prop of schemaCompletions) {
     // Extract just the property name (last part of the path)
@@ -340,13 +348,18 @@ function getPathCompletions(
     const propName = pathParts[pathParts.length - 1] || prop.path;
 
     // Skip if it doesn't match partial token
-    if (partialToken && !propName.toLowerCase().startsWith(partialToken.toLowerCase())) {
+    if (
+      partialToken &&
+      !propName.toLowerCase().startsWith(partialToken.toLowerCase())
+    ) {
       continue;
     }
 
     items.push({
       label: propName,
-      kind: prop.hasChildren ? CompletionItemKind.Module : CompletionItemKind.Property,
+      kind: prop.hasChildren
+        ? CompletionItemKind.Module
+        : CompletionItemKind.Property,
       detail: `${prop.type}${prop.description ? ' - ' + prop.description : ''}`,
       documentation: prop.description,
       sortText: '0' + propName,
@@ -377,13 +390,18 @@ function getSchemaBasedCompletions(
     const propName = prop.path;
 
     // Skip if it doesn't match partial token
-    if (partialToken && !propName.toLowerCase().startsWith(partialToken.toLowerCase())) {
+    if (
+      partialToken &&
+      !propName.toLowerCase().startsWith(partialToken.toLowerCase())
+    ) {
       continue;
     }
 
     items.push({
       label: propName,
-      kind: prop.hasChildren ? CompletionItemKind.Module : CompletionItemKind.Property,
+      kind: prop.hasChildren
+        ? CompletionItemKind.Module
+        : CompletionItemKind.Property,
       detail: `${prop.type}${prop.description ? ' - ' + prop.description : ''}`,
       documentation: prop.description,
       sortText: '0' + propName,
@@ -487,8 +505,11 @@ function getDirectiveArgumentCompletions(
 
   // Check if we're inside @props()
   const content = context.document.content;
-  const offset =
-    getOffset(content, context.position.line, context.position.character);
+  const offset = getOffset(
+    content,
+    context.position.line,
+    context.position.character
+  );
 
   // Look back for @props(
   const before = content.slice(Math.max(0, offset - 50), offset);
@@ -675,8 +696,11 @@ function getComponentPropCompletions(
 
   // Try to find the component and its props
   const content = context.document.content;
-  const offset =
-    getOffset(content, context.position.line, context.position.character);
+  const offset = getOffset(
+    content,
+    context.position.line,
+    context.position.character
+  );
 
   // Look back to find the component name
   const tagInfo = isInsideTag(content, offset);

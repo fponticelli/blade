@@ -414,7 +414,10 @@ export function generatePropsValidationDiagnostics(
     range: {
       // Convert 1-indexed to 0-indexed for LSP
       start: { line: error.line - 1, character: error.column - 1 },
-      end: { line: error.line - 1, character: error.column - 1 + error.propName.length },
+      end: {
+        line: error.line - 1,
+        character: error.column - 1 + error.propName.length,
+      },
     },
     severity: LspDiagnosticSeverityEnum.Warning,
     source: 'blade',

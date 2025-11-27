@@ -31,7 +31,10 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     name: 'formatCurrency',
     signature: 'formatCurrency(value: number, currency?: string): string',
     description: 'Formats a number as currency using locale settings',
-    examples: ['formatCurrency(1234.56) → "$1,234.56"', 'formatCurrency(1234.56, "EUR") → "€1,234.56"'],
+    examples: [
+      'formatCurrency(1234.56) → "$1,234.56"',
+      'formatCurrency(1234.56, "EUR") → "€1,234.56"',
+    ],
     category: 'format',
   },
   formatNumber: {
@@ -52,7 +55,10 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     name: 'formatDate',
     signature: 'formatDate(date: Date, format?: "short" | "long"): string',
     description: 'Formats a date using locale settings',
-    examples: ['formatDate(date, "short") → "11/26/25"', 'formatDate(date, "long") → "Wednesday, November 26, 2025"'],
+    examples: [
+      'formatDate(date, "short") → "11/26/25"',
+      'formatDate(date, "long") → "Wednesday, November 26, 2025"',
+    ],
     category: 'format',
   },
 
@@ -124,7 +130,8 @@ export const helperMetadata: Record<string, HelperMetadata> = {
   },
   replace: {
     name: 'replace',
-    signature: 'replace(str: string, search: string, replacement: string): string',
+    signature:
+      'replace(str: string, search: string, replacement: string): string',
     description: 'Replaces all occurrences of search with replacement',
     examples: ['replace("hello", "l", "L") → "heLLo"'],
     category: 'string',
@@ -601,7 +608,8 @@ export const helperMetadata: Record<string, HelperMetadata> = {
   isEmpty: {
     name: 'isEmpty',
     signature: 'isEmpty(value: unknown): boolean',
-    description: 'Returns true for null, undefined, empty string, or empty array',
+    description:
+      'Returns true for null, undefined, empty string, or empty array',
     examples: ['isEmpty(null) → true', 'isEmpty([]) → true'],
     category: 'utility',
   },
@@ -680,6 +688,8 @@ export function getHelperNames(): string[] {
 /**
  * Get helpers by category
  */
-export function getHelpersByCategory(category: HelperCategory): HelperMetadata[] {
+export function getHelpersByCategory(
+  category: HelperCategory
+): HelperMetadata[] {
   return Object.values(helperMetadata).filter(h => h.category === category);
 }

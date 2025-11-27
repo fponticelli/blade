@@ -26,7 +26,10 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { WorkspaceManager } from './analyzer/workspace.js';
 import type { LspConfig } from './types.js';
 import { DEFAULT_LSP_CONFIG } from './types.js';
-import { getCompletionContext, getCompletions } from './providers/completion.js';
+import {
+  getCompletionContext,
+  getCompletions,
+} from './providers/completion.js';
 import { getHoverInfo } from './providers/hover.js';
 import { getOffset } from './document.js';
 import type { ProjectLspContext } from './project-context.js';
@@ -152,7 +155,9 @@ function getProjectRoot(uri: string): string {
 /**
  * Gets or initializes the project context for a document.
  */
-async function getProjectContext(uri: string): Promise<ProjectLspContext | undefined> {
+async function getProjectContext(
+  uri: string
+): Promise<ProjectLspContext | undefined> {
   const projectRoot = getProjectRoot(uri);
 
   // Check if we already have context for this project
@@ -162,18 +167,26 @@ async function getProjectContext(uri: string): Promise<ProjectLspContext | undef
   }
 
   // Initialize new project context
-  connection.console.log(`[Server] Initializing project context for: ${projectRoot}`);
+  connection.console.log(
+    `[Server] Initializing project context for: ${projectRoot}`
+  );
   const newContext = await initializeProjectContext(projectRoot);
 
   if (newContext) {
     projectContexts.set(projectRoot, newContext);
-    connection.console.log(`[Server] Project context loaded. Schema: ${!!newContext.schema}, Components: ${newContext.components.size}`);
+    connection.console.log(
+      `[Server] Project context loaded. Schema: ${!!newContext.schema}, Components: ${newContext.components.size}`
+    );
     if (newContext.schema) {
-      connection.console.log(`[Server] Schema properties: ${newContext.schema.properties.map(p => p.path).join(', ')}`);
+      connection.console.log(
+        `[Server] Schema properties: ${newContext.schema.properties.map(p => p.path).join(', ')}`
+      );
     }
     return newContext;
   } else {
-    connection.console.log(`[Server] No project context found (no schema.json)`);
+    connection.console.log(
+      `[Server] No project context found (no schema.json)`
+    );
     return undefined;
   }
 }
@@ -182,7 +195,9 @@ async function getProjectContext(uri: string): Promise<ProjectLspContext | undef
 documents.onDidOpen(async event => {
   const { document } = event;
   connection.console.log(`[Server] Document opened: ${document.uri}`);
-  connection.console.log(`[Server] Document content length: ${document.getText().length}`);
+  connection.console.log(
+    `[Server] Document content length: ${document.getText().length}`
+  );
   workspaceManager.openDocument(
     document.uri,
     document.getText(),
@@ -191,8 +206,12 @@ documents.onDidOpen(async event => {
   const bladeDoc = workspaceManager.getDocument(document.uri);
   connection.console.log(`[Server] BladeDoc created: ${!!bladeDoc}`);
   if (bladeDoc) {
-    connection.console.log(`[Server] BladeDoc errors: ${bladeDoc.errors.length}`);
-    connection.console.log(`[Server] BladeDoc scope variables count: ${bladeDoc.scope.variables.size}`);
+    connection.console.log(
+      `[Server] BladeDoc errors: ${bladeDoc.errors.length}`
+    );
+    connection.console.log(
+      `[Server] BladeDoc scope variables count: ${bladeDoc.scope.variables.size}`
+    );
   }
 
   // Load project context for this document
@@ -309,11 +328,17 @@ connection.onCompletion(
       documentation: item.documentation,
       // For top-level expressions ($foo), insert with $ prefix
       // For path expressions (foo.bar), just insert the property name
-      insertText: isTopLevelExpression ? `$${item.insertText || item.label}` : item.insertText,
+      insertText: isTopLevelExpression
+        ? `$${item.insertText || item.label}`
+        : item.insertText,
       insertTextFormat: item.insertTextFormat,
       sortText: item.sortText,
       // Add $ prefix to filterText only for top-level expressions
-      filterText: isTopLevelExpression ? `$${item.label}` : (isPathExpression ? item.label : item.filterText),
+      filterText: isTopLevelExpression
+        ? `$${item.label}`
+        : isPathExpression
+          ? item.label
+          : item.filterText,
     }));
   }
 );
@@ -325,45 +350,47 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
 });
 
 // Hover handler
-connection.onHover(async (params: TextDocumentPositionParams): Promise<Hover | null> => {
-  const doc = workspaceManager.getDocument(params.textDocument.uri);
-  if (!doc) {
-    return null;
+connection.onHover(
+  async (params: TextDocumentPositionParams): Promise<Hover | null> => {
+    const doc = workspaceManager.getDocument(params.textDocument.uri);
+    if (!doc) {
+      return null;
+    }
+
+    // Get project context for schema-based type info
+    const projectContext = await getProjectContext(params.textDocument.uri);
+
+    // getHoverInfo expects a Position object
+    const position = {
+      line: params.position.line,
+      character: params.position.character,
+    };
+
+    const hoverInfo = getHoverInfo(doc, position, projectContext);
+    if (!hoverInfo) {
+      return null;
+    }
+
+    return {
+      contents: {
+        kind: 'markdown',
+        value: hoverInfo.contents,
+      },
+      range: hoverInfo.range
+        ? {
+            start: {
+              line: hoverInfo.range.start.line,
+              character: hoverInfo.range.start.character,
+            },
+            end: {
+              line: hoverInfo.range.end.line,
+              character: hoverInfo.range.end.character,
+            },
+          }
+        : undefined,
+    };
   }
-
-  // Get project context for schema-based type info
-  const projectContext = await getProjectContext(params.textDocument.uri);
-
-  // getHoverInfo expects a Position object
-  const position = {
-    line: params.position.line,
-    character: params.position.character,
-  };
-
-  const hoverInfo = getHoverInfo(doc, position, projectContext);
-  if (!hoverInfo) {
-    return null;
-  }
-
-  return {
-    contents: {
-      kind: 'markdown',
-      value: hoverInfo.contents,
-    },
-    range: hoverInfo.range
-      ? {
-          start: {
-            line: hoverInfo.range.start.line,
-            character: hoverInfo.range.start.character,
-          },
-          end: {
-            line: hoverInfo.range.end.line,
-            character: hoverInfo.range.end.character,
-          },
-        }
-      : undefined,
-  };
-});
+);
 
 // Go to definition handler
 connection.onDefinition(
