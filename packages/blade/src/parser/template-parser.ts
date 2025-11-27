@@ -1032,9 +1032,46 @@ export class TemplateParser {
 
     while (!this.isAtEnd()) {
       this.checkCallLimit('parseText loop');
-      // Check for end of text node
-      // Stop at @ (directive) or } (end of block/case body)
-      if (this.peek() === '@' || this.peek() === '}') {
+
+      // Handle escape sequences: \@, \$, \\
+      if (this.peek() === '\\') {
+        const next = this.peekNext();
+        if (next === '@' || next === '$' || next === '\\') {
+          this.advance(); // consume backslash
+          textBuffer += this.advance(); // add the escaped character
+          continue;
+        }
+        // Backslash followed by other chars is literal
+        textBuffer += this.advance();
+        continue;
+      }
+
+      // Check for end of text node - only stop at @ if it's a valid directive
+      if (this.peek() === '@') {
+        // Check if @ is followed by a valid directive name
+        const lookahead = this.peekIdentifierAfterAt();
+        if (
+          lookahead === 'if' ||
+          lookahead === 'for' ||
+          lookahead === 'match' ||
+          lookahead === 'let' ||
+          lookahead === '@' || // @@ code block
+          lookahead === 'endif' ||
+          lookahead === 'endfor' ||
+          lookahead === 'endmatch' ||
+          lookahead === 'props' ||
+          lookahead === 'component' ||
+          lookahead === 'slot'
+        ) {
+          break; // Stop - valid directive
+        }
+        // Not a valid directive - treat @ as literal text
+        textBuffer += this.advance();
+        continue;
+      }
+
+      // Check for end of block/case body
+      if (this.peek() === '}') {
         break;
       }
 
@@ -1872,6 +1909,49 @@ export class TemplateParser {
   private peekNext(): string {
     if (this.pos + 1 >= this.source.length) return '\0';
     return this.source[this.pos + 1] ?? '\0';
+  }
+
+  /**
+   * Peeks at the identifier following an @ symbol without advancing position.
+   * Returns the identifier string, or '@' if followed by another @, or '' if not an identifier.
+   */
+  private peekIdentifierAfterAt(): string {
+    if (this.pos >= this.source.length) return '';
+    const nextPos = this.pos + 1;
+    if (nextPos >= this.source.length) return '';
+
+    const nextChar = this.source[nextPos] ?? '';
+    // Check for @@ (code block)
+    if (nextChar === '@') return '@';
+
+    // Check if followed by alpha character (start of identifier)
+    if (
+      !(
+        (nextChar >= 'a' && nextChar <= 'z') ||
+        (nextChar >= 'A' && nextChar <= 'Z') ||
+        nextChar === '_'
+      )
+    ) {
+      return '';
+    }
+
+    // Read the full identifier
+    let end = nextPos;
+    while (end < this.source.length) {
+      const char = this.source[end] ?? '';
+      if (
+        (char >= 'a' && char <= 'z') ||
+        (char >= 'A' && char <= 'Z') ||
+        (char >= '0' && char <= '9') ||
+        char === '_'
+      ) {
+        end++;
+      } else {
+        break;
+      }
+    }
+
+    return this.source.substring(nextPos, end);
   }
 
   private isAtEnd(): boolean {

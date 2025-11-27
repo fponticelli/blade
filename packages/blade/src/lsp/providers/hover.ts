@@ -20,6 +20,7 @@ import {
 import { getSchemaPropertyInfo } from '../../project/schema.js';
 import { getSampleValues, formatSampleHint } from '../../project/samples.js';
 import { getVariablesAtOffset } from '../analyzer/scope.js';
+import { helperMetadata } from '../../helpers/metadata.js';
 
 /**
  * Hover information result
@@ -613,61 +614,22 @@ function getComponentHover(
 }
 
 /**
- * Get hover information for a builtin helper
+ * Get hover information for a builtin helper from metadata registry
  */
 function getHelperHover(name: string): HoverInfo | null {
-  const helpers: Record<string, { signature: string; description: string }> = {
-    formatCurrency: {
-      signature: 'formatCurrency(value: number, currency?: string): string',
-      description: 'Formats a number as currency.',
-    },
-    formatDate: {
-      signature: 'formatDate(date: Date | string, format?: string): string',
-      description: 'Formats a date according to the specified format.',
-    },
-    formatNumber: {
-      signature: 'formatNumber(value: number, options?: object): string',
-      description: 'Formats a number with locale-specific formatting.',
-    },
-    uppercase: {
-      signature: 'uppercase(value: string): string',
-      description: 'Converts a string to uppercase.',
-    },
-    lowercase: {
-      signature: 'lowercase(value: string): string',
-      description: 'Converts a string to lowercase.',
-    },
-    capitalize: {
-      signature: 'capitalize(value: string): string',
-      description: 'Capitalizes the first letter of a string.',
-    },
-    truncate: {
-      signature: 'truncate(value: string, length: number): string',
-      description: 'Truncates a string to the specified length.',
-    },
-    sum: {
-      signature: 'sum(values: number[]): number',
-      description: 'Returns the sum of an array of numbers.',
-    },
-    avg: {
-      signature: 'avg(values: number[]): number',
-      description: 'Returns the average of an array of numbers.',
-    },
-    count: {
-      signature: 'count(values: any[]): number',
-      description: 'Returns the count of items in an array.',
-    },
-    join: {
-      signature: 'join(values: any[], separator?: string): string',
-      description: 'Joins array elements into a string.',
-    },
-  };
-
-  const helper = helpers[name];
+  const helper = helperMetadata[name];
   if (helper) {
-    return {
-      contents: `**${name}**\n\n\`\`\`typescript\n${helper.signature}\n\`\`\`\n\n${helper.description}`,
-    };
+    let contents = `**${name}**\n\n\`\`\`typescript\n${helper.signature}\n\`\`\`\n\n${helper.description}`;
+
+    if (helper.examples.length > 0) {
+      contents += `\n\n**Examples:**\n${helper.examples.map(e => `  ${e}`).join('\n')}`;
+    }
+
+    if (helper.polymorphic) {
+      contents += `\n\n*Polymorphic: works on multiple types*`;
+    }
+
+    return { contents };
   }
 
   return null;
