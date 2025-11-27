@@ -227,17 +227,17 @@ Based on plan.md: Monorepo structure with `packages/blade/src/` and `packages/bl
 
 ---
 
-## Phase 11: Polish & Cross-Cutting Concerns ✅ MOSTLY COMPLETE
+## Phase 11: Polish & Cross-Cutting Concerns ✅ COMPLETE
 
 **Purpose**: Final cleanup and documentation
 
 - [x] T072 [P] Update packages/blade/src/index.ts with all new exports
 - [x] T073 [P] Add JSDoc comments to all public API functions
 - [x] T074 Run full test suite and verify coverage in packages/blade/
-- [ ] T075 Update docs/SPECIFICATION.md with project compilation section
+- [x] T075 Update docs/SPECIFICATION.md with project compilation section
 - [x] T076 [P] Implement cache invalidation for LSP project context in packages/blade/src/lsp/project-context.ts
 - [x] T077 Performance validation: compile 50+ component project under 1 second
-- [ ] T078 Run quickstart.md validation scenarios
+- [x] T078 Run quickstart.md validation scenarios
 
 ---
 
@@ -255,14 +255,9 @@ Based on plan.md: Monorepo structure with `packages/blade/src/` and `packages/bl
 | US7 | P2 | ✅ Complete |
 | US6 | P3 | ✅ Complete |
 | US8 | P3 | ✅ Complete |
-| Polish | - | 🔶 2 docs tasks remaining |
+| Polish | - | ✅ Complete |
 
-**Total: 76/78 tasks complete (97%)**
-
-### Remaining Tasks
-
-1. **T075**: Update docs/SPECIFICATION.md with project compilation section
-2. **T078**: Run quickstart.md validation scenarios
+**Total: 78/78 tasks complete (100%)** ✅
 
 ---
 

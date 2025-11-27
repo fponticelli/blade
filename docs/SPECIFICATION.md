@@ -2020,25 +2020,180 @@ null = "null" ;
 
 ---
 
-## 20. Summary
+## 20. Project-based Template Compilation
+
+Blade supports multi-file projects with automatic component discovery and validation.
+
+### 20.1 Project Structure
+
+A Blade project is a directory containing an `index.blade` entry file:
+
+```
+my-project/
+├── index.blade          # Entry point (required)
+├── button.blade         # Auto-discovered as <Button />
+├── card.blade           # Auto-discovered as <Card />
+├── components/
+│   └── form/
+│       └── input.blade  # Auto-discovered as <Components.Form.Input />
+├── schema.json          # Optional: Data schema for LSP
+└── samples/
+    └── default.json     # Optional: Sample data for hover hints
+```
+
+### 20.2 Component Discovery
+
+Components are automatically discovered and named using these rules:
+
+1. **File naming**: `button.blade` → `<Button />`
+2. **Folder namespacing**: `components/form/input.blade` → `<Components.Form.Input />`
+3. **Name normalization**: `kebab-case` and `snake_case` → `PascalCase`
+4. **Project boundaries**: Subdirectories with their own `index.blade` are separate projects
+
+### 20.3 @props Directive
+
+Components can declare their inputs with the `@props` directive:
+
+```html
+@props(label, disabled = false, onClick?)
+
+<button class="btn" disabled=$disabled onclick=$onClick>
+  $label
+</button>
+```
+
+**Prop modifiers:**
+- `prop` - Required prop (no default)
+- `prop = value` - Optional with default value
+- `prop?` - Optional (defaults to undefined)
+
+### 20.4 Compiling Projects
+
+**Full project compilation:**
+```typescript
+import { project } from 'blade';
+
+const result = await project.compileProject('./my-project');
+
+if (result.success) {
+  console.log('Compiled successfully');
+  console.log('Components found:', result.context.components.size);
+} else {
+  console.error('Errors:', result.errors);
+}
+```
+
+**Single file with project context:**
+```typescript
+import { compile } from 'blade';
+
+const compiled = await compile(source, {
+  projectRoot: './my-project'
+});
+// Components from project are available for validation
+```
+
+### 20.5 Project Schema
+
+Define available data variables in `schema.json` for LSP completions:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "user": {
+      "type": "object",
+      "description": "Current user",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "number" },
+          "name": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+```
+
+### 20.6 Sample Data
+
+Provide example values in `samples/` for hover hints:
+
+```json
+// samples/default.json
+{
+  "user": {
+    "name": "John Doe",
+    "email": "john@example.com"
+  },
+  "items": [
+    { "id": 1, "name": "Widget" },
+    { "id": 2, "name": "Gadget" }
+  ]
+}
+```
+
+When hovering over `$user.name` in the editor, the LSP shows:
+```
+**user.name**: `string`
+Current user's name
+
+Example: "John Doe"
+```
+
+### 20.7 LSP Project Features
+
+The Blade LSP provides project-aware features:
+
+**Completions:**
+- Schema-based variable completions (`$user.` → `name`, `email`)
+- Component tag completions (`<But` → `<Button />`)
+- Component prop completions (`<Button lab` → `label=`)
+
+**Navigation:**
+- Go-to-definition for components (Ctrl+Click on `<Button />` → opens `button.blade`)
+- Go-to-definition for variables
+
+**Validation:**
+- Missing required props detection
+- Unknown component warnings
+- Schema validation for sample files
+
+**Hover:**
+- Type information from schema
+- Example values from samples
+- Loop variable type inference (`$item` in `@for(item of items)`)
+
+---
+
+## 21. Summary
 
 This template engine provides:
 
-✅ **Unified system** for both build-time and runtime templates  
-✅ **Strong typing** support for developer-authored templates  
-✅ **Full source tracking** for auditability and debugging  
-✅ **Component system** with slots and isolated scope  
-✅ **Expression language** with nested functions, arithmetic, and array operations  
-✅ **Security controls** via function allowlisting and resource limits  
-✅ **Comprehensive tooling** with LSP, validation, and source maps  
-✅ **Flexible configuration** for different deployment scenarios  
-✅ **Clear error handling** with helpful diagnostics  
-✅ **Performance optimization** through compilation and caching  
+✅ **Unified system** for both build-time and runtime templates
+✅ **Strong typing** support for developer-authored templates
+✅ **Full source tracking** for auditability and debugging
+✅ **Component system** with slots and isolated scope
+✅ **Expression language** with nested functions, arithmetic, and array operations
+✅ **Security controls** via function allowlisting and resource limits
+✅ **Comprehensive tooling** with LSP, validation, and source maps
+✅ **Flexible configuration** for different deployment scenarios
+✅ **Clear error handling** with helpful diagnostics
+✅ **Performance optimization** through compilation and caching
+✅ **Project-based compilation** with auto-discovery and validation
 
 **The system is now fully specified and ready for implementation.**
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2024  
-**Status:** Ready for Implementation
+**Document Version:** 1.1
+**Last Updated:** 2025
+**Status:** Implementation Complete
