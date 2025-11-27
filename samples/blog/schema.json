@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Blog Post Page",
+  "description": "Schema for a blog post with comments",
+  "type": "object",
+  "required": ["blog", "post"],
+  "properties": {
+    "blog": {
+      "type": "object",
+      "description": "Blog metadata",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "description": "Blog name" },
+        "description": { "type": "string", "description": "Blog description" },
+        "url": { "type": "string", "description": "Blog URL" }
+      }
+    },
+    "post": {
+      "type": "object",
+      "description": "The blog post",
+      "required": ["title", "content", "author", "publishedAt"],
+      "properties": {
+        "title": { "type": "string", "description": "Post title" },
+        "slug": { "type": "string", "description": "URL slug" },
+        "excerpt": { "type": "string", "description": "Short excerpt" },
+        "content": { "type": "string", "description": "Post content (HTML)" },
+        "publishedAt": { "type": "string", "format": "date-time", "description": "Publication date" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update date" },
+        "readingTime": { "type": "number", "description": "Estimated reading time in minutes" },
+        "featured": { "type": "boolean", "description": "Whether this is a featured post" },
+        "author": {
+          "type": "object",
+          "description": "Post author",
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string", "description": "Author name" },
+            "avatar": { "type": "string", "description": "Avatar URL" },
+            "bio": { "type": "string", "description": "Author bio" },
+            "twitter": { "type": "string", "description": "Twitter handle" }
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Post tags"
+        },
+        "comments": {
+          "type": "array",
+          "description": "Post comments",
+          "items": {
+            "type": "object",
+            "required": ["author", "content", "createdAt"],
+            "properties": {
+              "id": { "type": "string", "description": "Comment ID" },
+              "author": { "type": "string", "description": "Commenter name" },
+              "email": { "type": "string", "description": "Commenter email" },
+              "content": { "type": "string", "description": "Comment text" },
+              "createdAt": { "type": "string", "format": "date-time", "description": "Comment date" },
+              "likes": { "type": "number", "description": "Number of likes" },
+              "replies": {
+                "type": "array",
+                "description": "Nested replies",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "author": { "type": "string" },
+                    "content": { "type": "string" },
+                    "createdAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "relatedPosts": {
+      "type": "array",
+      "description": "Related posts",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "slug": { "type": "string" },
+          "excerpt": { "type": "string" },
+          "publishedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

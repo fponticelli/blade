@@ -1,0 +1,50 @@
+@props(title, value, previousValue?, target?, format?, icon?)
+
+@@{
+  let displayValue = format == "currency" ? formatCurrency(value, "USD") :
+                     format == "percent" ? formatPercent(value, 1) :
+                     formatNumber(value);
+  let hasComparison = isDefined(previousValue) && previousValue != 0;
+  let change = hasComparison ? (value - previousValue) / previousValue : 0;
+  let changeClass = change > 0 ? "positive" : change < 0 ? "negative" : "neutral";
+  let hasTarget = isDefined(target) && target > 0;
+  let targetProgress = hasTarget ? clamp(value / target, 0, 1) : 0;
+}
+
+<div class="metric-card">
+  <div class="metric-header">
+    @if(icon) {
+      <span class="metric-icon">$icon</span>
+    }
+    <h3 class="metric-title">$title</h3>
+  </div>
+
+  <div class="metric-value">$displayValue</div>
+
+  @if(hasComparison) {
+    <div class="metric-change $changeClass">
+      <span class="change-icon">
+        @match(sign(change)) {
+          when 1 { ↑ }
+          when -1 { ↓ }
+          * { → }
+        }
+      </span>
+      <span class="change-value">
+        ${formatPercent(abs(change), 1)}
+      </span>
+      <span class="change-label">vs previous</span>
+    </div>
+  }
+
+  @if(hasTarget) {
+    <div class="metric-target">
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: ${formatPercent(targetProgress, 0)}"></div>
+      </div>
+      <span class="target-label">
+        ${formatPercent(targetProgress, 1)} of ${format == "currency" ? formatCurrency(target, "USD") : formatNumber(target)} target
+      </span>
+    </div>
+  }
+</div>

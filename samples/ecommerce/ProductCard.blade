@@ -1,0 +1,46 @@
+@props(product, currency)
+
+<div class="product-card ${product.inStock ? '' : 'out-of-stock'}">
+  <div class="product-image">
+    <img src="/images/${product.id}.jpg" alt=$product.name />
+    @if(!product.inStock) {
+      <span class="badge sold-out">Sold Out</span>
+    } else if(product.stockCount < 10) {
+      <span class="badge low-stock">Only ${product.stockCount} left</span>
+    }
+  </div>
+
+  <div class="product-info">
+    <span class="category">${uppercase(product.category)}</span>
+    <h3 class="product-name">$product.name</h3>
+    <p class="description">${truncate(product.description, 80)}</p>
+
+    <div class="tags">
+      @for(tag of product.tags) {
+        <span class="tag">${capitalize(tag)}</span>
+      }
+    </div>
+
+    <div class="rating">
+      <span class="stars">${repeat("★", round(product.rating))}${repeat("☆", 5 - round(product.rating))}</span>
+      <span class="review-count">(${formatNumber(product.reviewCount)} reviews)</span>
+    </div>
+
+    <div class="pricing">
+      @if(product.originalPrice) {
+        <span class="original-price">${formatCurrency(product.originalPrice, currency)}</span>
+        <span class="sale-price">${formatCurrency(product.price, currency)}</span>
+        <span class="discount">Save ${formatPercent((product.originalPrice - product.price) / product.originalPrice, 0)}</span>
+      } else {
+        <span class="price">${formatCurrency(product.price, currency)}</span>
+      }
+    </div>
+
+    <button
+      class="add-to-cart"
+      ${product.inStock ? '' : 'disabled'}
+    >
+      ${product.inStock ? 'Add to Cart' : 'Out of Stock'}
+    </button>
+  </div>
+</div>

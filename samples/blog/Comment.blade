@@ -1,0 +1,40 @@
+@props(comment, depth?)
+
+@@{
+  let indentLevel = default(depth, 0);
+  let hasReplies = len(default(comment.replies, [])) > 0;
+  let timeAgo = diffDays(now(), parseDate(comment.createdAt));
+}
+
+<div class="comment" style="margin-left: ${indentLevel * 24}px">
+  <div class="comment-header">
+    <strong class="comment-author">$comment.author</strong>
+    <span class="comment-date">
+      @match(timeAgo) {
+        when 0 { Today }
+        when 1 { Yesterday }
+        * { ${abs(timeAgo)} days ago }
+      }
+    </span>
+  </div>
+
+  <div class="comment-content">
+    <p>$comment.content</p>
+  </div>
+
+  @if(comment.likes) {
+    <div class="comment-likes">
+      <button class="like-btn">
+        ❤️ ${formatNumber(comment.likes)}
+      </button>
+    </div>
+  }
+
+  @if(hasReplies) {
+    <div class="replies">
+      @for(reply of comment.replies) {
+        <Comment comment=$reply depth=${indentLevel + 1} />
+      }
+    </div>
+  }
+</div>

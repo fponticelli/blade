@@ -1,0 +1,44 @@
+@props(experience)
+
+@@{
+  let startDate = parseDate(experience.startDate);
+  let endDate = experience.endDate ? parseDate(experience.endDate) : now();
+  let durationMonths = abs(diffDays(endDate, startDate)) / 30;
+  let years = trunc(durationMonths / 12);
+  let months = round(durationMonths % 12);
+}
+
+<div class="experience-card ${experience.current ? 'current' : ''}">
+  <div class="experience-timeline">
+    <div class="timeline-dot ${experience.current ? 'active' : ''}"></div>
+    <div class="timeline-line"></div>
+  </div>
+
+  <div class="experience-content">
+    <h4 class="role">$experience.role</h4>
+    <p class="company">$experience.company</p>
+
+    <div class="duration">
+      <span class="dates">
+        ${formatDate(startDate, "MMM yyyy")} -
+        @if(experience.current) {
+          <strong>Present</strong>
+        } else {
+          ${formatDate(endDate, "MMM yyyy")}
+        }
+      </span>
+      <span class="length">
+        @if(years > 0) {
+          ${years} ${years == 1 ? 'year' : 'years'}
+        }
+        @if(months > 0) {
+          ${months} ${months == 1 ? 'month' : 'months'}
+        }
+      </span>
+    </div>
+
+    @if(experience.description) {
+      <p class="description">$experience.description</p>
+    }
+  </div>
+</div>

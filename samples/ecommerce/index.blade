@@ -1,0 +1,76 @@
+@props(storeName, tagline?, currency, showBanner?, bannerText?, discountPercent?, products, featuredCategories?, contactEmail?)
+
+@@{
+  let totalProducts = len(products);
+  let inStockProducts = len(compact(products[*].inStock));
+  let avgRating = avg(products[*].rating);
+  let priceRange = [min(products[*].price), max(products[*].price)];
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>$storeName - Shop</title>
+</head>
+<body>
+  <header class="site-header">
+    <h1>$storeName</h1>
+    @if(tagline) {
+      <p class="tagline">$tagline</p>
+    }
+    <nav class="categories">
+      @for(category of featuredCategories) {
+        <a href="/category/${lowercase(category)}">$category</a>
+      }
+    </nav>
+  </header>
+
+  @if(showBanner && bannerText) {
+    <div class="promo-banner">
+      <p>$bannerText</p>
+      @if(discountPercent) {
+        <span class="discount-badge">${discountPercent}% OFF</span>
+      }
+    </div>
+  }
+
+  <main class="product-catalog">
+    <div class="catalog-stats">
+      <p>Showing <strong>$totalProducts</strong> products
+         (<strong>$inStockProducts</strong> in stock)</p>
+      <p>Average rating: <strong>${formatNumber(avgRating, 1)}</strong> stars</p>
+      <p>Price range: <strong>${formatCurrency(priceRange[0], currency)}</strong> -
+         <strong>${formatCurrency(priceRange[1], currency)}</strong></p>
+    </div>
+
+    <section class="products-grid">
+      @for(product, index of products) {
+        <ProductCard product=$product currency=$currency />
+      }
+    </section>
+
+    @if(len(products) == 0) {
+      <div class="empty-state">
+        <p>No products found.</p>
+      </div>
+    }
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; ${year(now())} $storeName. All rights reserved.</p>
+    @if(contactEmail) {
+      <p>Contact us: <a href="mailto:$contactEmail">$contactEmail</a></p>
+    }
+    <div class="product-summary">
+      <h4>All Products</h4>
+      <ul>
+        @for(product of sort(products[*].name)) {
+          <li>$product</li>
+        }
+      </ul>
+    </div>
+  </footer>
+</body>
+</html>

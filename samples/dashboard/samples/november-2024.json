@@ -1,0 +1,61 @@
+{
+  "dashboard": {
+    "title": "Sales Analytics",
+    "dateRange": {
+      "start": "2024-11-01",
+      "end": "2024-11-30"
+    },
+    "lastUpdated": "2024-11-26T15:30:00Z"
+  },
+  "metrics": {
+    "revenue": {
+      "current": 487520.50,
+      "previous": 423180.25,
+      "target": 500000
+    },
+    "users": {
+      "total": 45892,
+      "active": 12456,
+      "new": 2847,
+      "churnRate": 0.032
+    },
+    "orders": {
+      "total": 8934,
+      "completed": 8456,
+      "pending": 312,
+      "cancelled": 166,
+      "avgValue": 54.56
+    },
+    "conversion": {
+      "rate": 0.0345,
+      "previousRate": 0.0312
+    }
+  },
+  "salesByRegion": [
+    { "region": "North America", "sales": 198450.00, "growth": 0.15 },
+    { "region": "Europe", "sales": 156780.50, "growth": 0.08 },
+    { "region": "Asia Pacific", "sales": 89340.00, "growth": 0.22 },
+    { "region": "Latin America", "sales": 32950.00, "growth": -0.05 },
+    { "region": "Middle East", "sales": 10000.00, "growth": 0.45 }
+  ],
+  "topProducts": [
+    { "name": "Pro Subscription", "revenue": 145000, "units": 2900, "trend": "up" },
+    { "name": "Enterprise License", "revenue": 98500, "units": 197, "trend": "up" },
+    { "name": "Basic Plan", "revenue": 67800, "units": 6780, "trend": "stable" },
+    { "name": "Add-on Pack", "revenue": 34200, "units": 1140, "trend": "down" },
+    { "name": "Training Course", "revenue": 28500, "units": 570, "trend": "up" }
+  ],
+  "recentActivity": [
+    { "type": "sale", "message": "Enterprise deal closed with Acme Corp", "timestamp": "2024-11-26T14:45:00Z", "value": 15000 },
+    { "type": "signup", "message": "50 new users from marketing campaign", "timestamp": "2024-11-26T13:20:00Z", "value": 50 },
+    { "type": "support", "message": "Critical ticket resolved for BigCo Inc", "timestamp": "2024-11-26T12:15:00Z" },
+    { "type": "alert", "message": "Server response time above threshold", "timestamp": "2024-11-26T11:30:00Z" },
+    { "type": "sale", "message": "Bulk order from TechStart", "timestamp": "2024-11-26T10:00:00Z", "value": 8750 },
+    { "type": "signup", "message": "New enterprise trial started", "timestamp": "2024-11-26T09:30:00Z", "value": 1 }
+  ],
+  "alerts": [
+    { "level": "warning", "title": "Revenue Target", "message": "Currently at 97.5% of monthly target with 4 days remaining" },
+    { "level": "info", "title": "New Feature", "message": "Analytics v2 dashboard available for beta testing" },
+    { "level": "critical", "title": "Payment Gateway", "message": "Intermittent failures detected - monitoring active" }
+  ]
+}

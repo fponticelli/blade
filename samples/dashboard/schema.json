@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Analytics Dashboard",
+  "description": "Schema for a business analytics dashboard",
+  "type": "object",
+  "required": ["dashboard", "metrics", "recentActivity"],
+  "properties": {
+    "dashboard": {
+      "type": "object",
+      "required": ["title", "dateRange"],
+      "properties": {
+        "title": { "type": "string", "description": "Dashboard title" },
+        "dateRange": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "string", "format": "date" },
+            "end": { "type": "string", "format": "date" }
+          }
+        },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Key performance metrics",
+      "properties": {
+        "revenue": {
+          "type": "object",
+          "properties": {
+            "current": { "type": "number" },
+            "previous": { "type": "number" },
+            "target": { "type": "number" }
+          }
+        },
+        "users": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "number" },
+            "active": { "type": "number" },
+            "new": { "type": "number" },
+            "churnRate": { "type": "number" }
+          }
+        },
+        "orders": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "number" },
+            "completed": { "type": "number" },
+            "pending": { "type": "number" },
+            "cancelled": { "type": "number" },
+            "avgValue": { "type": "number" }
+          }
+        },
+        "conversion": {
+          "type": "object",
+          "properties": {
+            "rate": { "type": "number" },
+            "previousRate": { "type": "number" }
+          }
+        }
+      }
+    },
+    "salesByRegion": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "region": { "type": "string" },
+          "sales": { "type": "number" },
+          "growth": { "type": "number" }
+        }
+      }
+    },
+    "topProducts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "revenue": { "type": "number" },
+          "units": { "type": "number" },
+          "trend": { "type": "string", "enum": ["up", "down", "stable"] }
+        }
+      }
+    },
+    "recentActivity": {
+      "type": "array",
+      "description": "Recent activity feed",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["sale", "signup", "support", "alert"] },
+          "message": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "value": { "type": "number" }
+        }
+      }
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "level": { "type": "string", "enum": ["info", "warning", "critical"] },
+          "title": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  }
+}

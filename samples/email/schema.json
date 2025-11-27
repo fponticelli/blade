@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Order Confirmation Email",
+  "description": "Schema for an order confirmation email template",
+  "type": "object",
+  "required": ["company", "customer", "order"],
+  "properties": {
+    "company": {
+      "type": "object",
+      "required": ["name", "email"],
+      "properties": {
+        "name": { "type": "string", "description": "Company name" },
+        "logo": { "type": "string", "description": "Logo URL" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "website": { "type": "string" }
+      }
+    },
+    "customer": {
+      "type": "object",
+      "required": ["name", "email"],
+      "properties": {
+        "name": { "type": "string", "description": "Customer full name" },
+        "firstName": { "type": "string", "description": "Customer first name" },
+        "email": { "type": "string", "format": "email" },
+        "isVip": { "type": "boolean", "description": "VIP customer status" },
+        "memberSince": { "type": "string", "format": "date" },
+        "loyaltyPoints": { "type": "number" }
+      }
+    },
+    "order": {
+      "type": "object",
+      "required": ["id", "date", "items", "totals", "status"],
+      "properties": {
+        "id": { "type": "string", "description": "Order ID" },
+        "date": { "type": "string", "format": "date-time" },
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "processing", "shipped", "delivered"]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "quantity", "price"],
+            "properties": {
+              "name": { "type": "string" },
+              "sku": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price": { "type": "number" },
+              "discount": { "type": "number" },
+              "image": { "type": "string" }
+            }
+          }
+        },
+        "totals": {
+          "type": "object",
+          "properties": {
+            "subtotal": { "type": "number" },
+            "discount": { "type": "number" },
+            "shipping": { "type": "number" },
+            "tax": { "type": "number" },
+            "total": { "type": "number" }
+          }
+        },
+        "shipping": {
+          "type": "object",
+          "properties": {
+            "method": { "type": "string" },
+            "address": {
+              "type": "object",
+              "properties": {
+                "street": { "type": "string" },
+                "city": { "type": "string" },
+                "state": { "type": "string" },
+                "zip": { "type": "string" },
+                "country": { "type": "string" }
+              }
+            },
+            "estimatedDelivery": { "type": "string", "format": "date" },
+            "trackingNumber": { "type": "string" }
+          }
+        },
+        "payment": {
+          "type": "object",
+          "properties": {
+            "method": { "type": "string" },
+            "last4": { "type": "string" }
+          }
+        },
+        "couponCode": { "type": "string" },
+        "giftMessage": { "type": "string" },
+        "isGift": { "type": "boolean" }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "price": { "type": "number" },
+          "image": { "type": "string" },
+          "url": { "type": "string" }
+        }
+      }
+    }
+  }
+}

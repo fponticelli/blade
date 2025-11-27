@@ -66,13 +66,23 @@ export function getHoverInfo(
   // Check for variables inside @if/@for directive parentheses
   const directiveArgContext = isInsideDirectiveArgs(doc.content, offset);
   if (directiveArgContext) {
-    return getDirectiveArgHover(doc, offset, wordInfo.word, directiveArgContext, projectContext);
+    return getDirectiveArgHover(
+      doc,
+      offset,
+      wordInfo.word,
+      directiveArgContext,
+      projectContext
+    );
   }
 
   // Check for template definition prop hover (<template:Card title! subtitle="Default">)
   const templatePropContext = isInsideTemplateDefinition(doc.content, offset);
   if (templatePropContext) {
-    return getTemplatePropHover(wordInfo.word, templatePropContext, projectContext);
+    return getTemplatePropHover(
+      wordInfo.word,
+      templatePropContext,
+      projectContext
+    );
   }
 
   // Check for expression hover - either inside ${...} or a simple $variable
@@ -100,7 +110,7 @@ function isSimpleVariableExpression(content: string, offset: number): boolean {
   let i = offset - 1;
 
   // Skip over word characters, dots, brackets, and numbers (for paths like $item.name or $items[0].name)
-  while (i >= 0 && /[\w.\[\]0-9*]/.test(content[i] ?? '')) {
+  while (i >= 0 && /[\w.[\]0-9*]/.test(content[i] ?? '')) {
     i--;
   }
 
@@ -122,7 +132,10 @@ function isInsidePropsDirective(content: string, offset: number): boolean {
  * Check if offset is inside directive arguments like @if(condition) or @for(item of items)
  * Returns the directive name and full argument content if inside, null otherwise
  */
-function isInsideDirectiveArgs(content: string, offset: number): { directive: string; fullMatch: string } | null {
+function isInsideDirectiveArgs(
+  content: string,
+  offset: number
+): { directive: string; fullMatch: string } | null {
   // Look back for @directive(
   const before = content.slice(Math.max(0, offset - 200), offset);
 
@@ -133,7 +146,8 @@ function isInsideDirectiveArgs(content: string, offset: number): { directive: st
     const afterCursor = content.slice(offset);
     const closingParen = afterCursor.indexOf(')');
     if (closingParen >= 0) {
-      const fullContent = unclosedMatch[2]! + afterCursor.slice(0, closingParen);
+      const fullContent =
+        unclosedMatch[2]! + afterCursor.slice(0, closingParen);
       return { directive: unclosedMatch[1]!, fullMatch: fullContent };
     }
     // No closing paren found, return what we have
@@ -145,7 +159,8 @@ function isInsideDirectiveArgs(content: string, offset: number): { directive: st
   const lineBeforeCursor = before.slice(lineStart);
   const afterCursor = content.slice(offset);
   const lineEnd = afterCursor.indexOf('\n');
-  const lineAfterCursor = lineEnd >= 0 ? afterCursor.slice(0, lineEnd) : afterCursor;
+  const lineAfterCursor =
+    lineEnd >= 0 ? afterCursor.slice(0, lineEnd) : afterCursor;
   const fullLine = lineBeforeCursor + lineAfterCursor;
 
   // Find @directive(...) on this line and check if cursor is inside the parens
@@ -167,7 +182,10 @@ function isInsideDirectiveArgs(content: string, offset: number): { directive: st
 /**
  * Check if offset is inside a template definition like <template:Card title! subtitle="Default">
  */
-function isInsideTemplateDefinition(content: string, offset: number): { componentName: string } | null {
+function isInsideTemplateDefinition(
+  content: string,
+  offset: number
+): { componentName: string } | null {
   // Look back for <template:Name
   const before = content.slice(Math.max(0, offset - 200), offset);
   const match = before.match(/<template:(\w+)[^>]*$/);
@@ -227,14 +245,19 @@ function getDirectiveArgHover(
   // For @for, check if this is the loop variable (item) or the source (items)
   if (context.directive === 'for') {
     // Parse @for(item, index of items) or @for(item of items)
-    const forMatch = context.fullMatch.match(/^(\w+)(?:\s*,\s*(\w+))?\s+of\s+(\w+)/);
+    const forMatch = context.fullMatch.match(
+      /^(\w+)(?:\s*,\s*(\w+))?\s+of\s+(\w+)/
+    );
     if (forMatch) {
       const [, itemVar, indexVar, sourceVar] = forMatch;
 
       if (name === itemVar) {
         // This is the loop item variable - show narrowed type from schema
         if (projectContext?.schema && sourceVar) {
-          const sourceInfo = getSchemaPropertyInfo(projectContext.schema, sourceVar);
+          const sourceInfo = getSchemaPropertyInfo(
+            projectContext.schema,
+            sourceVar
+          );
           if (sourceInfo?.type === 'array') {
             // Get the item type from schema (items[].*)
             const itemSchemaPath = `${sourceVar}[]`;
@@ -242,7 +265,9 @@ function getDirectiveArgHover(
               p.path.startsWith(itemSchemaPath + '.')
             );
             if (itemProps.length > 0) {
-              const propNames = itemProps.map(p => p.path.split('.').pop()).join(', ');
+              const propNames = itemProps
+                .map(p => p.path.split('.').pop())
+                .join(', ');
               return {
                 contents: `**${name}**: \`object\`\n\n*Loop item from ${sourceVar}*\n\nProperties: ${propNames}`,
               };
@@ -421,7 +446,11 @@ function getExpressionHover(
   const variable = findVariableByNameAtOffset(doc.scope, varName, offset);
   if (variable) {
     // For loop item variables, provide schema-aware hover
-    if (variable.kind === 'for-item' && variable.sourceVar && projectContext?.schema) {
+    if (
+      variable.kind === 'for-item' &&
+      variable.sourceVar &&
+      projectContext?.schema
+    ) {
       // Determine if we're on the variable itself ($item) vs a property path ($item.name)
       // The path might be "$item.name" but we're only hovering on "$item"
       // Check: does the basePath have a dot? If so, we need to check if offset is on first segment
@@ -439,7 +468,10 @@ function getExpressionHover(
       }
 
       if (isOnVariableOnly) {
-        const sourceInfo = getSchemaPropertyInfo(projectContext.schema, variable.sourceVar);
+        const sourceInfo = getSchemaPropertyInfo(
+          projectContext.schema,
+          variable.sourceVar
+        );
         if (sourceInfo?.type === 'array') {
           // Get the item properties from schema
           const itemSchemaPath = `${variable.sourceVar}[]`;
@@ -447,7 +479,9 @@ function getExpressionHover(
             p.path.startsWith(itemSchemaPath + '.')
           );
           if (itemProps.length > 0) {
-            const propNames = itemProps.map(p => p.path.split('.').pop()).join(', ');
+            const propNames = itemProps
+              .map(p => p.path.split('.').pop())
+              .join(', ');
             return {
               contents: `**${varName}**: \`object\`\n\n*Loop item from ${variable.sourceVar}*\n\nProperties: ${propNames}`,
             };
@@ -461,7 +495,10 @@ function getExpressionHover(
       if (pathInfo && pathInfo.basePath.startsWith(varName + '.')) {
         const restPath = pathInfo.basePath.slice(varName.length + 1); // "name" from "item.name"
         const schemaPath = `${variable.sourceVar}[].${restPath}`;
-        const schemaInfo = getSchemaPropertyInfo(projectContext.schema, schemaPath);
+        const schemaInfo = getSchemaPropertyInfo(
+          projectContext.schema,
+          schemaPath
+        );
         if (schemaInfo) {
           let contents = `**${pathInfo.path}**: \`${schemaInfo.type}\`\n\n*Property of loop item from ${variable.sourceVar}*`;
           if (schemaInfo.description) {
@@ -469,7 +506,10 @@ function getExpressionHover(
           }
           // Add sample values
           if (projectContext.samples) {
-            const sampleValues = getSampleValues(projectContext.samples, schemaPath);
+            const sampleValues = getSampleValues(
+              projectContext.samples,
+              schemaPath
+            );
             const sampleHint = formatSampleHint(sampleValues);
             if (sampleHint) {
               contents += `\n\n---\n\n${sampleHint}`;
@@ -496,14 +536,20 @@ function getExpressionHover(
       // Map the path to schema: item.name -> items[].name
       const restPath = pathInfo.basePath.slice(firstSegment.length + 1);
       const schemaPath = `${loopVar.sourceVar}[].${restPath}`;
-      const schemaInfo = getSchemaPropertyInfo(projectContext.schema, schemaPath);
+      const schemaInfo = getSchemaPropertyInfo(
+        projectContext.schema,
+        schemaPath
+      );
       if (schemaInfo) {
         let contents = `**${pathInfo.path}**: \`${schemaInfo.type}\`\n\n*Property of loop item from ${loopVar.sourceVar}*`;
         if (schemaInfo.description) {
           contents += `\n\n${schemaInfo.description}`;
         }
         if (projectContext.samples) {
-          const sampleValues = getSampleValues(projectContext.samples, schemaPath);
+          const sampleValues = getSampleValues(
+            projectContext.samples,
+            schemaPath
+          );
           const sampleHint = formatSampleHint(sampleValues);
           if (sampleHint) {
             contents += `\n\n---\n\n${sampleHint}`;
@@ -517,11 +563,16 @@ function getExpressionHover(
   // Check for schema-based hover (for paths like $user.name or $items[0].name)
   if (projectContext?.schema && pathInfo) {
     // Use basePath for schema lookup (normalizes array indices to [])
-    const schemaInfo = getSchemaPropertyInfo(projectContext.schema, pathInfo.basePath);
+    const schemaInfo = getSchemaPropertyInfo(
+      projectContext.schema,
+      pathInfo.basePath
+    );
     if (schemaInfo) {
       // Determine if this is a wildcard array access (items[*].name returns array)
       const isWildcardAccess = pathInfo.path.includes('[*]');
-      const displayType = isWildcardAccess ? `${schemaInfo.type}[]` : schemaInfo.type;
+      const displayType = isWildcardAccess
+        ? `${schemaInfo.type}[]`
+        : schemaInfo.type;
 
       // Display the original path but with schema type info
       let contents = `**${pathInfo.path}**: \`${displayType}\``;
@@ -536,7 +587,10 @@ function getExpressionHover(
 
       // Add sample values if available
       if (projectContext.samples) {
-        const sampleValues = getSampleValues(projectContext.samples, pathInfo.basePath);
+        const sampleValues = getSampleValues(
+          projectContext.samples,
+          pathInfo.basePath
+        );
         if (sampleValues.length > 0) {
           // For wildcard access, show all values as an array
           if (isWildcardAccess) {
@@ -684,4 +738,3 @@ function findVariableByNameAtOffset(
   }
   return null;
 }
-

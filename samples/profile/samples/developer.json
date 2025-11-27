@@ -1,0 +1,120 @@
+{
+  "user": {
+    "id": "usr_12345",
+    "username": "sarahdev",
+    "email": "sarah@devmail.com",
+    "displayName": "Sarah Chen",
+    "avatar": "/avatars/sarah-chen.jpg",
+    "bio": "Full-stack developer passionate about clean code and great UX. Open source contributor. Coffee enthusiast. ☕️",
+    "location": "San Francisco, CA",
+    "website": "https://sarahchen.dev",
+    "joinedAt": "2021-06-15T00:00:00Z",
+    "lastActive": "2024-11-26T14:30:00Z",
+    "verified": true,
+    "role": "moderator",
+    "settings": {
+      "theme": "dark",
+      "language": "en-US",
+      "notifications": {
+        "email": true,
+        "push": true,
+        "sms": false
+      },
+      "privacy": {
+        "profilePublic": true,
+        "showEmail": false,
+        "showActivity": true
+      }
+    },
+    "stats": {
+      "followers": 12847,
+      "following": 342,
+      "posts": 156,
+      "likes": 8934,
+      "reputation": 15420
+    },
+    "socialLinks": [
+      { "platform": "GitHub", "url": "https://github.com/sarahdev", "username": "sarahdev" },
+      { "platform": "Twitter", "url": "https://twitter.com/sarahcodes", "username": "@sarahcodes" },
+      { "platform": "LinkedIn", "url": "https://linkedin.com/in/sarahchen", "username": "sarahchen" },
+      { "platform": "Dev.to", "url": "https://dev.to/sarahdev", "username": "sarahdev" }
+    ],
+    "badges": [
+      { "name": "Early Adopter", "icon": "🌟", "earnedAt": "2021-06-15T00:00:00Z", "description": "Joined during beta" },
+      { "name": "Top Contributor", "icon": "🏆", "earnedAt": "2023-12-01T00:00:00Z", "description": "Top 1% of contributors" },
+      { "name": "Verified", "icon": "✓", "earnedAt": "2022-03-20T00:00:00Z", "description": "Identity verified" },
+      { "name": "1000 Posts", "icon": "📝", "earnedAt": "2024-08-15T00:00:00Z", "description": "Posted 1000+ times" },
+      { "name": "Mentor", "icon": "🎓", "earnedAt": "2024-01-10T00:00:00Z", "description": "Helped 100+ developers" }
+    ],
+    "skills": [
+      { "name": "TypeScript", "level": 95, "endorsed": 234 },
+      { "name": "React", "level": 90, "endorsed": 198 },
+      { "name": "Node.js", "level": 88, "endorsed": 156 },
+      { "name": "PostgreSQL", "level": 82, "endorsed": 89 },
+      { "name": "GraphQL", "level": 78, "endorsed": 67 },
+      { "name": "Docker", "level": 75, "endorsed": 45 },
+      { "name": "AWS", "level": 70, "endorsed": 38 }
+    ],
+    "experience": [
+      {
+        "company": "TechCorp Inc.",
+        "role": "Senior Software Engineer",
+        "startDate": "2023-01-15",
+        "endDate": null,
+        "current": true,
+        "description": "Leading frontend architecture and mentoring junior developers on a team building enterprise SaaS applications."
+      },
+      {
+        "company": "StartupXYZ",
+        "role": "Full-Stack Developer",
+        "startDate": "2021-06-01",
+        "endDate": "2022-12-31",
+        "current": false,
+        "description": "Built and maintained core product features using React and Node.js. Improved performance by 40%."
+      },
+      {
+        "company": "WebAgency",
+        "role": "Junior Developer",
+        "startDate": "2019-09-01",
+        "endDate": "2021-05-31",
+        "current": false,
+        "description": "Developed responsive websites and web applications for various clients."
+      }
+    ],
+    "projects": [
+      {
+        "name": "blade-templates",
+        "description": "Modern template engine for TypeScript applications",
+        "url": "https://github.com/sarahdev/blade-templates",
+        "stars": 1247,
+        "language": "TypeScript",
+        "tags": ["template-engine", "typescript", "open-source"]
+      },
+      {
+        "name": "react-hooks-toolkit",
+        "description": "Collection of useful React hooks for common patterns",
+        "url": "https://github.com/sarahdev/react-hooks-toolkit",
+        "stars": 892,
+        "language": "TypeScript",
+        "tags": ["react", "hooks", "utility"]
+      },
+      {
+        "name": "api-rate-limiter",
+        "description": "Distributed rate limiting middleware for Node.js",
+        "url": "https://github.com/sarahdev/api-rate-limiter",
+        "stars": 456,
+        "language": "JavaScript",
+        "tags": ["node", "middleware", "rate-limiting"]
+      }
+    ],
+    "recentActivity": [
+      { "type": "post", "description": "Published: \"Understanding TypeScript Generics\"", "timestamp": "2024-11-25T10:30:00Z", "targetUrl": "/posts/understanding-typescript-generics" },
+      { "type": "comment", "description": "Commented on \"Best Practices for React Testing\"", "timestamp": "2024-11-24T15:45:00Z", "targetUrl": "/posts/react-testing#comment-123" },
+      { "type": "achievement", "description": "Earned \"1000 Posts\" badge", "timestamp": "2024-11-24T00:00:00Z", "targetUrl": "/badges/1000-posts" },
+      { "type": "like", "description": "Liked \"Introduction to WebAssembly\"", "timestamp": "2024-11-23T09:20:00Z", "targetUrl": "/posts/intro-webassembly" },
+      { "type": "follow", "description": "Started following @devmaster", "timestamp": "2024-11-22T14:00:00Z", "targetUrl": "/users/devmaster" }
+    ]
+  },
+  "isOwnProfile": false,
+  "isFollowing": true
+}
