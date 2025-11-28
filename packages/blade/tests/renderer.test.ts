@@ -10,6 +10,8 @@ import {
   createStringRenderer,
   DEFAULT_RESOURCE_LIMITS,
   DEFAULT_RENDER_CONFIG,
+  validateSourceTrackingPrefix,
+  getSourceAttributeName,
 } from '../src/renderer/index.js';
 import type {
   CompiledTemplate,
@@ -1524,5 +1526,176 @@ describe('Fragment Rendering', () => {
     const result = renderer({});
 
     expect(result.html).toBe('<span>A</span><span>B</span>');
+  });
+});
+
+// =============================================================================
+// Source Tracking Prefix Configuration
+// =============================================================================
+
+describe('Source Tracking Prefix', () => {
+  describe('validateSourceTrackingPrefix', () => {
+    it('should accept default prefix rd-', () => {
+      expect(() => validateSourceTrackingPrefix('rd-')).not.toThrow();
+    });
+
+    it('should accept empty string', () => {
+      expect(() => validateSourceTrackingPrefix('')).not.toThrow();
+    });
+
+    it('should accept data-* prefix', () => {
+      expect(() => validateSourceTrackingPrefix('data-track-')).not.toThrow();
+    });
+
+    it('should accept underscore prefix', () => {
+      expect(() => validateSourceTrackingPrefix('my_prefix_')).not.toThrow();
+    });
+
+    it('should accept prefix starting with underscore', () => {
+      expect(() => validateSourceTrackingPrefix('_prefix')).not.toThrow();
+    });
+
+    it('should accept alphanumeric prefix', () => {
+      expect(() => validateSourceTrackingPrefix('audit123')).not.toThrow();
+    });
+
+    it('should reject prefix starting with number', () => {
+      expect(() => validateSourceTrackingPrefix('123-')).toThrow(
+        /Invalid sourceTrackingPrefix/
+      );
+    });
+
+    it('should reject prefix with @ symbol', () => {
+      expect(() => validateSourceTrackingPrefix('my@prefix')).toThrow(
+        /Invalid sourceTrackingPrefix/
+      );
+    });
+
+    it('should reject prefix with space', () => {
+      expect(() => validateSourceTrackingPrefix('has space')).toThrow(
+        /Invalid sourceTrackingPrefix/
+      );
+    });
+
+    it('should reject prefix starting with hyphen', () => {
+      expect(() => validateSourceTrackingPrefix('-invalid')).toThrow(
+        /Invalid sourceTrackingPrefix/
+      );
+    });
+
+    it('should provide helpful error message', () => {
+      expect(() => validateSourceTrackingPrefix('123bad')).toThrow(
+        /Prefix must be empty or start with a letter\/underscore/
+      );
+    });
+  });
+
+  describe('getSourceAttributeName', () => {
+    it('should generate attribute with default prefix', () => {
+      expect(getSourceAttributeName('rd-', 'source')).toBe('rd-source');
+      expect(getSourceAttributeName('rd-', 'source-op')).toBe('rd-source-op');
+      expect(getSourceAttributeName('rd-', 'source-note')).toBe('rd-source-note');
+    });
+
+    it('should generate attribute with custom prefix', () => {
+      expect(getSourceAttributeName('data-track-', 'source')).toBe(
+        'data-track-source'
+      );
+      expect(getSourceAttributeName('data-track-', 'source-op')).toBe(
+        'data-track-source-op'
+      );
+      expect(getSourceAttributeName('data-track-', 'source-note')).toBe(
+        'data-track-source-note'
+      );
+    });
+
+    it('should generate attribute with empty prefix', () => {
+      expect(getSourceAttributeName('', 'source')).toBe('source');
+      expect(getSourceAttributeName('', 'source-op')).toBe('source-op');
+      expect(getSourceAttributeName('', 'source-note')).toBe('source-note');
+    });
+
+    it('should generate attribute with underscore prefix', () => {
+      expect(getSourceAttributeName('audit_', 'source')).toBe('audit_source');
+    });
+  });
+
+  describe('createRenderContext validation', () => {
+    it('should accept valid custom prefix in config', () => {
+      const template = createMockTemplate([]);
+      expect(() =>
+        createRenderContext(template, {}, {
+          config: { sourceTrackingPrefix: 'data-custom-' },
+        })
+      ).not.toThrow();
+    });
+
+    it('should reject invalid prefix in config', () => {
+      const template = createMockTemplate([]);
+      expect(() =>
+        createRenderContext(template, {}, {
+          config: { sourceTrackingPrefix: '123-invalid' },
+        })
+      ).toThrow(/Invalid sourceTrackingPrefix/);
+    });
+
+    it('should use default prefix when not specified', () => {
+      const template = createMockTemplate([]);
+      const ctx = createRenderContext(template, {});
+      expect(ctx.renderConfig.sourceTrackingPrefix).toBe('rd-');
+    });
+
+    it('should use custom prefix when specified', () => {
+      const template = createMockTemplate([]);
+      const ctx = createRenderContext(template, {}, {
+        config: { sourceTrackingPrefix: 'blade-' },
+      });
+      expect(ctx.renderConfig.sourceTrackingPrefix).toBe('blade-');
+    });
+
+    it('should accept empty string prefix', () => {
+      const template = createMockTemplate([]);
+      const ctx = createRenderContext(template, {}, {
+        config: { sourceTrackingPrefix: '' },
+      });
+      expect(ctx.renderConfig.sourceTrackingPrefix).toBe('');
+    });
+  });
+
+  describe('createStringRenderer with custom prefix', () => {
+    it('should accept valid prefix through renderer options', () => {
+      const template = createMockTemplate([
+        text([{ kind: 'literal', text: 'Hello' }]),
+      ]);
+      const renderer = createStringRenderer(template);
+
+      expect(() =>
+        renderer({}, { config: { sourceTrackingPrefix: 'audit-' } })
+      ).not.toThrow();
+    });
+
+    it('should reject invalid prefix through renderer options', () => {
+      const template = createMockTemplate([
+        text([{ kind: 'literal', text: 'Hello' }]),
+      ]);
+      const renderer = createStringRenderer(template);
+
+      expect(() =>
+        renderer({}, { config: { sourceTrackingPrefix: '@invalid' } })
+      ).toThrow(/Invalid sourceTrackingPrefix/);
+    });
+
+    it('should consistently use configured prefix across multiple renders', () => {
+      const template = createMockTemplate([
+        text([{ kind: 'literal', text: 'Test' }]),
+      ]);
+      const renderer = createStringRenderer(template);
+      const options = { config: { sourceTrackingPrefix: 'custom-' } };
+
+      // Multiple renders should all succeed with same config
+      expect(() => renderer({}, options)).not.toThrow();
+      expect(() => renderer({}, options)).not.toThrow();
+      expect(() => renderer({}, options)).not.toThrow();
+    });
   });
 });
