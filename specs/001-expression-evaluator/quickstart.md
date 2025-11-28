@@ -12,8 +12,8 @@ This guide demonstrates how to use the Expression Evaluator to execute Blade tem
 ### Evaluating Simple Expressions
 
 ```typescript
-import { evaluate } from '@fponticelli/blade';
-import type { EvaluationContext, Scope } from '@fponticelli/blade';
+import { evaluate } from '@bladets/template';
+import type { EvaluationContext, Scope } from '@bladets/template';
 
 // Create a scope with data
 const scope: Scope = {
@@ -50,8 +50,8 @@ console.log(result); // "Alice"
 ### Using Helper Functions
 
 ```typescript
-import { evaluate } from '@fponticelli/blade';
-import type { HelperFunction, Scope } from '@fponticelli/blade';
+import { evaluate } from '@bladets/template';
+import type { HelperFunction, Scope } from '@bladets/template';
 
 // Define a helper function
 const formatCurrency: HelperFunction = (scope, setWarning) => (value: unknown) => {
@@ -210,7 +210,7 @@ const nullishNode = {
 ## Error Handling
 
 ```typescript
-import { evaluate, EvaluationError } from '@fponticelli/blade';
+import { evaluate, EvaluationError } from '@bladets/template';
 
 try {
   const result = evaluate(expression, context);
@@ -229,7 +229,7 @@ try {
 In practice, expressions come from the parser:
 
 ```typescript
-import { parse, evaluate } from '@fponticelli/blade';
+import { parse, evaluate } from '@bladets/template';
 
 // Parse a template
 const compiled = parse('<div>${user.name}</div>');

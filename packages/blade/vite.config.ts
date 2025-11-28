@@ -16,7 +16,7 @@ export default defineConfig({
         'lsp/server': resolve(__dirname, 'src/lsp/server.ts'),
       },
       name: 'Blade',
-      formats: ['es'],
+      formats: ['es', 'cjs'],
     },
     rollupOptions: {
       // Node.js built-ins and vscode LSP packages are external
@@ -28,11 +28,18 @@ export default defineConfig({
         'vscode-languageserver/node.js',
         'vscode-languageserver-textdocument',
       ],
-      output: {
-        exports: 'named',
-        // Preserve directory structure for lsp/server.js
-        entryFileNames: '[name].js',
-      },
+      output: [
+        {
+          format: 'es',
+          entryFileNames: '[name].js',
+          exports: 'named',
+        },
+        {
+          format: 'cjs',
+          entryFileNames: '[name].cjs',
+          exports: 'named',
+        },
+      ],
     },
     sourcemap: true,
     minify: 'esbuild',

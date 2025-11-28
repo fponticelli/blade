@@ -12,8 +12,8 @@ This guide demonstrates how to use the Blade Template Renderer to convert compil
 ### Simple Rendering
 
 ```typescript
-import { compile } from '@fponticelli/blade';
-import { createStringRenderer, render } from '@fponticelli/blade';
+import { compile } from '@bladets/template';
+import { createStringRenderer, render } from '@bladets/template';
 
 // Compile a template
 const template = await compile('<h1>Hello, ${name}!</h1>');
@@ -34,7 +34,7 @@ console.log(result.html); // "<h1>Hello, Alice!</h1>"
 ### With Helpers
 
 ```typescript
-import { createStringRenderer, standardHelpers } from '@fponticelli/blade';
+import { createStringRenderer, standardHelpers } from '@bladets/template';
 
 const template = await compile('<p>Total: ${formatCurrency(amount)}</p>');
 
@@ -207,7 +207,7 @@ const result = renderer(data, {
 ### Resource Limits
 
 ```typescript
-import { DEFAULT_RESOURCE_LIMITS } from '@fponticelli/blade';
+import { DEFAULT_RESOURCE_LIMITS } from '@bladets/template';
 
 const result = renderer(data, {
   limits: {
@@ -221,7 +221,7 @@ const result = renderer(data, {
 ## Error Handling
 
 ```typescript
-import { RenderError, ResourceLimitError } from '@fponticelli/blade';
+import { RenderError, ResourceLimitError } from '@bladets/template';
 
 try {
   const result = renderer(data);

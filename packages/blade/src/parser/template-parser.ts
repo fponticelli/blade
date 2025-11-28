@@ -127,7 +127,10 @@ export class TemplateParser {
           return this.parseComment();
         }
         // Check if it's a DOCTYPE declaration
-        if (this.peekNext() === '!' && this.peekAhead(9).toUpperCase() === '<!DOCTYPE') {
+        if (
+          this.peekNext() === '!' &&
+          this.peekAhead(9).toUpperCase() === '<!DOCTYPE'
+        ) {
           return this.parseDoctype();
         }
         // Check if it's a closing tag (we'll handle this in parseElement)

@@ -28,7 +28,7 @@ export async function renderTemplate(
   try {
     // Dynamically import the blade package
     // The blade package is bundled with the extension
-    const blade = await import('@fponticelli/blade');
+    const blade = await import('@bladets/template');
 
     // Strip @props directive before compiling (it's metadata, not content)
     const propsResult = blade.parseProps(templateSource);

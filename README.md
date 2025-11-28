@@ -8,8 +8,8 @@ Blade is a hybrid build-time/runtime HTML template system with strong typing, ex
 
 | Package | Description |
 |---------|-------------|
-| [@fponticelli/blade](./packages/blade) | Core template engine |
-| [@fponticelli/blade-lsp](./packages/blade-lsp) | Language Server Protocol implementation |
+| [@bladets/template](./packages/blade) | Core template engine |
+| [@bladets/template-lsp](./packages/blade-lsp) | Language Server Protocol implementation |
 
 ## Features
 
