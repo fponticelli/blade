@@ -199,6 +199,10 @@ function analyzeNode(node: TemplateNode, context: AnalysisContext): void {
     case 'comment':
       // Nothing to analyze
       break;
+
+    case 'doctype':
+      // Nothing to analyze
+      break;
   }
 }
 

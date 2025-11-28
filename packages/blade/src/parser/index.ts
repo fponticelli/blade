@@ -8,6 +8,10 @@ import type {
 import { ExpressionParser } from './expression-parser.js';
 import { TemplateParser } from './template-parser.js';
 
+// Re-export parseProps for preprocessing @props directives
+export { parseProps } from './props-parser.js';
+export type { PropsParseResult, PropsParseWarning } from './props-parser.js';
+
 export interface ParseResult<T> {
   value: T;
   errors: ParseError[];

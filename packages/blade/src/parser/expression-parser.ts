@@ -337,6 +337,24 @@ export class ExpressionParser {
     return ast.exprPath([ast.pathKey('_')], false, this.getLocation(token));
   }
 
+  private parseArray(): ExprAst {
+    const start = this.peek();
+    this.consume(TokenType.LBRACKET, 'Expected [');
+
+    const elements: ExprAst[] = [];
+
+    // Handle empty array []
+    if (!this.check(TokenType.RBRACKET)) {
+      do {
+        elements.push(this.parseExpression(Precedence.NONE));
+      } while (this.match(TokenType.COMMA));
+    }
+
+    this.consume(TokenType.RBRACKET, 'Expected ]');
+
+    return ast.arrayLiteral(elements, this.getLocation(start));
+  }
+
   // Infix parsers (operators that combine expressions)
 
   private parseBinary(left: ExprAst): ExprAst {
@@ -376,6 +394,33 @@ export class ExpressionParser {
     return ast.call(name, args, this.getLocation(start));
   }
 
+  /**
+   * Parse member access as an infix operation: expr[index], expr[*], expr.property
+   * This handles cases like foo()[0], foo()[*].bar, (a || b).length
+   */
+  private parseMemberAccess(left: ExprAst): ExprAst {
+    const segments: PathItem[] = [];
+    let hasWildcard = false;
+
+    // Parse all consecutive member accesses
+    while (this.check(TokenType.LBRACKET) || this.check(TokenType.DOT)) {
+      if (this.match(TokenType.LBRACKET)) {
+        const seg = this.parseIndexOrWildcard();
+        if (seg.kind === 'star') hasWildcard = true;
+        segments.push(seg);
+        this.consume(TokenType.RBRACKET, 'Expected ]');
+      } else if (this.match(TokenType.DOT)) {
+        segments.push(this.parsePathSegment());
+      }
+    }
+
+    if (segments.length === 0) {
+      return left;
+    }
+
+    return ast.memberAccess(left, segments, hasWildcard, left.location);
+  }
+
   // Parser rule tables
 
   private getPrefixParser(type: TokenType): PrefixParseFn | null {
@@ -401,6 +446,8 @@ export class ExpressionParser {
         return this.parseUnary;
       case TokenType.UNDERSCORE:
         return this.parseUnderscore;
+      case TokenType.LBRACKET:
+        return this.parseArray;
       default:
         return null;
     }
@@ -428,6 +475,10 @@ export class ExpressionParser {
         return this.parseBinary;
       case TokenType.QUESTION:
         return this.parseTernary;
+      case TokenType.LBRACKET:
+      case TokenType.DOT:
+        // Member access: expr[index], expr[*], expr.property
+        return this.parseMemberAccess;
       default:
         return null;
     }
@@ -462,6 +513,10 @@ export class ExpressionParser {
         return Precedence.FACTOR;
       case TokenType.LPAREN:
         return Precedence.CALL;
+      case TokenType.LBRACKET:
+      case TokenType.DOT:
+        // Member access has same precedence as function calls
+        return Precedence.CALL;
       default:
         return Precedence.NONE;
     }
@@ -469,14 +524,27 @@ export class ExpressionParser {
 
   // Token management helpers
 
+  private skipNewlines(): void {
+    while (
+      !this.isAtEnd() &&
+      this.tokens[this.current]?.type === TokenType.NEWLINE
+    ) {
+      this.current++;
+    }
+  }
+
   private advance(): Token {
+    this.skipNewlines();
     if (!this.isAtEnd()) {
       this.current++;
     }
+    // Skip any newlines after advancing
+    this.skipNewlines();
     return this.previous();
   }
 
   private peek(): Token {
+    this.skipNewlines();
     const token = this.tokens[this.current];
     if (!token) {
       throw new Error('Unexpected end of tokens');
@@ -485,7 +553,12 @@ export class ExpressionParser {
   }
 
   private previous(): Token {
-    const token = this.tokens[this.current - 1];
+    // Find the previous non-newline token
+    let idx = this.current - 1;
+    while (idx >= 0 && this.tokens[idx]?.type === TokenType.NEWLINE) {
+      idx--;
+    }
+    const token = this.tokens[idx];
     if (!token) {
       throw new Error('No previous token');
     }
@@ -513,7 +586,9 @@ export class ExpressionParser {
   }
 
   private isAtEnd(): boolean {
-    return this.peek().type === TokenType.EOF;
+    // Check directly without calling peek() to avoid circular calls with skipNewlines()
+    const token = this.tokens[this.current];
+    return !token || token.type === TokenType.EOF;
   }
 
   private getLocation(token: Token) {

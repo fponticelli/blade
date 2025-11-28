@@ -1,0 +1,268 @@
+/**
+ * Blade Preview Webview Styles
+ * Feature: 007-vscode-preview-mode
+ */
+
+/* Reset and base styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-editor-background);
+  line-height: 1.5;
+}
+
+/* Container */
+.preview-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Header */
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--vscode-titleBar-activeBackground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+}
+
+.preview-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--vscode-titleBar-activeForeground);
+}
+
+.preview-icon {
+  font-size: 16px;
+}
+
+.preview-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Sample selector dropdown */
+.sample-selector {
+  padding: 4px 8px;
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 3px;
+  background-color: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  font-size: 12px;
+  min-width: 150px;
+  cursor: pointer;
+}
+
+.sample-selector:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+/* Refresh button */
+.refresh-btn {
+  padding: 4px 8px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 3px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.refresh-btn:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.refresh-btn:active {
+  transform: scale(0.95);
+}
+
+/* Main content area */
+.preview-content {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+/* Rendered content */
+.rendered-content {
+  background-color: var(--vscode-editor-background);
+  border-radius: 4px;
+}
+
+/* Render info */
+.render-info {
+  margin-top: 12px;
+  padding: 8px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  text-align: right;
+}
+
+/* Loading state */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--vscode-progressBar-background);
+  border-top-color: var(--vscode-button-background);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error state */
+.preview-error {
+  background-color: var(--vscode-inputValidation-errorBackground);
+  border: 1px solid var(--vscode-inputValidation-errorBorder);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.preview-error .error-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.preview-error h3 {
+  color: var(--vscode-errorForeground);
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.preview-error .error-message {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background-color: var(--vscode-textCodeBlock-background);
+  padding: 8px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+}
+
+.preview-error .error-location {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* Last render section (shown below errors) */
+.last-render {
+  margin-top: 16px;
+  opacity: 0.6;
+}
+
+.last-render h4 {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 8px;
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.empty-state .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  color: var(--vscode-foreground);
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.empty-state p {
+  max-width: 300px;
+  margin-bottom: 16px;
+}
+
+.empty-state code {
+  background-color: var(--vscode-textCodeBlock-background);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+}
+
+/* Create sample button */
+.create-sample-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 3px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.create-sample-btn:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.create-sample-btn:active {
+  transform: scale(0.98);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--vscode-scrollbarSlider-background);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--vscode-scrollbarSlider-activeBackground);
+}

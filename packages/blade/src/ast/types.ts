@@ -93,7 +93,9 @@ export type ExprAst =
   | BinaryNode
   | TernaryNode
   | CallNode
-  | ArrayWildcardNode;
+  | ArrayWildcardNode
+  | ArrayNode
+  | MemberAccessNode;
 
 /**
  * Type discriminator for literal values.
@@ -319,6 +321,48 @@ export interface ArrayWildcardNode extends BaseNode {
 }
 
 /**
+ * Array literal node.
+ *
+ * Represents an array literal expression like [1, 2, 3] or [].
+ *
+ * @property kind - Always "array"
+ * @property elements - Array of expressions that make up the array elements
+ *
+ * @example
+ * - [] → { kind: "array", elements: [] }
+ * - [1, 2, 3] → { kind: "array", elements: [LiteralNode(1), LiteralNode(2), LiteralNode(3)] }
+ * - [a, b + 1] → { kind: "array", elements: [PathNode(a), BinaryNode(+, PathNode(b), LiteralNode(1))] }
+ */
+export interface ArrayNode extends BaseNode {
+  readonly kind: 'array';
+  readonly elements: readonly ExprAst[];
+}
+
+/**
+ * Member access node.
+ *
+ * Represents member access on any expression result, such as:
+ * - foo()[0] - index access on function result
+ * - foo()[*].bar - wildcard + property access on function result
+ * - (a || b).length - property access on expression result
+ *
+ * @property kind - Always "member"
+ * @property object - The expression whose result is being accessed
+ * @property path - The path segments to access on the result
+ * @property hasWildcard - Whether the path contains a [*] wildcard
+ *
+ * @example
+ * - foo()[0] → { object: CallNode(foo), path: [index(0)], hasWildcard: false }
+ * - foo()[*].bar → { object: CallNode(foo), path: [star(), key("bar")], hasWildcard: true }
+ */
+export interface MemberAccessNode extends BaseNode {
+  readonly kind: 'member';
+  readonly object: ExprAst;
+  readonly path: readonly PathItem[];
+  readonly hasWildcard: boolean;
+}
+
+/**
  * Template node types.
  *
  * Template nodes represent the structure of the template, including HTML elements,
@@ -334,7 +378,8 @@ export type TemplateNode =
   | ComponentNode
   | FragmentNode
   | SlotNode
-  | CommentNode;
+  | CommentNode
+  | DoctypeNode;
 
 /**
  * Text node with optional expression interpolation.
@@ -844,6 +889,19 @@ export interface CommentNode extends BaseNode {
   readonly kind: 'comment';
   readonly style: 'line' | 'block' | 'html';
   readonly text: string;
+}
+
+/**
+ * DOCTYPE declaration node.
+ *
+ * Represents HTML DOCTYPE declarations like <!DOCTYPE html>.
+ *
+ * @property kind - Always "doctype"
+ * @property value - The doctype value (e.g., "html" for <!DOCTYPE html>)
+ */
+export interface DoctypeNode extends BaseNode {
+  readonly kind: 'doctype';
+  readonly value: string;
 }
 
 /**

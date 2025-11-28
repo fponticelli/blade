@@ -126,6 +126,10 @@ export class TemplateParser {
         if (this.peekNext() === '!' && this.peekAhead(4) === '<!--') {
           return this.parseComment();
         }
+        // Check if it's a DOCTYPE declaration
+        if (this.peekNext() === '!' && this.peekAhead(9).toUpperCase() === '<!DOCTYPE') {
+          return this.parseDoctype();
+        }
         // Check if it's a closing tag (we'll handle this in parseElement)
         if (this.peekNext() === '/') {
           return null; // Closing tag, handled by parent
@@ -833,6 +837,38 @@ export class TemplateParser {
     return ast.comment.node({
       style: 'html',
       text,
+      location: this.getLocationFrom(startLoc),
+    });
+  }
+
+  private parseDoctype(): TemplateNode {
+    const startLoc = this.getLocation();
+
+    // Consume <!DOCTYPE (case-insensitive)
+    this.advance(); // <
+    this.advance(); // !
+
+    // Skip "DOCTYPE" (case-insensitive)
+    while (!this.isAtEnd() && this.isAlpha(this.peek())) {
+      this.advance();
+    }
+
+    this.skipWhitespace();
+
+    // Read the doctype value (e.g., "html")
+    const valueStart = this.pos;
+    while (!this.isAtEnd() && this.peek() !== '>') {
+      this.advance();
+    }
+    const value = this.source.substring(valueStart, this.pos).trim();
+
+    // Consume >
+    if (this.peek() === '>') {
+      this.advance();
+    }
+
+    return ast.doctype.node({
+      value,
       location: this.getLocationFrom(startLoc),
     });
   }
@@ -1736,11 +1772,14 @@ export class TemplateParser {
     });
   }
 
-  private parseLet(startLoc: {
-    line: number;
-    column: number;
-    offset: number;
-  }): TemplateNode {
+  private parseLet(
+    startLoc: {
+      line: number;
+      column: number;
+      offset: number;
+    },
+    options?: { inCodeBlock?: boolean }
+  ): TemplateNode {
     this.skipWhitespace();
 
     // Check for global assignment: let $.var = expr
@@ -1760,9 +1799,16 @@ export class TemplateParser {
     const valueStart = this.pos;
     let end = this.pos;
 
-    // Find the end (semicolon or newline)
+    // Find the end:
+    // - In code blocks (@@{}), only semicolon terminates (allows multi-line expressions)
+    // - Outside code blocks, semicolon or newline terminates
+    const inCodeBlock = options?.inCodeBlock ?? false;
     while (!this.isAtEnd()) {
-      if (this.peek() === ';' || this.peek() === '\n') {
+      if (this.peek() === ';') {
+        end = this.pos;
+        break;
+      }
+      if (!inCodeBlock && this.peek() === '\n') {
         end = this.pos;
         break;
       }
@@ -1810,7 +1856,9 @@ export class TemplateParser {
       // Parse let statement
       if (this.peekAhead(3) === 'let') {
         this.parseIdentifier(); // consume 'let'
-        const letNode = this.parseLet(this.getLocation());
+        const letNode = this.parseLet(this.getLocation(), {
+          inCodeBlock: true,
+        });
         statements.push(letNode);
       } else {
         // Skip unknown content

@@ -37,12 +37,12 @@ packages/blade-vscode/
 
 **Purpose**: Project structure and extension configuration
 
-- [ ] T001 Create preview module directory structure at packages/blade-vscode/src/preview/
-- [ ] T002 Create commands directory structure at packages/blade-vscode/src/commands/
-- [ ] T003 Create media directory for webview assets at packages/blade-vscode/media/
-- [ ] T004 [P] Add preview command contribution to packages/blade-vscode/package.json (blade.openPreview command)
-- [ ] T005 [P] Add keyboard shortcut contribution to packages/blade-vscode/package.json (Cmd+Shift+V / Ctrl+Shift+V)
-- [ ] T006 [P] Add editor title button contribution to packages/blade-vscode/package.json (preview icon when blade file active)
+- [x] T001 Create preview module directory structure at packages/blade-vscode/src/preview/
+- [x] T002 Create commands directory structure at packages/blade-vscode/src/commands/
+- [x] T003 Create media directory for webview assets at packages/blade-vscode/media/
+- [x] T004 [P] Add preview command contribution to packages/blade-vscode/package.json (blade.openPreview command)
+- [x] T005 [P] Add keyboard shortcut contribution to packages/blade-vscode/package.json (Cmd+Shift+V / Ctrl+Shift+V)
+- [x] T006 [P] Add editor title button contribution to packages/blade-vscode/package.json (preview icon when blade file active)
 
 ---
 
@@ -52,10 +52,10 @@ packages/blade-vscode/
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T007 Create message type definitions at packages/blade-vscode/src/preview/types.ts (from contracts/messages.ts)
-- [ ] T008 Create preview module index at packages/blade-vscode/src/preview/index.ts (exports for panel, renderer, samples)
-- [ ] T009 Implement project root finder utility at packages/blade-vscode/src/preview/utils.ts (find samples/ folder from active file)
-- [ ] T010 Create debounce utility function at packages/blade-vscode/src/preview/utils.ts (300ms debounce for live refresh)
+- [x] T007 Create message type definitions at packages/blade-vscode/src/preview/types.ts (from contracts/messages.ts)
+- [x] T008 Create preview module index at packages/blade-vscode/src/preview/index.ts (exports for panel, renderer, samples)
+- [x] T009 Implement project root finder utility at packages/blade-vscode/src/preview/utils.ts (find samples/ folder from active file)
+- [x] T010 Create debounce utility function at packages/blade-vscode/src/preview/utils.ts (300ms debounce for live refresh)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -69,16 +69,16 @@ packages/blade-vscode/
 
 ### Implementation for User Story 1
 
-- [ ] T011 [P] [US1] Implement sample file discovery at packages/blade-vscode/src/preview/samples.ts (list JSON files from samples/ folder)
-- [ ] T012 [P] [US1] Implement sample file loading at packages/blade-vscode/src/preview/samples.ts (parse JSON, track validity, handle errors)
-- [ ] T013 [US1] Implement template renderer at packages/blade-vscode/src/preview/renderer.ts (compile template, render with sample data, return HTML or errors)
-- [ ] T014 [US1] Create webview panel manager at packages/blade-vscode/src/preview/panel.ts (create panel with ViewColumn.Beside, manage lifecycle)
-- [ ] T015 [US1] Implement webview HTML shell at packages/blade-vscode/src/preview/panel.ts (sample dropdown, preview area, message passing setup)
-- [ ] T016 [P] [US1] Create preview CSS styles at packages/blade-vscode/media/preview.css (dropdown styling, preview content styling, responsive layout)
-- [ ] T017 [US1] Implement sample dropdown population at packages/blade-vscode/src/preview/panel.ts (send samples list to webview, handle selection)
-- [ ] T018 [US1] Implement render-on-sample-change at packages/blade-vscode/src/preview/panel.ts (re-render when user selects different sample)
-- [ ] T019 [US1] Implement live preview refresh at packages/blade-vscode/src/preview/panel.ts (onDidChangeTextDocument with debounce)
-- [ ] T020 [US1] Implement error display in webview at packages/blade-vscode/src/preview/panel.ts (styled error box with line/column info)
+- [x] T011 [P] [US1] Implement sample file discovery at packages/blade-vscode/src/preview/samples.ts (list JSON files from samples/ folder)
+- [x] T012 [P] [US1] Implement sample file loading at packages/blade-vscode/src/preview/samples.ts (parse JSON, track validity, handle errors)
+- [x] T013 [US1] Implement template renderer at packages/blade-vscode/src/preview/renderer.ts (compile template, render with sample data, return HTML or errors)
+- [x] T014 [US1] Create webview panel manager at packages/blade-vscode/src/preview/panel.ts (create panel with ViewColumn.Beside, manage lifecycle)
+- [x] T015 [US1] Implement webview HTML shell at packages/blade-vscode/src/preview/panel.ts (sample dropdown, preview area, message passing setup)
+- [x] T016 [P] [US1] Create preview CSS styles at packages/blade-vscode/media/preview.css (dropdown styling, preview content styling, responsive layout)
+- [x] T017 [US1] Implement sample dropdown population at packages/blade-vscode/src/preview/panel.ts (send samples list to webview, handle selection)
+- [x] T018 [US1] Implement render-on-sample-change at packages/blade-vscode/src/preview/panel.ts (re-render when user selects different sample)
+- [x] T019 [US1] Implement live preview refresh at packages/blade-vscode/src/preview/panel.ts (onDidChangeTextDocument with debounce)
+- [x] T020 [US1] Implement error display in webview at packages/blade-vscode/src/preview/panel.ts (styled error box with line/column info)
 
 **Checkpoint**: User Story 1 complete - preview works with sample selection and live refresh
 
@@ -92,10 +92,10 @@ packages/blade-vscode/
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Create preview command handler at packages/blade-vscode/src/commands/preview.ts (openPreview function)
-- [ ] T022 [US2] Register command in extension activation at packages/blade-vscode/src/extension.ts (registerCommand for blade.openPreview)
-- [ ] T023 [US2] Wire command to panel manager at packages/blade-vscode/src/commands/preview.ts (get active editor, call panel.show())
-- [ ] T024 [US2] Add command to extension subscriptions at packages/blade-vscode/src/extension.ts (disposable cleanup)
+- [x] T021 [US2] Create preview command handler at packages/blade-vscode/src/commands/preview.ts (openPreview function)
+- [x] T022 [US2] Register command in extension activation at packages/blade-vscode/src/extension.ts (registerCommand for blade.openPreview)
+- [x] T023 [US2] Wire command to panel manager at packages/blade-vscode/src/commands/preview.ts (get active editor, call panel.show())
+- [x] T024 [US2] Add command to extension subscriptions at packages/blade-vscode/src/extension.ts (disposable cleanup)
 
 **Checkpoint**: User Stories 1+2 complete - core preview functionality fully working
 
@@ -109,10 +109,10 @@ packages/blade-vscode/
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Implement component file detection at packages/blade-vscode/src/preview/samples.ts (check if file is index.blade or component)
-- [ ] T026 [US3] Implement empty state display at packages/blade-vscode/src/preview/panel.ts (show message for component files, no-samples, no-project)
-- [ ] T027 [US3] Implement Create Sample button handler at packages/blade-vscode/src/preview/panel.ts (handle createSample message from webview)
-- [ ] T028 [US3] Implement sample file generation at packages/blade-vscode/src/preview/samples.ts (parse @props, generate JSON skeleton, write to samples/ folder)
+- [x] T025 [US3] Implement component file detection at packages/blade-vscode/src/preview/samples.ts (check if file is index.blade or component)
+- [x] T026 [US3] Implement empty state display at packages/blade-vscode/src/preview/panel.ts (show message for component files, no-samples, no-project)
+- [x] T027 [US3] Implement Create Sample button handler at packages/blade-vscode/src/preview/panel.ts (handle createSample message from webview)
+- [x] T028 [US3] Implement sample file generation at packages/blade-vscode/src/preview/samples.ts (parse @props, generate JSON skeleton, write to samples/ folder)
 
 **Checkpoint**: User Story 3 complete - component preview shows helpful fallback
 
@@ -126,10 +126,10 @@ packages/blade-vscode/
 
 ### Implementation for User Story 4
 
-- [ ] T029 [US4] Implement active editor change listener at packages/blade-vscode/src/preview/panel.ts (onDidChangeActiveTextEditor)
-- [ ] T030 [US4] Implement file switch handling at packages/blade-vscode/src/preview/panel.ts (detect .blade file, update preview or show message)
-- [ ] T031 [US4] Implement per-project sample selection persistence at packages/blade-vscode/src/preview/panel.ts (save/restore via workspaceState)
-- [ ] T032 [US4] Implement sample JSON file watching at packages/blade-vscode/src/preview/panel.ts (refresh preview when sample file changes externally)
+- [x] T029 [US4] Implement active editor change listener at packages/blade-vscode/src/preview/panel.ts (onDidChangeActiveTextEditor)
+- [x] T030 [US4] Implement file switch handling at packages/blade-vscode/src/preview/panel.ts (detect .blade file, update preview or show message)
+- [x] T031 [US4] Implement per-project sample selection persistence at packages/blade-vscode/src/preview/panel.ts (save/restore via workspaceState)
+- [x] T032 [US4] Implement sample JSON file watching at packages/blade-vscode/src/preview/panel.ts (refresh preview when sample file changes externally)
 
 **Checkpoint**: User Story 4 complete - preview syncs with active editor
 
@@ -139,11 +139,11 @@ packages/blade-vscode/
 
 **Purpose**: Final integration, documentation, and quality improvements
 
-- [ ] T033 [P] Update packages/blade-vscode/README.md with preview feature documentation
-- [ ] T034 [P] Add preview feature to extension keywords in packages/blade-vscode/package.json
-- [ ] T035 Run build and verify extension packages successfully (npm run build)
-- [ ] T036 Manual testing: walk through quickstart.md testing checklist
-- [ ] T037 Build and install VSIX for final validation (npm run vscode)
+- [x] T033 [P] Update packages/blade-vscode/README.md with preview feature documentation
+- [x] T034 [P] Add preview feature to extension keywords in packages/blade-vscode/package.json
+- [x] T035 Run build and verify extension packages successfully (npm run build)
+- [x] T036 Manual testing: walk through quickstart.md testing checklist
+- [x] T037 Build and install VSIX for final validation (npm run vscode)
 
 ---
 
