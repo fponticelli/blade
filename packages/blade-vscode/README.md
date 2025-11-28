@@ -34,6 +34,16 @@ Real-time error detection:
 - **Find References**: Find all usages of a symbol
 - **Hover Information**: View type and documentation on hover
 
+### Live Preview
+
+Preview your Blade templates with real sample data:
+
+- **Open Preview**: Use `Cmd+Shift+V` (Mac) or `Ctrl+Shift+V` (Windows/Linux), or click the preview icon in the editor toolbar
+- **Sample Selection**: Choose from available sample JSON files in your project's `samples/` folder
+- **Live Refresh**: Preview updates automatically as you type (with debounce)
+- **Error Display**: Compilation errors are shown inline with line numbers
+- **Component Support**: Component files show a helpful message with option to create sample data
+
 ## Installation
 
 1. Open VS Code

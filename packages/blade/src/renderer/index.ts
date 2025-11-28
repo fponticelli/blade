@@ -16,6 +16,7 @@ import type {
   FragmentNode,
   SlotNode,
   CommentNode,
+  DoctypeNode,
   AttributeNode,
   ExprAst,
   FunctionExpr,
@@ -804,6 +805,13 @@ function renderComment(node: CommentNode, ctx: RenderContext): string {
 }
 
 /**
+ * Renders a DOCTYPE declaration node.
+ */
+function renderDoctype(node: DoctypeNode, _ctx: RenderContext): string {
+  return `<!DOCTYPE ${node.value}>`;
+}
+
+/**
  * Renders a single template node based on its kind.
  */
 function renderNode(node: TemplateNode, ctx: RenderContext): string {
@@ -828,6 +836,8 @@ function renderNode(node: TemplateNode, ctx: RenderContext): string {
       return renderSlot(node, ctx);
     case 'comment':
       return renderComment(node, ctx);
+    case 'doctype':
+      return renderDoctype(node, ctx);
     default: {
       // Exhaustive check
       const _exhaustive: never = node;

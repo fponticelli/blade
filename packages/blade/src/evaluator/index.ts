@@ -10,6 +10,8 @@ import type {
   TernaryNode,
   CallNode,
   ArrayWildcardNode,
+  ArrayNode,
+  MemberAccessNode,
   SourceLocation,
 } from '../ast/types.js';
 
@@ -310,6 +312,58 @@ function evaluateWildcard(
   return current;
 }
 
+/**
+ * Evaluate an array literal node - evaluate each element and return as array.
+ */
+function evaluateArray(node: ArrayNode, context: EvaluationContext): unknown[] {
+  return node.elements.map(element => evaluate(element, context));
+}
+
+/**
+ * Evaluate a member access node - evaluate the object, then access members.
+ * Handles cases like foo()[0], foo()[*].bar, (a || b).length
+ */
+function evaluateMemberAccess(
+  node: MemberAccessNode,
+  context: EvaluationContext
+): unknown {
+  // First, evaluate the object expression
+  let current: unknown = evaluate(node.object, context);
+
+  // If it has a wildcard, we need to handle it specially
+  if (node.hasWildcard) {
+    // Process segments, expanding at wildcard points
+    let results: unknown[] = [current];
+
+    for (const segment of node.path) {
+      if (segment.kind === 'star') {
+        // Flatten and expand: each array element becomes multiple results
+        results = results.flatMap(item => (Array.isArray(item) ? item : []));
+      } else if (segment.kind === 'key') {
+        // Map property access across all current values
+        results = results.map(item => accessProperty(item, segment.key));
+      } else if (segment.kind === 'index') {
+        // Map index access across all current values
+        results = results.map(item => accessProperty(item, segment.index));
+      }
+    }
+
+    return results;
+  }
+
+  // No wildcard - simple sequential property access
+  for (const segment of node.path) {
+    if (segment.kind === 'key') {
+      current = accessProperty(current, segment.key);
+    } else if (segment.kind === 'index') {
+      current = accessProperty(current, segment.index);
+    }
+    // Note: 'star' without hasWildcard shouldn't happen, but handle gracefully
+  }
+
+  return current;
+}
+
 // =============================================================================
 // Main Evaluate Function
 // =============================================================================
@@ -338,6 +392,10 @@ export function evaluate(expr: ExprAst, context: EvaluationContext): unknown {
       return evaluateCall(expr, context);
     case 'wildcard':
       return evaluateWildcard(expr, context);
+    case 'array':
+      return evaluateArray(expr, context);
+    case 'member':
+      return evaluateMemberAccess(expr, context);
     default: {
       // Exhaustive check
       const _exhaustive: never = expr;

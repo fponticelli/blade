@@ -26,6 +26,8 @@ import type {
   TernaryNode,
   CallNode,
   ArrayWildcardNode,
+  ArrayNode,
+  MemberAccessNode,
   TemplateNode,
   TextNode,
   TextSegment,
@@ -48,6 +50,7 @@ import type {
   FragmentNode,
   SlotNode,
   CommentNode,
+  DoctypeNode,
   ComponentDefinition,
   PropDefinition,
   RootNode,
@@ -313,6 +316,39 @@ export const expr = {
       location: location ?? loc(),
     };
   },
+
+  /**
+   * Creates an array literal node.
+   * @example expr.array([expr.literal(1), expr.literal(2)])
+   * @example expr.array([]) // empty array
+   */
+  array(elements: ExprAst[] = [], location?: SourceLocation): ArrayNode {
+    return {
+      kind: 'array',
+      elements,
+      location: location ?? loc(),
+    };
+  },
+
+  /**
+   * Creates a member access node.
+   * @example expr.member(callNode, [path.index(0)]) // foo()[0]
+   * @example expr.member(callNode, [path.star(), path.key('bar')], true) // foo()[*].bar
+   */
+  member(
+    object: ExprAst,
+    pathSegments: PathItem[],
+    hasWildcard = false,
+    location?: SourceLocation
+  ): MemberAccessNode {
+    return {
+      kind: 'member',
+      object,
+      path: pathSegments,
+      hasWildcard,
+      location: location ?? loc(),
+    };
+  },
 };
 
 // =============================================================================
@@ -538,6 +574,18 @@ export const node = {
       kind: 'comment',
       style: opts.style,
       text: opts.text,
+      location: opts.location ?? loc(),
+    };
+  },
+
+  /**
+   * Creates a DOCTYPE declaration node.
+   * @example node.doctype({ value: 'html' })
+   */
+  doctype(opts: { value: string; location?: SourceLocation }): DoctypeNode {
+    return {
+      kind: 'doctype',
+      value: opts.value,
       location: opts.location ?? loc(),
     };
   },
@@ -852,6 +900,9 @@ export const slot = {
 export const comment = {
   node: node.comment,
 };
+export const doctype = {
+  node: node.doctype,
+};
 export const text = {
   node: (opts: { segments: TextSegment[]; location?: SourceLocation }) =>
     node.text(opts.segments, opts.location),
@@ -1095,6 +1146,38 @@ export function functionExpr(
     kind: 'function',
     params,
     body,
+    location: location ?? loc(),
+  };
+}
+
+/**
+ * Creates an array literal node.
+ */
+export function arrayLiteral(
+  elements: ExprAst[],
+  location?: SourceLocation
+): ArrayNode {
+  return {
+    kind: 'array',
+    elements,
+    location: location ?? loc(),
+  };
+}
+
+/**
+ * Creates a member access node.
+ */
+export function memberAccess(
+  object: ExprAst,
+  pathSegments: PathItem[],
+  hasWildcard: boolean,
+  location?: SourceLocation
+): MemberAccessNode {
+  return {
+    kind: 'member',
+    object,
+    path: pathSegments,
+    hasWildcard,
     location: location ?? loc(),
   };
 }

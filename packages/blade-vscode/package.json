@@ -22,13 +22,40 @@
     "blade",
     "template",
     "html",
-    "syntax highlighting"
+    "syntax highlighting",
+    "preview",
+    "live preview"
   ],
   "activationEvents": [
     "onLanguage:blade"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "blade.openPreview",
+        "title": "Open Preview",
+        "category": "Blade",
+        "icon": "$(open-preview)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "blade.openPreview",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorLangId == blade"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "blade.openPreview",
+          "when": "editorLangId == blade",
+          "group": "navigation"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "blade",
@@ -144,6 +171,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
+    "@fponticelli/blade": "file:../blade",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.11"

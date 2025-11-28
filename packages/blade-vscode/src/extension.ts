@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import { workspace, ExtensionContext } from 'vscode';
+import { registerPreviewCommand } from './commands/preview';
 
 import {
   LanguageClient,
@@ -59,6 +60,10 @@ export function activate(context: ExtensionContext): void {
 
   // Start the client, which also starts the server
   client.start();
+
+  // Register preview command
+  const previewDisposable = registerPreviewCommand(context);
+  context.subscriptions.push(previewDisposable);
 }
 
 export function deactivate(): Thenable<void> | undefined {
