@@ -129,6 +129,73 @@ export function escapeHtml(str: string): string {
 }
 
 // =============================================================================
+// Source Tracking Configuration
+// =============================================================================
+
+/**
+ * Valid HTML attribute name prefix pattern.
+ * Must start with letter or underscore, followed by alphanumeric, hyphens, or underscores.
+ * Empty string is also valid (handled separately).
+ */
+const VALID_PREFIX_REGEX = /^[a-zA-Z_][a-zA-Z0-9_-]*$/;
+
+/**
+ * Validates that a source tracking prefix produces valid HTML attribute names.
+ * Empty string is valid (results in unprefixed attributes like "source", "source-op").
+ * Non-empty prefix must start with letter/underscore and contain only alphanumeric,
+ * hyphens, and underscores.
+ *
+ * @param prefix - The prefix to validate
+ * @throws Error if the prefix is invalid
+ *
+ * @example
+ * ```typescript
+ * validateSourceTrackingPrefix('rd-');        // Valid (default)
+ * validateSourceTrackingPrefix('data-track-'); // Valid
+ * validateSourceTrackingPrefix('');            // Valid (empty)
+ * validateSourceTrackingPrefix('123-');        // Throws error
+ * validateSourceTrackingPrefix('my@prefix');   // Throws error
+ * ```
+ */
+export function validateSourceTrackingPrefix(prefix: string): void {
+  if (prefix === '') {
+    return; // Empty string is valid - results in unprefixed attributes
+  }
+  if (!VALID_PREFIX_REGEX.test(prefix)) {
+    throw new Error(
+      `Invalid sourceTrackingPrefix "${prefix}". ` +
+        `Prefix must be empty or start with a letter/underscore and contain only alphanumeric characters, hyphens, and underscores.`
+    );
+  }
+}
+
+/**
+ * Base attribute names for source tracking.
+ */
+export type SourceAttributeBase = 'source' | 'source-op' | 'source-note';
+
+/**
+ * Generates a source tracking attribute name using the configured prefix.
+ *
+ * @param prefix - The configured prefix (e.g., 'rd-', 'data-track-', or '')
+ * @param base - The base attribute name ('source', 'source-op', or 'source-note')
+ * @returns The full attribute name (e.g., 'rd-source', 'data-track-source-op', or 'source')
+ *
+ * @example
+ * ```typescript
+ * getSourceAttributeName('rd-', 'source');        // 'rd-source'
+ * getSourceAttributeName('data-track-', 'source-op'); // 'data-track-source-op'
+ * getSourceAttributeName('', 'source');           // 'source'
+ * ```
+ */
+export function getSourceAttributeName(
+  prefix: string,
+  base: SourceAttributeBase
+): string {
+  return prefix + base;
+}
+
+// =============================================================================
 // Render Options and Configuration
 // =============================================================================
 
@@ -259,6 +326,12 @@ export function createRenderContext(
   data: unknown,
   options?: RenderOptions & { limits?: ResourceLimits }
 ): RenderContext {
+  // Merge config with defaults
+  const renderConfig = { ...DEFAULT_RENDER_CONFIG, ...options?.config };
+
+  // Validate source tracking prefix before creating context (fail-fast)
+  validateSourceTrackingPrefix(renderConfig.sourceTrackingPrefix);
+
   const scope: Scope = {
     locals: {},
     data,
@@ -276,7 +349,7 @@ export function createRenderContext(
         options?.limits?.maxRecursionDepth ??
         DEFAULT_RESOURCE_LIMITS.maxRecursionDepth,
     },
-    renderConfig: { ...DEFAULT_RENDER_CONFIG, ...options?.config },
+    renderConfig,
     limits: { ...DEFAULT_RESOURCE_LIMITS, ...options?.limits },
     currentLoopNesting: 0,
     totalIterations: 0,

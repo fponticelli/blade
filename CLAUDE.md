@@ -15,6 +15,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-25
 - VSCode workspace state (for persisting selected sample per project) (007-vscode-preview-mode)
 - TypeScript 5.x, targeting Node.js 18+ + Vite 6.x (build), vite-plugin-dts (TypeScript declarations) (008-npm-publish)
 - N/A (library package) (008-npm-publish)
+- TypeScript 5.7.2 (ESM modules) + None (pure TypeScript, internal renderer module) (009-configurable-source-attr)
+- N/A (in-memory configuration) (009-configurable-source-attr)
 
 - TypeScript 5.x (ESM modules) + None (pure TypeScript, depends only on internal AST types) (001-expression-evaluator)
 
@@ -34,9 +36,9 @@ npm test && npm run lint
 TypeScript 5.x (ESM modules): Follow standard conventions
 
 ## Recent Changes
+- 009-configurable-source-attr: Added TypeScript 5.7.2 (ESM modules) + None (pure TypeScript, internal renderer module)
 - 008-npm-publish: Added TypeScript 5.x, targeting Node.js 18+ + Vite 6.x (build), vite-plugin-dts (TypeScript declarations)
 - 008-npm-publish: Added TypeScript 5.x, targeting Node.js 18+ + Vite 6.x (build), vite-plugin-dts (TypeScript declarations)
-- 007-vscode-preview-mode: Added TypeScript 5.7.2 (ESM modules) + vscode ^1.85.0, vscode-languageclient ^9.0.1, existing @bladets/template package
 
 
 <!-- MANUAL ADDITIONS START -->
