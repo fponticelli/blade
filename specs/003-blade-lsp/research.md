@@ -171,7 +171,7 @@ The existing Blade parser (`packages/blade/src/parser/`) provides:
 
 **LSP Integration**:
 ```typescript
-import { parseTemplate, ParseError } from '@fponticelli/blade';
+import { parseTemplate, ParseError } from '@bladets/template';
 
 function validateDocument(doc: TextDocument): Diagnostic[] {
   const result = parseTemplate(doc.getText());

@@ -10,7 +10,7 @@ Add a live preview panel to the Blade VSCode extension that renders templates us
 ## Technical Context
 
 **Language/Version**: TypeScript 5.7.2 (ESM modules)
-**Primary Dependencies**: vscode ^1.85.0, vscode-languageclient ^9.0.1, existing @fponticelli/blade package
+**Primary Dependencies**: vscode ^1.85.0, vscode-languageclient ^9.0.1, existing @bladets/template package
 **Storage**: VSCode workspace state (for persisting selected sample per project)
 **Testing**: Vitest (existing test framework in blade package)
 **Target Platform**: VSCode Extension (cross-platform)

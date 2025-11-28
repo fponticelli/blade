@@ -171,7 +171,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@fponticelli/blade": "file:../blade",
+    "@bladets/template": "file:../blade",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.11"

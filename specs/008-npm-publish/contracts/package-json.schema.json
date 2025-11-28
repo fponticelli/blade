@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Blade Package.json Schema",
+  "description": "Schema for the @bladets/template package.json configuration",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "type",
+    "main",
+    "module",
+    "types",
+    "exports",
+    "files",
+    "engines"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "const": "@bladets/template",
+      "description": "Scoped package name"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$",
+      "description": "Semantic version"
+    },
+    "type": {
+      "type": "string",
+      "const": "module",
+      "description": "Package module type (ESM)"
+    },
+    "main": {
+      "type": "string",
+      "const": "./dist/index.cjs",
+      "description": "CommonJS entry point"
+    },
+    "module": {
+      "type": "string",
+      "const": "./dist/index.js",
+      "description": "ES module entry point"
+    },
+    "types": {
+      "type": "string",
+      "const": "./dist/index.d.ts",
+      "description": "TypeScript declarations"
+    },
+    "exports": {
+      "type": "object",
+      "required": [".", "./lsp/server"],
+      "properties": {
+        ".": {
+          "type": "object",
+          "required": ["types", "import", "require"],
+          "properties": {
+            "types": { "const": "./dist/index.d.ts" },
+            "import": { "const": "./dist/index.js" },
+            "require": { "const": "./dist/index.cjs" }
+          }
+        },
+        "./lsp/server": {
+          "type": "object",
+          "required": ["types", "import", "require"],
+          "properties": {
+            "types": { "const": "./dist/server.d.ts" },
+            "import": { "const": "./dist/lsp/server.js" },
+            "require": { "const": "./dist/lsp/server.cjs" }
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "contains": { "const": "dist" },
+      "description": "Files to include in npm tarball"
+    },
+    "engines": {
+      "type": "object",
+      "required": ["node"],
+      "properties": {
+        "node": {
+          "type": "string",
+          "pattern": "^>=18",
+          "description": "Minimum Node.js version"
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "required": ["type", "url"],
+      "properties": {
+        "type": { "const": "git" },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri"
+    },
+    "bugs": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "format": "uri" }
+      }
+    }
+  }
+}
