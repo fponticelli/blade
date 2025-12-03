@@ -1,0 +1,70 @@
+{
+  "name": "@bladets/tempo",
+  "version": "0.1.0",
+  "description": "Blade template integration for @tempots/dom - reactive rendering",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "homepage": "https://github.com/fponticelli/blade#readme",
+  "bugs": {
+    "url": "https://github.com/fponticelli/blade/issues"
+  },
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "tsc && vite build",
+    "test": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext ts --fix",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint:fix && npm run lint && npm run build && npm run test",
+    "clean": "rm -rf dist coverage .turbo",
+    "prepublishOnly": "npm run check"
+  },
+  "keywords": [
+    "blade",
+    "template",
+    "tempo",
+    "tempots",
+    "reactive",
+    "rendering"
+  ],
+  "author": "Franco Ponticelli",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fponticelli/blade.git",
+    "directory": "packages/blade-tempo"
+  },
+  "peerDependencies": {
+    "@bladets/template": "^0.2.0",
+    "@tempots/dom": "^35.0.0"
+  },
+  "devDependencies": {
+    "@bladets/template": "file:../blade",
+    "@tempots/dom": "^35.0.0",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/ui": "^2.1.8",
+    "jsdom": "^26.1.0",
+    "vite": "^6.0.3",
+    "vite-plugin-dts": "^4.3.0",
+    "vitest": "^2.1.8"
+  }
+}
