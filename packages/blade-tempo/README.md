@@ -1,5 +1,7 @@
 # @bladets/tempo
 
+[![npm](https://img.shields.io/npm/v/@bladets/tempo)](https://www.npmjs.com/package/@bladets/tempo)
+
 Blade template integration for [@tempots/dom](https://www.npmjs.com/package/@tempots/dom) - reactive rendering.
 
 ## Installation
@@ -16,7 +18,7 @@ import { createTempoRenderer } from '@bladets/tempo';
 import { prop, render } from '@tempots/dom';
 
 // 1. Compile a Blade template
-const template = compile('<div>Hello, ${name}!</div>');
+const template = await compile('<div>Hello, ${name}!</div>');
 
 // 2. Create a Tempo renderer
 const renderer = createTempoRenderer(template);
@@ -73,10 +75,10 @@ Returns: `(data: Signal<T>) => Renderable`
 | Text interpolation `${expr}`        | ✅     |
 | HTML elements                       | ✅     |
 | Attributes (static, dynamic, mixed) | ✅     |
-| `@if`/`@else if`/`@else`            | ✅     |
+| `@if`/`else if`/`else`              | ✅     |
 | `@for` loops                        | ✅     |
 | `@match` pattern matching           | ✅     |
-| `@@let` variable declarations       | ✅     |
+| `@@` variable declarations          | ✅     |
 | Components                          | ✅     |
 | Slots                               | ✅     |
 | Fragments                           | ✅     |
@@ -86,6 +88,11 @@ Returns: `(data: Signal<T>) => Renderable`
 
 - `@bladets/template` ^0.2.0
 - `@tempots/dom` ^35.0.0
+
+## Related Packages
+
+- **[@bladets/template](https://www.npmjs.com/package/@bladets/template)** - Core template engine
+- **[Blade Templates VS Code Extension](https://marketplace.visualstudio.com/items?itemName=fponticelli.blade-templates)** - Syntax highlighting, LSP, and live preview
 
 ## License
 

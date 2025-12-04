@@ -10,7 +10,7 @@ Blade is a hybrid build-time/runtime HTML template system with strong typing, ex
 |---------|-------------|-----|
 | [@bladets/template](./packages/blade) | Core template engine | [![npm](https://img.shields.io/npm/v/@bladets/template)](https://www.npmjs.com/package/@bladets/template) |
 | [@bladets/tempo](./packages/blade-tempo) | Reactive DOM rendering with [@tempots/dom](https://www.npmjs.com/package/@tempots/dom) | [![npm](https://img.shields.io/npm/v/@bladets/tempo)](https://www.npmjs.com/package/@bladets/tempo) |
-| [blade-vscode](./packages/blade-vscode) | VS Code extension with syntax highlighting, LSP, and live preview | [Marketplace](https://marketplace.visualstudio.com/items?itemName=pnkx.blade-template) |
+| [blade-vscode](./packages/blade-vscode) | VS Code extension with syntax highlighting, LSP, and live preview | [Marketplace](https://marketplace.visualstudio.com/items?itemName=fponticelli.blade-templates) |
 
 ## Features
 
