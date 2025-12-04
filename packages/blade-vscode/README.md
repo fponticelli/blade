@@ -1,5 +1,7 @@
 # Blade Templates VS Code Extension
 
+[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/fponticelli.blade-templates)](https://marketplace.visualstudio.com/items?itemName=fponticelli.blade-templates)
+
 Language support for Blade template files (`.blade`) in Visual Studio Code.
 
 ## Features
@@ -112,7 +114,7 @@ ${formatCurrency(order.total)}
 <!-- Conditional -->
 @if(isLoggedIn) {
   <p>Welcome back!</p>
-} @else {
+} else {
   <p>Please log in</p>
 }
 

@@ -1,35 +1,18 @@
-# Source files (compiled output is in out/)
-src/**
+# Exclude everything first
+**
 
-# TypeScript config
-tsconfig.json
-
-# Node modules
-node_modules/**
-
-# Development files
-.gitignore
-.eslintrc*
-*.map
-
-# Test files
-**/*.test.ts
-**/test/**
-**/tests/**
-
-# Build artifacts
-*.vsix
-
-# Editor configs
-.vscode/**
-.idea/**
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Package lock (not needed for extension)
-package-lock.json
-
-# Changelog if any
-CHANGELOG.md
+# Re-include what we need
+!package.json
+!README.md
+!LICENSE.txt
+!icon.png
+!language-configuration.json
+!out/**
+!out/extension.js
+!out/extension.d.ts
+!out/server/**
+!out/server/server.js
+!syntaxes/**
+!syntaxes/blade.tmLanguage.json
+!media/**
+!media/preview.css

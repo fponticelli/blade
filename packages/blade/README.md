@@ -1,5 +1,7 @@
 # @bladets/template
 
+[![npm](https://img.shields.io/npm/v/@bladets/template)](https://www.npmjs.com/package/@bladets/template)
+
 **Sharp templates for modern apps**
 
 A TypeScript-first HTML template engine with expression evaluation, control flow directives, reusable components, and built-in safety controls.
@@ -39,14 +41,14 @@ Embed dynamic values with `$identifier` or `${expression}`:
 
 ### Control Flow
 
-#### Conditionals (`@if`, `@else if`, `@else`)
+#### Conditionals (`@if`, `else if`, `else`)
 
 ```html
-@if user.isAdmin {
+@if(user.isAdmin) {
   <span class="badge">Admin</span>
-} @else if user.isModerator {
+} else if(user.isModerator) {
   <span class="badge">Mod</span>
-} @else {
+} else {
   <span class="badge">User</span>
 }
 ```
@@ -66,28 +68,31 @@ Embed dynamic values with `$identifier` or `${expression}`:
 #### Pattern Matching (`@match`)
 
 ```html
-@match status {
-  @case 'pending' { <span class="yellow">Pending</span> }
-  @case 'approved' { <span class="green">Approved</span> }
-  @case 'rejected' { <span class="red">Rejected</span> }
-  @default { <span>Unknown</span> }
+@match(status) {
+  when "pending" { <span class="yellow">Pending</span> }
+  when "approved" { <span class="green">Approved</span> }
+  when "rejected" { <span class="red">Rejected</span> }
+  * { <span>Unknown</span> }
 }
 ```
 
-### Variables (`@let`)
+### Variables (`@@`)
 
 ```html
-@let total = price * quantity
-@let discounted = total * 0.9
+@@ {
+  let total = price * quantity;
+  let discounted = total * 0.9;
+}
 <p>Final price: ${formatCurrency(discounted)}</p>
 ```
 
 ### Components
 
-Define reusable components with `@component`:
+Define reusable components with `<template:Name>`:
 
 ```html
-@component Card(title: string, @required subtitle: string) {
+<!-- Component definition -->
+<template:Card title! subtitle>
   <div class="card">
     <h2>$title</h2>
     <p class="subtitle">$subtitle</p>
@@ -95,12 +100,15 @@ Define reusable components with `@component`:
       <slot />
     </div>
   </div>
-}
+</template:Card>
 
+<!-- Component usage -->
 <Card title="Welcome" subtitle="Getting started">
   <p>Card content goes here</p>
 </Card>
 ```
+
+Props marked with `!` are required. Use `?` for optional props with defaults.
 
 ## Built-in Helpers
 
@@ -271,6 +279,11 @@ import type {
   HelperRegistry,
 } from '@bladets/template';
 ```
+
+## Related Packages
+
+- **[@bladets/tempo](https://www.npmjs.com/package/@bladets/tempo)** - Reactive DOM rendering with fine-grained updates
+- **[Blade Templates VS Code Extension](https://marketplace.visualstudio.com/items?itemName=fponticelli.blade-templates)** - Syntax highlighting, LSP, and live preview
 
 ## License
 
