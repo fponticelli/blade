@@ -1,18 +1,28 @@
-# Exclude everything first
-**
+# Source files
+.vscode/**
+.vscode-test/**
+src/**
+tests/**
+*.ts
+!*.d.ts
+tsconfig.json
+.eslintrc*
+.gitignore
+.prettierrc
+.turbo/**
 
-# Re-include what we need
-!package.json
-!README.md
-!LICENSE.txt
-!icon.png
-!language-configuration.json
-!out/**
-!out/extension.js
-!out/extension.d.ts
-!out/server/**
-!out/server/server.js
-!syntaxes/**
-!syntaxes/blade.tmLanguage.json
-!media/**
-!media/preview.css
+# Build artifacts
+*.vsix
+*.map
+out/**/*.map
+
+# Design files
+*.afdesign
+*.svg
+
+# Dependencies (using --no-dependencies flag)
+node_modules/**
+
+# Parent directories (npm workspace)
+..**
+../**

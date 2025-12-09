@@ -2,9 +2,9 @@
   "name": "blade-templates",
   "displayName": "Blade Templates",
   "description": "Language support for Blade template files (.blade) - syntax highlighting, diagnostics, autocompletion, and code navigation",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "publisher": "fponticelli",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "icon": "icon.png",
   "repository": {
     "type": "git",

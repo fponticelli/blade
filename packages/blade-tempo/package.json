@@ -1,6 +1,6 @@
 {
   "name": "@bladets/tempo",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Blade template integration for @tempots/dom - reactive rendering",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -15,7 +15,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=18.0.0"
@@ -46,7 +47,7 @@
     "rendering"
   ],
   "author": "Franco Ponticelli",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fponticelli/blade.git",
