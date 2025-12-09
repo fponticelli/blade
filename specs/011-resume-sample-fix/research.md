@@ -60,44 +60,51 @@ The resume template uses these Blade features that must work:
 
 ## Solution Design
 
-### Decision: Treat `<style>` and `<script>` as Raw Content Tags
+### Decision: Track Directive Block Depth
 
-**Rationale**: HTML5 spec treats `<style>` and `<script>` as raw text elements. Blade should:
-1. Parse the content as raw text (not looking for `<`, `>`, `}` as structural)
-2. Still allow `${...}` expression interpolation within the raw content
-3. Only stop at the matching closing tag `</style>` or `</script>`
+**Key Insight**: The `}` character should only be treated as a block terminator when inside a directive block (`@if`, `@for`, `@match`). In regular content (like CSS inside `<style>`), `}` is just text.
+
+Since expressions start with `${` or `$`, standalone `{` and `}` have no special meaning in Blade and should be treated as literal text.
+
+**Rationale**: This is simpler than creating special "raw content" handling for style/script tags. All tags should behave the same - the only difference is whether we're inside a directive block.
 
 **Alternatives Considered**:
 
 | Alternative | Rejected Because |
 |-------------|------------------|
+| RAW_CONTENT_TAGS set | Over-engineered; creates tag-specific behavior when the issue is block context |
 | Escape all `}` in CSS | Breaks developer experience; CSS would be unreadable |
 | Use different expression syntax in CSS | Inconsistent with rest of Blade |
-| Disable expressions in `<style>` | Loses valuable templating capability |
 
 ### Implementation Approach
 
-1. **Modify `parseElement()`** in template-parser.ts:
-   - After parsing `<style>` or `<script>` opening tag, switch to raw content mode
-   - Parse content until closing tag, only extracting `${...}` expressions
-   - Handle nested strings properly (don't match `}` inside strings)
+1. **Add `blockDepth` counter** to TemplateParser class:
+   - Tracks nesting depth inside directive blocks
+   - Initialized to 0
 
-2. **Create `parseRawContent()` method**:
-   - Scan for `</tagname>` closing pattern
-   - Within content, only parse `${...}` expressions
-   - Return as text node with expression segments
+2. **Modify `parseText()`** in template-parser.ts:
+   - Only stop at `}` when `blockDepth > 0`
+   - When `blockDepth === 0`, treat `}` as literal text
 
-3. **Update renderer and tempo** if needed:
-   - Ensure style content with expressions renders correctly
-   - Maintain source attribution
+3. **Modify `parseBlockBody()`** in template-parser.ts:
+   - Increment `blockDepth` on entry
+   - Decrement `blockDepth` on exit (in finally block for safety)
+
+4. **Modify `parseFor()`** in template-parser.ts:
+   - Use `parseBlockBody()` instead of inline body parsing
+   - Ensures consistent blockDepth tracking
 
 ## Affected Files
 
 | File | Change Type | Description |
 |------|-------------|-------------|
-| `packages/blade/src/parser/template-parser.ts` | Modify | Add raw content handling for style/script |
-| `packages/blade/tests/compiler.test.ts` | Add | Test cases for style expressions |
-| `packages/blade/tests/renderer.test.ts` | Add | Test rendering style with expressions |
+| `packages/blade/src/parser/template-parser.ts` | Modify | Add blockDepth tracking for directive blocks |
+
+**Changes Made**:
+1. Added `private blockDepth = 0;` property
+2. Modified `parseText()` to check `this.blockDepth > 0` before stopping at `}`
+3. Modified `parseBlockBody()` to increment/decrement blockDepth
+4. Modified `parseFor()` to use `parseBlockBody()` instead of inline parsing
 
 ## Test Cases Required
 

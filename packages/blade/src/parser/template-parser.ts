@@ -36,6 +36,11 @@ export class TemplateParser {
   private readonly MAX_RECURSION_DEPTH = 100;
   private componentDefinitions: Map<string, ComponentDefinition> = new Map();
   private options: TemplateParserOptions;
+  /**
+   * Tracks nesting depth inside directive blocks (@if, @for, @match).
+   * When > 0, `}` is treated as block terminator. When 0, `}` is literal text.
+   */
+  private blockDepth = 0;
 
   constructor(source: string, options?: TemplateParserOptions) {
     this.source = source;
@@ -1113,8 +1118,8 @@ export class TemplateParser {
         continue;
       }
 
-      // Check for end of block/case body
-      if (this.peek() === '}') {
+      // Check for end of block/case body - only when inside a directive block
+      if (this.blockDepth > 0 && this.peek() === '}') {
         break;
       }
 
@@ -1428,16 +1433,21 @@ export class TemplateParser {
 
   private parseBlockBody(): TemplateNode[] {
     const body: TemplateNode[] = [];
-    while (!this.isAtEnd() && this.peek() !== '}') {
-      const prevPos = this.pos;
-      const node = this.parseNode();
-      if (node) {
-        body.push(node);
-      } else if (this.pos === prevPos) {
-        break;
+    this.blockDepth++;
+    try {
+      while (!this.isAtEnd() && this.peek() !== '}') {
+        const prevPos = this.pos;
+        const node = this.parseNode();
+        if (node) {
+          body.push(node);
+        } else if (this.pos === prevPos) {
+          break;
+        }
       }
+      return body;
+    } finally {
+      this.blockDepth--;
     }
-    return body;
   }
 
   private parseFor(startLoc: {
@@ -1493,28 +1503,8 @@ export class TemplateParser {
     this.skipWhitespace();
     this.consume('{');
 
-    // Parse body
-    const body: TemplateNode[] = [];
-    while (!this.isAtEnd() && this.peek() !== '}') {
-      // Check for unexpected closing tag
-      if (this.peek() === '<' && this.peekNext() === '/') {
-        this.errors.push({
-          message: 'Unexpected closing tag in @for body',
-          line: this.line,
-          column: this.column,
-          offset: this.pos,
-        });
-        break;
-      }
-      const prevPos = this.pos;
-      const node = this.parseNode();
-      if (node) {
-        body.push(node);
-      } else if (this.pos === prevPos) {
-        // parseNode didn't advance, break to avoid infinite loop
-        break;
-      }
-    }
+    // Parse body using shared method that tracks blockDepth
+    const body = this.parseBlockBody();
     this.consume('}');
 
     if (!iterResult.value) {

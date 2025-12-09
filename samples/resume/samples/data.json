@@ -9,11 +9,11 @@
   },
   "includeHeader": true,
   "header": {
-    "shape": "columns-2",
+    "shape": "columns-3",
     "showAgencyLogo": false,
     "agencyLogo": null,
     "showAgencyName": true,
-    "agencyName": "",
+    "agencyName": "My Agency",
     "agencyDetails": {
       "showAddressLine1": false,
       "addressLine1": null,
@@ -43,7 +43,7 @@
   },
   "includeFooter": true,
   "footer": {
-    "shape": "columns-1-image",
+    "shape": "columns-2",
     "showAgencyLogo": false,
     "agencyLogo": null,
     "showAgencyName": true,

@@ -387,7 +387,7 @@ export class PreviewPanelManager {
     }
 
     // Import sample creation function
-    const { createComponentSample, parsePropsForSample } = await import('./samples');
+    const { createComponentSample, parsePropsForSample } = await import('./samples.js');
 
     // Read the component file to parse props
     const componentPath = this.state.activeFile;
@@ -477,6 +477,9 @@ export class PreviewPanelManager {
         <select id="sample-selector" class="sample-selector">
           <option value="">Loading samples...</option>
         </select>
+        <button id="view-toggle-btn" class="view-toggle-btn" title="Toggle HTML view">
+          <span class="view-icon">&#60;/&#62;</span>
+        </button>
         <button id="refresh-btn" class="refresh-btn" title="Refresh">↻</button>
       </div>
     </header>
@@ -493,11 +496,13 @@ export class PreviewPanelManager {
     (function() {
       const vscode = acquireVsCodeApi();
       const sampleSelector = document.getElementById('sample-selector');
+      const viewToggleBtn = document.getElementById('view-toggle-btn');
       const refreshBtn = document.getElementById('refresh-btn');
       const previewContent = document.getElementById('preview-content');
 
       let currentSamples = [];
       let lastHtml = '';
+      let showRawHtml = false;
 
       // Handle sample selection
       sampleSelector.addEventListener('change', () => {
@@ -507,10 +512,73 @@ export class PreviewPanelManager {
         }
       });
 
+      // Handle view toggle button
+      viewToggleBtn.addEventListener('click', () => {
+        showRawHtml = !showRawHtml;
+        viewToggleBtn.classList.toggle('active', showRawHtml);
+        viewToggleBtn.title = showRawHtml ? 'Show visual preview' : 'Show raw HTML';
+        updatePreviewDisplay();
+      });
+
       // Handle refresh button
       refreshBtn.addEventListener('click', () => {
         vscode.postMessage({ type: 'refresh' });
       });
+
+      // Update preview display based on current mode
+      function updatePreviewDisplay() {
+        if (!lastHtml) return;
+
+        if (showRawHtml) {
+          const formattedHtml = formatHtml(lastHtml);
+          previewContent.innerHTML = \`
+            <div class="raw-html-container">
+              <pre class="raw-html-content"><code>\${escapeHtml(formattedHtml)}</code></pre>
+            </div>
+            <div class="render-info">Raw HTML output</div>
+          \`;
+        } else {
+          previewContent.innerHTML = \`
+            <div class="rendered-content">\${lastHtml}</div>
+            <div class="render-info">Visual preview</div>
+          \`;
+        }
+      }
+
+      // Format HTML with indentation
+      function formatHtml(html) {
+        let formatted = '';
+        let indent = 0;
+        const tab = '  ';
+
+        // Simple HTML formatter
+        html.split(/(<[^>]+>)/g).forEach(token => {
+          if (!token.trim()) return;
+
+          if (token.match(/^<\\/[^>]+>$/)) {
+            // Closing tag - decrease indent first
+            indent = Math.max(0, indent - 1);
+            formatted += tab.repeat(indent) + token + '\\n';
+          } else if (token.match(/^<[^>\\/]+\\/>$/)) {
+            // Self-closing tag
+            formatted += tab.repeat(indent) + token + '\\n';
+          } else if (token.match(/^<[^>]+>$/)) {
+            // Opening tag
+            formatted += tab.repeat(indent) + token + '\\n';
+            if (!token.match(/^<(br|hr|img|input|meta|link|area|base|col|command|embed|keygen|param|source|track|wbr)[^>]*>$/i)) {
+              indent++;
+            }
+          } else {
+            // Text content
+            const trimmed = token.trim();
+            if (trimmed) {
+              formatted += tab.repeat(indent) + trimmed + '\\n';
+            }
+          }
+        });
+
+        return formatted.trim();
+      }
 
       // Handle messages from extension
       window.addEventListener('message', (event) => {
@@ -519,10 +587,7 @@ export class PreviewPanelManager {
         switch (message.type) {
           case 'update':
             lastHtml = message.html;
-            previewContent.innerHTML = \`
-              <div class="rendered-content">\${message.html}</div>
-              <div class="render-info">Rendered in \${message.renderTime}ms</div>
-            \`;
+            updatePreviewDisplay();
             break;
 
           case 'error':

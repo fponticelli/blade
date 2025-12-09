@@ -2,7 +2,8 @@
 
 **Feature Branch**: `011-resume-sample-fix`
 **Created**: 2025-12-08
-**Status**: Draft
+**Status**: Complete
+**Completed**: 2025-12-08
 **Input**: User description: "the resume in samples should parse correctly in @bladets/template and should render correctly in both template and tempo"
 
 ## User Scenarios & Testing *(mandatory)*

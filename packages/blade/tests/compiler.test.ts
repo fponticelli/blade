@@ -39,6 +39,7 @@ import type {
   StaticAttributeNode,
   ExprAttributeNode,
   MixedAttributeNode,
+  TemplateNode,
 } from '../src/ast/types.js';
 
 // =============================================================================
@@ -1388,5 +1389,156 @@ describe('Compiler - Whitespace Handling', () => {
   it('should handle leading/trailing whitespace', async () => {
     const root = await compileAndGetRoot('\n  <div>test</div>  \n');
     expect(root.children.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// =============================================================================
+// Style Tags with Expressions (Issue #011)
+// =============================================================================
+
+describe('Compiler - Style Tags with Curly Braces', () => {
+  it('should parse style tag with plain CSS curly braces', async () => {
+    const source = '<style>body { color: red; }</style>';
+    const root = await compileAndGetRoot(source);
+
+    expect(root.children).toHaveLength(1);
+    const style = root.children[0] as ElementNode;
+    expect(style.tag).toBe('style');
+    expect(style.children).toHaveLength(1);
+
+    const text = style.children[0] as TextNode;
+    expect(text.kind).toBe('text');
+    expect(text.segments).toHaveLength(1);
+    expect(text.segments[0].kind).toBe('literal');
+    expect(
+      (text.segments[0] as { kind: 'literal'; text: string }).text
+    ).toContain('body { color: red; }');
+  });
+
+  it('should parse style tag with expression interpolation in CSS', async () => {
+    const source = '<style>body { color: ${primaryColor}; }</style>';
+    const root = await compileAndGetRoot(source);
+
+    const style = root.children[0] as ElementNode;
+    const text = style.children[0] as TextNode;
+
+    // Should have: literal, expression, literal
+    expect(text.segments.length).toBeGreaterThanOrEqual(2);
+
+    const hasExpression = text.segments.some(s => s.kind === 'expr');
+    expect(hasExpression).toBe(true);
+  });
+
+  it('should parse style tag with multiple CSS rules and expressions', async () => {
+    const source = `<style>
+      body {
+        font-family: \${fontFamily};
+        color: \${textColor};
+      }
+      .header {
+        background: \${headerBg};
+      }
+    </style>`;
+    const root = await compileAndGetRoot(source);
+
+    const style = root.children[0] as ElementNode;
+    const text = style.children[0] as TextNode;
+
+    // Count expression segments
+    const exprCount = text.segments.filter(s => s.kind === 'expr').length;
+    expect(exprCount).toBe(3); // fontFamily, textColor, headerBg
+  });
+
+  it('should parse nested curly braces in CSS without confusing directive blocks', async () => {
+    const source = `<style>
+      @media (min-width: 768px) {
+        body {
+          font-size: \${fontSize}px;
+        }
+      }
+    </style>`;
+    const root = await compileAndGetRoot(source);
+
+    const style = root.children[0] as ElementNode;
+    expect(style.children).toHaveLength(1);
+
+    const text = style.children[0] as TextNode;
+    const hasExpression = text.segments.some(s => s.kind === 'expr');
+    expect(hasExpression).toBe(true);
+  });
+
+  it('should parse style inside @if directive', async () => {
+    const source = `@if (hasCustomStyles) {
+      <style>
+        body { color: \${color}; }
+      </style>
+    }`;
+    const root = await compileAndGetRoot(source);
+
+    const ifNode = root.children[0] as IfNode;
+    expect(ifNode.kind).toBe('if');
+
+    // Find style element in the first branch body
+    const body = ifNode.branches[0].body;
+    const style = body.find(
+      (n: TemplateNode) =>
+        n.kind === 'element' && (n as ElementNode).tag === 'style'
+    ) as ElementNode;
+    expect(style).toBeDefined();
+
+    const text = style.children[0] as TextNode;
+    const hasExpression = text.segments.some(s => s.kind === 'expr');
+    expect(hasExpression).toBe(true);
+  });
+});
+
+// =============================================================================
+// Null Coalescing Operator (??)
+// =============================================================================
+
+describe('Compiler - Null Coalescing Operator (??)', () => {
+  it('should parse simple null coalescing expression', async () => {
+    const source = '${value ?? "default"}';
+    const root = await compileAndGetRoot(source);
+
+    const text = root.children[0] as TextNode;
+    expect(text.segments).toHaveLength(1);
+    expect(text.segments[0].kind).toBe('expr');
+  });
+
+  it('should parse null coalescing in style tag', async () => {
+    const source = `<style>body { font-family: \${fontFamily ?? 'Arial'}; }</style>`;
+    const root = await compileAndGetRoot(source);
+
+    const style = root.children[0] as ElementNode;
+    const text = style.children[0] as TextNode;
+
+    const exprSegment = text.segments.find(s => s.kind === 'expr');
+    expect(exprSegment).toBeDefined();
+  });
+
+  it('should parse chained null coalescing', async () => {
+    const source = '${a ?? b ?? c}';
+    const root = await compileAndGetRoot(source);
+
+    const text = root.children[0] as TextNode;
+    expect(text.segments[0].kind).toBe('expr');
+  });
+
+  it('should parse null coalescing with property access', async () => {
+    const source = '${user.name ?? user.email ?? "Anonymous"}';
+    const root = await compileAndGetRoot(source);
+
+    const text = root.children[0] as TextNode;
+    expect(text.segments[0].kind).toBe('expr');
+  });
+
+  it('should parse null coalescing in @if condition', async () => {
+    const source = '@if (value ?? fallback) { <span>Has value</span> }';
+    const root = await compileAndGetRoot(source);
+
+    const ifNode = root.children[0] as IfNode;
+    expect(ifNode.kind).toBe('if');
+    expect(ifNode.branches[0].condition).toBeDefined();
   });
 });

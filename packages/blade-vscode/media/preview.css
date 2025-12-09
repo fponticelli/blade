@@ -92,6 +92,37 @@ body {
   transform: scale(0.95);
 }
 
+/* View toggle button */
+.view-toggle-btn {
+  padding: 4px 8px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 3px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  font-size: 12px;
+  font-family: monospace;
+  cursor: pointer;
+  transition: background-color 0.1s, border-color 0.1s;
+}
+
+.view-toggle-btn:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.view-toggle-btn.active {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+
+.view-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+.view-icon {
+  font-weight: bold;
+}
+
 /* Main content area */
 .preview-content {
   flex: 1;
@@ -103,6 +134,32 @@ body {
 .rendered-content {
   background-color: var(--vscode-editor-background);
   border-radius: 4px;
+}
+
+/* Raw HTML view */
+.raw-html-container {
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.raw-html-content {
+  margin: 0;
+  padding: 16px;
+  font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
+  font-size: var(--vscode-editor-font-size, 13px);
+  line-height: 1.6;
+  overflow: auto;
+  white-space: pre;
+  tab-size: 2;
+  color: var(--vscode-editor-foreground);
+  background-color: var(--vscode-textCodeBlock-background);
+}
+
+.raw-html-content code {
+  font-family: inherit;
+  color: inherit;
 }
 
 /* Render info */
