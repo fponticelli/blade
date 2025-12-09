@@ -202,7 +202,7 @@ export function getSourceAttributeName(
 export interface RenderOptions {
   globals?: Record<string, unknown>;
   helpers?: HelperRegistry;
-  config?: RenderConfig;
+  config?: Partial<RenderConfig>;
 }
 
 export interface RenderConfig {
@@ -324,7 +324,7 @@ export interface RenderContext {
 export function createRenderContext(
   template: CompiledTemplate,
   data: unknown,
-  options?: RenderOptions & { limits?: ResourceLimits }
+  options?: RenderOptions & { limits?: Partial<ResourceLimits> }
 ): RenderContext {
   // Merge config with defaults
   const renderConfig = { ...DEFAULT_RENDER_CONFIG, ...options?.config };
@@ -993,7 +993,7 @@ export function createStringRenderer(
 ): StringRenderer {
   return (
     data: unknown,
-    options?: RenderOptions & { limits?: ResourceLimits }
+    options?: RenderOptions & { limits?: Partial<ResourceLimits> }
   ): RenderResult => {
     const startTime = performance.now();
 

@@ -336,4 +336,112 @@ describe('e2e reactive rendering', () => {
     expect(container.innerHTML).toContain('Y');
     expect(container.innerHTML).toContain('Z');
   });
+
+  // ==========================================================================
+  // Null Coalescing Operator (??)
+  // ==========================================================================
+
+  it('should use fallback when value is undefined with ??', async () => {
+    const template = await compile('<div>${name ?? "Anonymous"}</div>');
+    const renderer = createTempoRenderer(template);
+    const data = prop({ name: undefined as string | undefined });
+
+    cleanup = render(renderer(data), container);
+    expect(container.innerHTML).toContain('Anonymous');
+  });
+
+  it('should use fallback when value is null with ??', async () => {
+    const template = await compile('<div>${name ?? "Anonymous"}</div>');
+    const renderer = createTempoRenderer(template);
+    const data = prop({ name: null as string | null });
+
+    cleanup = render(renderer(data), container);
+    expect(container.innerHTML).toContain('Anonymous');
+  });
+
+  it('should use actual value when not null/undefined with ??', async () => {
+    const template = await compile('<div>${name ?? "Anonymous"}</div>');
+    const renderer = createTempoRenderer(template);
+    const data = prop({ name: 'John' });
+
+    cleanup = render(renderer(data), container);
+    expect(container.innerHTML).toContain('John');
+    expect(container.innerHTML).not.toContain('Anonymous');
+  });
+
+  it('should handle null coalescing in style expressions', async () => {
+    const template = await compile(`
+      <div style="font-family: \${fontFamily ?? 'Arial'}; color: \${color ?? 'black'};">
+        Content
+      </div>
+    `);
+    const renderer = createTempoRenderer(template);
+    const data = prop({
+      fontFamily: undefined as string | undefined,
+      color: 'red',
+    });
+
+    cleanup = render(renderer(data), container);
+    const div = container.querySelector('div');
+    expect(div?.getAttribute('style')).toContain('Arial');
+    expect(div?.getAttribute('style')).toContain('red');
+  });
+
+  it('should handle chained null coalescing', async () => {
+    const template = await compile('<div>${a ?? b ?? "fallback"}</div>');
+    const renderer = createTempoRenderer(template);
+    const data = prop({
+      a: undefined as string | undefined,
+      b: undefined as string | undefined,
+    });
+
+    cleanup = render(renderer(data), container);
+    expect(container.innerHTML).toContain('fallback');
+
+    data.value = { a: undefined, b: 'second' };
+    await Promise.resolve();
+    expect(container.innerHTML).toContain('second');
+
+    data.value = { a: 'first', b: 'second' };
+    await Promise.resolve();
+    expect(container.innerHTML).toContain('first');
+  });
+
+  it('should handle null coalescing with property access', async () => {
+    const template = await compile(
+      '<div>${user.nickname ?? user.name ?? "Guest"}</div>'
+    );
+    const renderer = createTempoRenderer(template);
+    const data = prop({
+      user: {
+        name: 'John',
+        nickname: undefined as string | undefined,
+      },
+    });
+
+    cleanup = render(renderer(data), container);
+    expect(container.innerHTML).toContain('John');
+
+    data.value = { user: { name: 'John', nickname: 'Johnny' } };
+    await Promise.resolve();
+    expect(container.innerHTML).toContain('Johnny');
+  });
+
+  it('should update reactively when null coalescing result changes', async () => {
+    const template = await compile('<div>${value ?? "default"}</div>');
+    const renderer = createTempoRenderer(template);
+    const data = prop({ value: undefined as string | undefined });
+
+    cleanup = render(renderer(data), container);
+    expect(container.innerHTML).toContain('default');
+
+    data.value = { value: 'actual' };
+    await Promise.resolve();
+    expect(container.innerHTML).toContain('actual');
+    expect(container.innerHTML).not.toContain('default');
+
+    data.value = { value: undefined };
+    await Promise.resolve();
+    expect(container.innerHTML).toContain('default');
+  });
 });

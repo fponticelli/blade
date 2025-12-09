@@ -1594,7 +1594,9 @@ describe('Source Tracking Prefix', () => {
     it('should generate attribute with default prefix', () => {
       expect(getSourceAttributeName('rd-', 'source')).toBe('rd-source');
       expect(getSourceAttributeName('rd-', 'source-op')).toBe('rd-source-op');
-      expect(getSourceAttributeName('rd-', 'source-note')).toBe('rd-source-note');
+      expect(getSourceAttributeName('rd-', 'source-note')).toBe(
+        'rd-source-note'
+      );
     });
 
     it('should generate attribute with custom prefix', () => {
@@ -1624,18 +1626,26 @@ describe('Source Tracking Prefix', () => {
     it('should accept valid custom prefix in config', () => {
       const template = createMockTemplate([]);
       expect(() =>
-        createRenderContext(template, {}, {
-          config: { sourceTrackingPrefix: 'data-custom-' },
-        })
+        createRenderContext(
+          template,
+          {},
+          {
+            config: { sourceTrackingPrefix: 'data-custom-' },
+          }
+        )
       ).not.toThrow();
     });
 
     it('should reject invalid prefix in config', () => {
       const template = createMockTemplate([]);
       expect(() =>
-        createRenderContext(template, {}, {
-          config: { sourceTrackingPrefix: '123-invalid' },
-        })
+        createRenderContext(
+          template,
+          {},
+          {
+            config: { sourceTrackingPrefix: '123-invalid' },
+          }
+        )
       ).toThrow(/Invalid sourceTrackingPrefix/);
     });
 
@@ -1647,17 +1657,25 @@ describe('Source Tracking Prefix', () => {
 
     it('should use custom prefix when specified', () => {
       const template = createMockTemplate([]);
-      const ctx = createRenderContext(template, {}, {
-        config: { sourceTrackingPrefix: 'blade-' },
-      });
+      const ctx = createRenderContext(
+        template,
+        {},
+        {
+          config: { sourceTrackingPrefix: 'blade-' },
+        }
+      );
       expect(ctx.renderConfig.sourceTrackingPrefix).toBe('blade-');
     });
 
     it('should accept empty string prefix', () => {
       const template = createMockTemplate([]);
-      const ctx = createRenderContext(template, {}, {
-        config: { sourceTrackingPrefix: '' },
-      });
+      const ctx = createRenderContext(
+        template,
+        {},
+        {
+          config: { sourceTrackingPrefix: '' },
+        }
+      );
       expect(ctx.renderConfig.sourceTrackingPrefix).toBe('');
     });
   });
