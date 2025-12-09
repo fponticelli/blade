@@ -157,15 +157,16 @@ async function publishVSCodeExtension(pkg, versionType) {
     return false;
   }
 
-  // Publish
+  // Publish the pre-packaged vsix file (to avoid re-packaging without --no-dependencies)
+  const newVersion = getCurrentVersion(pkg.dir);
+  const vsixFile = `blade-templates-${newVersion}.vsix`;
   console.log('\n📤 Publishing to VS Code Marketplace...');
-  if (!exec(`cd ${pkg.dir} && npx vsce publish`)) {
+  if (!exec(`cd ${pkg.dir} && npx vsce publish --packagePath ${vsixFile}`)) {
     console.log('\n⚠️  If publish failed, make sure you have a valid Personal Access Token.');
     console.log('   Run: npx vsce login <publisher>');
     return false;
   }
 
-  const newVersion = getCurrentVersion(pkg.dir);
   console.log(`\n✅ Successfully published ${pkg.name}@${newVersion}`);
 
   // Remind to commit and push
