@@ -13,6 +13,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, 'src/index.ts'),
+        browser: resolve(__dirname, 'src/browser.ts'),
         'lsp/server': resolve(__dirname, 'src/lsp/server.ts'),
       },
       name: 'Blade',

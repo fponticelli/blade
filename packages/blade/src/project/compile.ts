@@ -5,7 +5,7 @@
  * and component reference validation.
  */
 
-import { readFile } from 'fs/promises';
+import { readFileSync } from 'fs';
 import { join, relative } from 'path';
 import type {
   ProjectResult,
@@ -33,22 +33,22 @@ const DEFAULT_ENTRY = 'index.blade';
  * @returns The compilation result with AST, context, warnings, and errors
  * @throws Error if the project root doesn't exist or has no index.blade
  */
-export async function compileProject(
+export function compileProject(
   projectPath: string,
   options?: ProjectOptions
-): Promise<ProjectResult> {
+): ProjectResult {
   const entry = options?.entry ?? DEFAULT_ENTRY;
   const entryPath = join(projectPath, entry);
 
   // Discover all components in the project
-  const components = await discoverComponents(projectPath);
+  const components = discoverComponents(projectPath);
 
   // Create the project context
   const context = createProjectContext(projectPath, components);
 
   // Read and compile the entry file
-  const source = await readFile(entryPath, 'utf-8');
-  const compiled = await compile(source, { validate: true });
+  const source = readFileSync(entryPath, 'utf-8');
+  const compiled = compile(source, { validate: true });
 
   // Collect component references from the AST
   const references = collectComponentReferences(compiled.root);
@@ -60,12 +60,12 @@ export async function compileProject(
   // Parse props for all components (lazily)
   const componentPropsCache = new Map<
     string,
-    Awaited<ReturnType<typeof parseComponentProps>>
+    ReturnType<typeof parseComponentProps>
   >();
 
-  async function getComponentProps(comp: ComponentInfo) {
+  function getComponentProps(comp: ComponentInfo) {
     if (!componentPropsCache.has(comp.tagName)) {
-      const source = await readFile(comp.filePath, 'utf-8');
+      const source = readFileSync(comp.filePath, 'utf-8');
       const propsResult = parseComponentProps(source);
       componentPropsCache.set(comp.tagName, propsResult);
 
@@ -106,7 +106,7 @@ export async function compileProject(
     }
 
     // Validate required props
-    const propsResult = await getComponentProps(component);
+    const propsResult = getComponentProps(component);
     const componentUsages = findAllComponentUsages(compiled.root, tagName);
 
     for (const usage of componentUsages) {

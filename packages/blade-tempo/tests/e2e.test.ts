@@ -45,7 +45,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should render initial content', async () => {
-    const template = await compile('<div>Hello, ${name}!</div>');
+    const template = compile('<div>Hello, ${name}!</div>');
     const renderer = createTempoRenderer(template);
     const data = prop({ name: 'World' });
 
@@ -55,7 +55,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should update DOM when signal changes', async () => {
-    const template = await compile('<div>Count: ${count}</div>');
+    const template = compile('<div>Count: ${count}</div>');
     const renderer = createTempoRenderer(template);
     const data = prop({ count: 0 });
 
@@ -73,7 +73,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should handle helper functions', async () => {
-    const template = await compile('<div>${double($value)}</div>');
+    const template = compile('<div>${double($value)}</div>');
     const renderer = createTempoRenderer(template, {
       helpers: {
         double: () => ((n: number) => n * 2) as (...args: unknown[]) => unknown,
@@ -90,7 +90,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should handle globals', async () => {
-    const template = await compile('<div>${$.siteName}: ${title}</div>');
+    const template = compile('<div>${$.siteName}: ${title}</div>');
     const renderer = createTempoRenderer(template, {
       globals: { siteName: 'MySite' },
     });
@@ -109,9 +109,7 @@ describe('e2e reactive rendering', () => {
   // ==========================================================================
 
   it('should render @if when condition is true', async () => {
-    const template = await compile(
-      '<div>@if(show) { <span>Visible</span> }</div>'
-    );
+    const template = compile('<div>@if(show) { <span>Visible</span> }</div>');
     const renderer = createTempoRenderer(template);
     const data = prop({ show: true });
 
@@ -120,9 +118,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should not render @if when condition is false', async () => {
-    const template = await compile(
-      '<div>@if(show) { <span>Visible</span> }</div>'
-    );
+    const template = compile('<div>@if(show) { <span>Visible</span> }</div>');
     const renderer = createTempoRenderer(template);
     const data = prop({ show: false });
 
@@ -131,9 +127,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should update @if reactively when condition changes', async () => {
-    const template = await compile(
-      '<div>@if(show) { <span>Visible</span> }</div>'
-    );
+    const template = compile('<div>@if(show) { <span>Visible</span> }</div>');
     const renderer = createTempoRenderer(template);
     const data = prop({ show: false });
 
@@ -150,7 +144,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should render @if/@else branches correctly', async () => {
-    const template = await compile(`
+    const template = compile(`
       <div>
         @if(loggedIn) {
           <span>Welcome back!</span>
@@ -173,7 +167,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should handle @else if chains', async () => {
-    const template = await compile(`
+    const template = compile(`
       <div>
         @if(status == "loading") {
           <span>Loading...</span>
@@ -206,9 +200,7 @@ describe('e2e reactive rendering', () => {
   // ==========================================================================
 
   it('should render @for loop items', async () => {
-    const template = await compile(
-      '<ul>@for(item of items) { <li>$item</li> }</ul>'
-    );
+    const template = compile('<ul>@for(item of items) { <li>$item</li> }</ul>');
     const renderer = createTempoRenderer(template);
     const data = prop({ items: ['Apple', 'Banana', 'Cherry'] });
 
@@ -219,7 +211,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should render @for loop with index', async () => {
-    const template = await compile(
+    const template = compile(
       '<ul>@for(item, index of items) { <li>${index}: $item</li> }</ul>'
     );
     const renderer = createTempoRenderer(template);
@@ -232,9 +224,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should update @for loop reactively when items change', async () => {
-    const template = await compile(
-      '<ul>@for(item of items) { <li>$item</li> }</ul>'
-    );
+    const template = compile('<ul>@for(item of items) { <li>$item</li> }</ul>');
     const renderer = createTempoRenderer(template);
     const data = prop({ items: ['One', 'Two'] });
 
@@ -252,9 +242,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should render empty @for loop', async () => {
-    const template = await compile(
-      '<ul>@for(item of items) { <li>$item</li> }</ul>'
-    );
+    const template = compile('<ul>@for(item of items) { <li>$item</li> }</ul>');
     const renderer = createTempoRenderer(template);
     const data = prop({ items: [] as string[] });
 
@@ -263,7 +251,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should render @for loop with object properties', async () => {
-    const template = await compile(
+    const template = compile(
       '<ul>@for(user of users) { <li>$user.name ($user.age)</li> }</ul>'
     );
     const renderer = createTempoRenderer(template);
@@ -284,7 +272,7 @@ describe('e2e reactive rendering', () => {
   // ==========================================================================
 
   it('should handle @if inside @for', async () => {
-    const template = await compile(`
+    const template = compile(`
       <ul>
         @for(item of items) {
           @if(item.active) {
@@ -309,7 +297,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should handle @for inside @if', async () => {
-    const template = await compile(`
+    const template = compile(`
       <div>
         @if(hasItems) {
           <ul>
@@ -342,7 +330,7 @@ describe('e2e reactive rendering', () => {
   // ==========================================================================
 
   it('should use fallback when value is undefined with ??', async () => {
-    const template = await compile('<div>${name ?? "Anonymous"}</div>');
+    const template = compile('<div>${name ?? "Anonymous"}</div>');
     const renderer = createTempoRenderer(template);
     const data = prop({ name: undefined as string | undefined });
 
@@ -351,7 +339,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should use fallback when value is null with ??', async () => {
-    const template = await compile('<div>${name ?? "Anonymous"}</div>');
+    const template = compile('<div>${name ?? "Anonymous"}</div>');
     const renderer = createTempoRenderer(template);
     const data = prop({ name: null as string | null });
 
@@ -360,7 +348,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should use actual value when not null/undefined with ??', async () => {
-    const template = await compile('<div>${name ?? "Anonymous"}</div>');
+    const template = compile('<div>${name ?? "Anonymous"}</div>');
     const renderer = createTempoRenderer(template);
     const data = prop({ name: 'John' });
 
@@ -370,7 +358,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should handle null coalescing in style expressions', async () => {
-    const template = await compile(`
+    const template = compile(`
       <div style="font-family: \${fontFamily ?? 'Arial'}; color: \${color ?? 'black'};">
         Content
       </div>
@@ -388,7 +376,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should handle chained null coalescing', async () => {
-    const template = await compile('<div>${a ?? b ?? "fallback"}</div>');
+    const template = compile('<div>${a ?? b ?? "fallback"}</div>');
     const renderer = createTempoRenderer(template);
     const data = prop({
       a: undefined as string | undefined,
@@ -408,7 +396,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should handle null coalescing with property access', async () => {
-    const template = await compile(
+    const template = compile(
       '<div>${user.nickname ?? user.name ?? "Guest"}</div>'
     );
     const renderer = createTempoRenderer(template);
@@ -428,7 +416,7 @@ describe('e2e reactive rendering', () => {
   });
 
   it('should update reactively when null coalescing result changes', async () => {
-    const template = await compile('<div>${value ?? "default"}</div>');
+    const template = compile('<div>${value ?? "default"}</div>');
     const renderer = createTempoRenderer(template);
     const data = prop({ value: undefined as string | undefined });
 

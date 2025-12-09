@@ -9,7 +9,7 @@ describe('Dot-notation component names', () => {
   describe('parser support', () => {
     it('parses component with dot-notation name', async () => {
       const source = '<Components.Form.Input name="email" />';
-      const result = await compile(source);
+      const result = compile(source);
 
       expect(result.diagnostics).toHaveLength(0);
       expect(result.root.children).toHaveLength(1);
@@ -25,7 +25,7 @@ describe('Dot-notation component names', () => {
       const source = `<Components.Card>
   <span>Hello</span>
 </Components.Card>`;
-      const result = await compile(source);
+      const result = compile(source);
 
       expect(result.diagnostics).toHaveLength(0);
       expect(result.root.children).toHaveLength(1);
@@ -42,7 +42,7 @@ describe('Dot-notation component names', () => {
   <Components.Form.Input name="email" />
   <Components.Form.Button label="Submit" />
 </Layout.Main>`;
-      const result = await compile(source);
+      const result = compile(source);
 
       expect(result.diagnostics).toHaveLength(0);
     });

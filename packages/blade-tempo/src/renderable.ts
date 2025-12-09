@@ -2,6 +2,7 @@
 // Converts compiled Blade templates to Tempo Renderables
 
 import type { CompiledTemplate, TemplateNode, Scope } from '@bladets/template';
+import { compile } from '@bladets/template';
 import type { Renderable, Signal } from '@tempots/dom';
 import { Fragment } from '@tempots/dom';
 import type {
@@ -182,4 +183,38 @@ export function createTempoRenderer<T = any>(
     // Convert template children to Renderables
     return Fragment(...convertChildren(template.root.children, ctx));
   };
+}
+
+// =============================================================================
+// One-Step Compilation and Rendering
+// =============================================================================
+
+/**
+ * Compiles a template source and returns a ready-to-use Tempo renderer.
+ *
+ * This is a convenience function that combines compile() and createTempoRenderer()
+ * into a single async call.
+ *
+ * @typeParam T - The type of data the template expects
+ * @param source - Template source string
+ * @param options - Optional configuration for rendering behavior
+ * @returns A factory function that creates Renderables from data signals
+ *
+ * @example
+ * ```typescript
+ * import { compileToRenderable } from '@bladets/tempo';
+ * import { prop, render } from '@tempots/dom';
+ *
+ * const renderer = await compileToRenderable<{ name: string }>('<div>Hello, ${name}!</div>');
+ * const data = prop({ name: 'World' });
+ * render(renderer(data), document.body);
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function compileToRenderable<T = any>(
+  source: string,
+  options?: TempoRenderOptions
+): TempoRenderer<T> {
+  const template = compile(source);
+  return createTempoRenderer<T>(template, options);
 }
