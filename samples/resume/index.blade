@@ -1,0 +1,248 @@
+<style>
+/* WRAPPERS, ETC NOT SPECIFIC TO WHAT WE NEED */
+body {
+  font-family: ${fontFamily ?? 'Arial'}, 'Open Sans', Arial, Helvetica, sans-serif;
+  background: #ccc
+}
+
+p {
+  margin: 0;
+  padding: 0;
+}
+.page {
+  width: 8.5in;
+  height: 11in;
+  background: #fff;
+  border: 1px solid transparent;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* BANNER LAYOUT */
+.banner {
+  margin: 5px auto;
+  padding: 5px;
+  color: ${textColor};
+
+  font-size: 0.8em;
+  border: 1px solid ${borderColor};
+  border-radius: 10px;
+  width: 8.35in;
+  display: grid;
+  align-items: center;    /* top-align children, or center */
+  column-gap: 20px;       /* optional spacing between columns */
+}
+
+/* define widths based on what columns we're showing */
+.columns-1-image {  /* image only */
+  grid-template-columns: 1fr;
+}
+.columns-1-text {   /* ALL text only */
+  grid-template-columns: 1fr;
+}
+.columns-2 {    /* image | ALL text */ /* by setting order and defaults, this is Will */
+  grid-template-columns: 1fr 1fr;
+}
+.columns-3 { /* image | agency | recruiter */
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* hide content based on what columns we're showing */
+.columns-1-image .agencyFields, .columns-1-image .recruiterFields, .columns-1-image .allFields{
+  display:none !important;
+}
+.columns-1-text .imageField, .columns-1-text .agencyFields, .columns-1-text .recruiterFields {
+  display:none !important;
+}
+.columns-2 .agencyFields, .columns-2 .recruiterFields{
+  display:none !important;
+}
+.columns-3 .allFields{
+  display:none !important;
+}
+
+/* align content based on what colunns we're showing */
+.columns-1-image .imageField{
+  background-position: center center;
+}
+.columns-2 .imageField, .columns-3 .imageField{
+  background-position: left center;
+}
+
+.columns-1-text .allFields {    /* center align */
+  text-align: center;
+  overflow-wrap: anywhere;        /*make urls break*/
+  display: grid;
+}
+
+.columns-2 .allFields {  /* This is Will's. The text is on the right of the logo, but it's also left-aligned to itself */
+  justify-self: end;        /* push the whole box to the right */
+  display: inline-block;    /* shrink wrap width to fit content */
+  text-align: left;         /* BUT keep the text left aligned */
+  margin-right: 10px;
+  overflow-wrap: anywhere;
+}
+
+.columns-3 .agencyFields {  /* center align agency when showing 3 columns (agency is in the middle) */
+  text-align: center;
+  overflow-wrap: anywhere;        /*make urls break*/
+  display: grid;
+}
+.columns-3 .recruiterFields {  /* right align recruiter when showing 3 columns (recruiter is on the right) */
+  justify-self: end;        /* push the whole box to the right */
+  display: inline-block;    /* shrink wrap width to fit content */
+  text-align: right;         /* BUT keep the text left aligned */
+  margin-right: 10px;
+  overflow-wrap: anywhere;
+}
+
+/* make the image a background CSS - most flexible after a lot of trial & error */
+.image {
+  min-height: 80px;   /* IMPORTANT - this handles the size.  min height for the banner row */
+  align-self: stretch;    /* let it stretch with the row */
+  padding: 10px;
+  /* background image behaves like a responsive img */
+  background-repeat: no-repeat;
+  background-origin: content-box; /* respect the padding as an inner box */
+  background-size: contain;          /* maintain aspect ratio */
+}
+
+#header .image {
+  background-image: url("${header.agencyLogo}");
+}
+#footer .image {
+  background-image: url("${footer.agencyLogo}");
+}
+
+/* TEXT BLOCK */
+.textBlock p{
+  margin-top: 4px;
+  line-height: 0.9em;
+}
+
+/* EMBEDDED RESUME */
+[data-main-container] {
+  flex: 1;
+}
+
+.watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 96px;
+  font-weight: 700;
+  letter-spacing: 0;
+  pointer-events: none;
+  user-select: none;
+  transform: rotate(-45deg);
+  z-index: 1000;
+  text-align: center;
+  box-sizing: border-box;
+  word-break: break-word;
+  z-index: 1000;
+  color: var(--color, rgba(0, 0, 0, 0.08));
+  opacity: calc(var(--opacity, 92) / 100);
+}
+</style>
+<section class="page">
+  @if (includeHeader) {
+    <div id="header" class="banner ${header.shape}">
+      <div class="image imageField alignLeft" >
+        <!-- image inserted in CSS -->
+      </div>
+
+      <!-- all the agency fields -->
+      <div class="textBlock agencyFields alignCenter" >
+        @if (header.showAgencyName) { <p>${header.agencyName}</p> }
+        @if (header.agencyDetails.showPhoneNumber) { <p>${header.agencyDetails.phoneNumber}</p> }
+        @if (header.agencyDetails.showUrl) { <p>${header.agencyDetails.url}</p> }
+        @if (header.agencyDetails.showEmailAddress) { <p>${header.agencyDetails.emailAddress}</p> }
+        @if (header.agencyDetails.showLinkedIn) { <p>${header.agencyDetails.linkedIn}</p> }
+        @if (header.agencyDetails.showAddressLine1) { <p>${header.agencyDetails.addressLine1}</p> }
+        @if (header.agencyDetails.showAddressLine2) { <p>${header.agencyDetails.addressLine2}</p> }
+        @if (header.agencyDetails.showAddressLine3) { <p>${header.agencyDetails.addressLine3}</p> }
+      </div>
+
+      <!-- all the recruiter fields -->
+      <div class="textBlock recruiterFields alignCenter" >
+        @if (header.recruiterDetails.showName) { <p>${header.recruiterDetails.name}</p> }
+        @if (header.recruiterDetails.showPhoneNumber) { <p>${header.recruiterDetails.phoneNumber}</p> }
+        @if (header.recruiterDetails.showEmailAddress) { <p>${header.recruiterDetails.emailAddress}</p> }
+        @if (header.recruiterDetails.showLinkedIn) { <p>${header.agencyDetails.linkedIn}</p> }
+      </div>
+
+      <!-- All fields (ordered to satify Will)-->
+      <div class="textBlock allFields alignLeft" >
+        @if (header.showAgencyName) { <p>${header.agencyName}</p> } <!-- hide-->
+        @if (header.agencyDetails.showUrl) { <p>${header.agencyDetails.url}</p> } <!-- hide -->
+        @if (header.agencyDetails.showLinkedIn) { <p>${header.agencyDetails.linkedIn}</p> } <!-- hide -->
+        @if (header.recruiterDetails.showName) { <p>${header.recruiterDetails.name}</p> }
+        @if (header.agencyDetails.showEmailAddress) { <p>${header.agencyDetails.emailAddress}</p> } <!-- hide -->
+        @if (header.recruiterDetails.showEmailAddress) { <p>${header.recruiterDetails.emailAddress}</p> }
+        @if (header.agencyDetails.showAddressLine1) { <p>${header.agencyDetails.addressLine1}</p> }
+        @if (header.agencyDetails.showAddressLine2) { <p>${header.agencyDetails.addressLine2}</p> }
+        @if (header.agencyDetails.showAddressLine3) { <p>${header.agencyDetails.addressLine3}</p> }
+        @if (header.recruiterDetails.showLinkedIn) { <p>${header.recruiterDetails.linkedIn}</p> }
+        @if (header.agencyDetails.showPhoneNumber) { <p>${header.agencyDetails.phoneNumber}</p> }
+        @if (header.recruiterDetails.showPhoneNumber) { <p>${header.recruiterDetails.phoneNumber}</p> }
+      </div>
+    </div>
+  }
+
+  <section data-main-container>
+    @if (includeWatermark) {
+      <div
+        class="watermark"
+        style="--color: ${watermark.color}; --opacity: ${watermark.transparency}"
+      >
+        ${watermark.text}
+      </div>
+    }
+  </section>
+
+  @if (includeFooter) {
+    <div id="footer" class="banner ${footer.shape}">
+      <div class="image imageField alignLeft" >
+        <!-- image inserted in CSS -->
+      </div>
+
+      <!-- all the agency fields -->
+      <div class="textBlock agencyFields alignCenter" >
+        @if (footer.showAgencyName) { <p>${footer.agencyName}</p> }
+        @if (footer.agencyDetails.showPhoneNumber) { <p>${footer.agencyDetails.phoneNumber}</p> }
+        @if (footer.agencyDetails.showUrl) { <p>${footer.agencyDetails.url}</p> }
+        @if (footer.agencyDetails.showEmailAddress) { <p>${footer.agencyDetails.emailAddress}</p> }
+        @if (footer.agencyDetails.showLinkedIn) { <p>${footer.agencyDetails.linkedIn}</p> }
+        @if (footer.agencyDetails.showAddressLine1) { <p>${footer.agencyDetails.addressLine1}</p> }
+        @if (footer.agencyDetails.showAddressLine2) { <p>${footer.agencyDetails.addressLine2}</p> }
+      </div>
+
+      <!-- all the recruiter fields -->
+      <div class="textBlock recruiterFields alignCenter" >
+        @if (footer.recruiterDetails.showName) { <p>${footer.recruiterDetails.name}</p> }
+        @if (footer.recruiterDetails.showPhoneNumber) { <p>${footer.recruiterDetails.phoneNumber}</p> }
+        @if (footer.recruiterDetails.showEmailAddress) { <p>${footer.recruiterDetails.emailAddress}</p> }
+        @if (footer.recruiterDetails.showLinkedIn) { <p>${footer.agencyDetails.linkedIn}</p> }
+      </div>
+
+      <!-- All fields (ordered to satify Will)-->
+      <div class="textBlock allFields alignLeft" >
+        @if (footer.showAgencyName) { <p>${footer.agencyName}</p> } <!-- hide-->
+        @if (footer.agencyDetails.showUrl) { <p>${footer.agencyDetails.url}</p> } <!-- hide -->
+        @if (footer.agencyDetails.showLinkedIn) { <p>${footer.agencyDetails.linkedIn}</p> } <!-- hide -->
+        @if (footer.recruiterDetails.showName) { <p>${footer.recruiterDetails.name}</p> }
+        @if (footer.agencyDetails.showEmailAddress) { <p>${footer.agencyDetails.emailAddress}</p> } <!-- hide -->
+        @if (footer.recruiterDetails.showEmailAddress) { <p>${footer.recruiterDetails.emailAddress}</p> }
+        @if (footer.agencyDetails.showAddressLine1) { <p>${footer.agencyDetails.addressLine1}</p> }
+        @if (footer.agencyDetails.showAddressLine2) { <p>${footer.agencyDetails.addressLine2}</p> }
+        @if (footer.recruiterDetails.showLinkedIn) { <p>${footer.recruiterDetails.linkedIn}</p> }
+        @if (footer.agencyDetails.showPhoneNumber) { <p>${footer.agencyDetails.phoneNumber}</p> }
+        @if (footer.recruiterDetails.showPhoneNumber) { <p>${footer.recruiterDetails.phoneNumber}</p> }
+      </div>
+    </div>
+  }
+</section>

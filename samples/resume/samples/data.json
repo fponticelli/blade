@@ -1,0 +1,78 @@
+{
+  "textColor": "#4a4fb5",
+  "borderColor": "#4a4fb5",
+  "includeWatermark": true,
+  "watermark": {
+    "text": "CONFIDENTIAL",
+    "color": "#000000",
+    "transparency": 20
+  },
+  "includeHeader": true,
+  "header": {
+    "shape": "columns-2",
+    "showAgencyLogo": false,
+    "agencyLogo": null,
+    "showAgencyName": true,
+    "agencyName": "",
+    "agencyDetails": {
+      "showAddressLine1": false,
+      "addressLine1": null,
+      "showAddressLine2": false,
+      "addressLine2": null,
+      "showAddressLine3": false,
+      "addressLine3": null,
+      "showPhoneNumber": false,
+      "phoneNumber": "",
+      "showUrl": true,
+      "url": "example.com",
+      "showEmailAddress": true,
+      "emailAddress": "info@example.com",
+      "showLinkedIn": true,
+      "linkedIn": "linkedin.com"
+    },
+    "recruiterDetails": {
+      "showName": true,
+      "name": "Recruiter Name",
+      "showPhoneNumber": true,
+      "phoneNumber": "444-444-4444",
+      "showEmailAddress": true,
+      "emailAddress": "franco.ponticelli@gmail.com",
+      "showLinkedIn": true,
+      "linkedIn": "linkedin.com/in/you"
+    }
+  },
+  "includeFooter": true,
+  "footer": {
+    "shape": "columns-1-image",
+    "showAgencyLogo": false,
+    "agencyLogo": null,
+    "showAgencyName": true,
+    "agencyName": "",
+    "agencyDetails": {
+      "showAddressLine1": false,
+      "addressLine1": null,
+      "showAddressLine2": false,
+      "addressLine2": null,
+      "showAddressLine3": false,
+      "addressLine3": null,
+      "showPhoneNumber": false,
+      "phoneNumber": "",
+      "showUrl": true,
+      "url": "example.com",
+      "showEmailAddress": true,
+      "emailAddress": "info@example.com",
+      "showLinkedIn": true,
+      "linkedIn": "linkedin.com"
+    },
+    "recruiterDetails": {
+      "showName": true,
+      "name": "Recruiter Name",
+      "showPhoneNumber": true,
+      "phoneNumber": "444-444-4444",
+      "showEmailAddress": true,
+      "emailAddress": "franco.ponticelli@gmail.com",
+      "showLinkedIn": true,
+      "linkedIn": "linkedin.com/in/you"
+    }
+  }
+}
