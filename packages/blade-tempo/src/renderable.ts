@@ -1,8 +1,12 @@
 // @bladets/tempo - Core Renderable Creation
 // Converts compiled Blade templates to Tempo Renderables
 
-import type { CompiledTemplate, TemplateNode, Scope } from '@bladets/template';
-import { compile } from '@bladets/template';
+import type {
+  CompiledTemplate,
+  TemplateNode,
+  Scope,
+} from '@bladets/template/browser';
+import { compile } from '@bladets/template/browser';
 import type { Renderable, Signal } from '@tempots/dom';
 import { Fragment } from '@tempots/dom';
 import type {

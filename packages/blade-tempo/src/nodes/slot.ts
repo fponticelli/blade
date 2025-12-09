@@ -1,7 +1,7 @@
 // @bladets/tempo - SlotNode Converter
 // Converts Blade SlotNode to content projection
 
-import type { SlotNode } from '@bladets/template';
+import type { SlotNode } from '@bladets/template/browser';
 import type { Renderable } from '@tempots/dom';
 import type { RenderContext } from '../types.js';
 import { convertChildren } from '../renderable.js';

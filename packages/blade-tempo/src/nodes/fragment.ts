@@ -1,7 +1,7 @@
 // @bladets/tempo - FragmentNode Converter
 // Converts Blade FragmentNode to Tempo Fragment
 
-import type { FragmentNode } from '@bladets/template';
+import type { FragmentNode } from '@bladets/template/browser';
 import { type Renderable } from '@tempots/dom';
 import type { RenderContext } from '../types.js';
 import { convertChildren } from '../renderable.js';

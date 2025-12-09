@@ -1,8 +1,8 @@
 // @bladets/tempo - ElementNode Converter
 // Converts Blade ElementNode to Tempo html.* elements
 
-import type { ElementNode, AttributeNode } from '@bladets/template';
-import { escapeHtml } from '@bladets/template';
+import type { ElementNode, AttributeNode } from '@bladets/template/browser';
+import { escapeHtml } from '@bladets/template/browser';
 import type { Renderable, Signal } from '@tempots/dom';
 import { html, Attr, El } from '@tempots/dom';
 import type { RenderContext, RenderConfig } from '../types.js';

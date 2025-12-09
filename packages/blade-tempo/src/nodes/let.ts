@@ -1,7 +1,12 @@
 // @bladets/tempo - LetNode Converter
 // Converts Blade LetNode to local signal/computed creation
 
-import type { LetNode, ExprAst, FunctionExpr, Scope } from '@bladets/template';
+import type {
+  LetNode,
+  ExprAst,
+  FunctionExpr,
+  Scope,
+} from '@bladets/template/browser';
 import type { Renderable } from '@tempots/dom';
 import type { RenderContext } from '../types.js';
 import { evaluateSafe } from '../evaluator.js';

@@ -18,5 +18,5 @@ export type { Renderable, Signal, Prop } from './types.js';
 
 // Re-export commonly used items from @bladets/template
 // so users don't need to import from both packages
-export { compile, standardLibrary } from '@bladets/template';
-export type { CompileOptions, RenderOptions } from '@bladets/template';
+export { compile, standardLibrary } from '@bladets/template/browser';
+export type { CompileOptions, RenderOptions } from '@bladets/template/browser';

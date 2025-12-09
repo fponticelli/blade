@@ -7,7 +7,7 @@ import type {
   TemplateNode,
   ComponentDefinition,
   Scope,
-} from '@bladets/template';
+} from '@bladets/template/browser';
 import type { Renderable, Signal } from '@tempots/dom';
 
 // =============================================================================
@@ -144,5 +144,5 @@ export type {
   HelperRegistry,
   TemplateNode,
   Scope,
-} from '@bladets/template';
+} from '@bladets/template/browser';
 export type { Renderable, Signal, Prop } from '@tempots/dom';

@@ -1,7 +1,7 @@
 // @bladets/tempo - CommentNode Converter
 // Handles Blade CommentNode (skip or render based on config)
 
-import type { CommentNode } from '@bladets/template';
+import type { CommentNode } from '@bladets/template/browser';
 import type { Renderable } from '@tempots/dom';
 import type { RenderContext } from '../types.js';
 

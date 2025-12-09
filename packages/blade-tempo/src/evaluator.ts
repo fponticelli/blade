@@ -6,8 +6,8 @@ import type {
   SourceLocation,
   Scope,
   HelperRegistry,
-} from '@bladets/template';
-import { evaluate } from '@bladets/template';
+} from '@bladets/template/browser';
+import { evaluate } from '@bladets/template/browser';
 import type { Signal } from '@tempots/dom';
 import type { RenderContext, ErrorHandler } from './types.js';
 

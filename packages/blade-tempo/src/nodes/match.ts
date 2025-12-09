@@ -1,7 +1,7 @@
 // @bladets/tempo - MatchNode Converter
 // Converts Blade MatchNode to Tempo conditional rendering
 
-import type { MatchNode, Scope } from '@bladets/template';
+import type { MatchNode, Scope } from '@bladets/template/browser';
 import type { Renderable } from '@tempots/dom';
 import { When } from '@tempots/dom';
 import type { RenderContext } from '../types.js';

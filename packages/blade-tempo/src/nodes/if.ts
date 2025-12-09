@@ -1,7 +1,7 @@
 // @bladets/tempo - IfNode Converter
 // Converts Blade IfNode to Tempo When conditional rendering
 
-import type { IfNode } from '@bladets/template';
+import type { IfNode } from '@bladets/template/browser';
 import type { Renderable } from '@tempots/dom';
 import { When } from '@tempots/dom';
 import type { RenderContext } from '../types.js';

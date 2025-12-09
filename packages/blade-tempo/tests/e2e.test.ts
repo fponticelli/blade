@@ -2,7 +2,7 @@
 // Verifies DOM updates reactively when signals change
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { compile } from '@bladets/template';
+import { compile } from '@bladets/template/browser';
 import { prop, render, TextNode } from '@tempots/dom';
 import { createTempoRenderer } from '../src/index.js';
 

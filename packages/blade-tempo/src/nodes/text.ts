@@ -1,8 +1,8 @@
 // @bladets/tempo - TextNode Converter
 // Converts Blade TextNode to Tempo text/interpolation
 
-import type { TextNode as BladeTextNode } from '@bladets/template';
-import { escapeHtml } from '@bladets/template';
+import type { TextNode as BladeTextNode } from '@bladets/template/browser';
+import { escapeHtml } from '@bladets/template/browser';
 import type { Renderable, Signal } from '@tempots/dom';
 import { TextNode } from '@tempots/dom';
 import type { RenderContext } from '../types.js';

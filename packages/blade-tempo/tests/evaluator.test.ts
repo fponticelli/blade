@@ -5,7 +5,7 @@ import {
   valueToString,
   defaultErrorHandler,
 } from '../src/evaluator.js';
-import type { Scope, ExprAst, SourceLocation } from '@bladets/template';
+import type { Scope, ExprAst, SourceLocation } from '@bladets/template/browser';
 
 // Helper to create a dummy source location
 const dummyLocation: SourceLocation = {

@@ -1,7 +1,7 @@
 // @bladets/tempo - ForNode Converter
 // Converts Blade ForNode to Tempo ForEach iteration
 
-import type { ForNode } from '@bladets/template';
+import type { ForNode } from '@bladets/template/browser';
 import type { Renderable, Signal, ElementPosition } from '@tempots/dom';
 import { ForEach, computedOf } from '@tempots/dom';
 import type { RenderContext } from '../types.js';
