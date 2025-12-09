@@ -5,7 +5,7 @@
  * and building a component registry with dot-notation namespacing.
  */
 
-import { readdir, stat, access } from 'fs/promises';
+import { readdirSync, statSync, existsSync } from 'fs';
 import { join, basename } from 'path';
 import type { ComponentInfo } from '../ast/types.js';
 import { toPascalCase, isHiddenFile } from './utils.js';
@@ -20,21 +20,17 @@ const ENTRY_FILE = 'index.blade';
  * @returns A map of component tag names to their info
  * @throws Error if projectRoot doesn't exist or doesn't contain index.blade
  */
-export async function discoverComponents(
+export function discoverComponents(
   projectRoot: string
-): Promise<Map<string, ComponentInfo>> {
+): Map<string, ComponentInfo> {
   // Verify project root exists
-  try {
-    await access(projectRoot);
-  } catch {
+  if (!existsSync(projectRoot)) {
     throw new Error(`Project root does not exist: ${projectRoot}`);
   }
 
   // Verify index.blade exists
   const entryPath = join(projectRoot, ENTRY_FILE);
-  try {
-    await access(entryPath);
-  } catch {
+  if (!existsSync(entryPath)) {
     throw new Error(
       `Project root must contain ${ENTRY_FILE}.\n` +
         `  Expected at: ${entryPath}\n` +
@@ -43,7 +39,7 @@ export async function discoverComponents(
   }
 
   const components = new Map<string, ComponentInfo>();
-  await scanDirectory(projectRoot, [], components);
+  scanDirectory(projectRoot, [], components);
   return components;
 }
 
@@ -54,12 +50,12 @@ export async function discoverComponents(
  * @param namespace - Namespace segments for current depth (e.g., ['Components', 'Form'])
  * @param components - Map to populate with discovered components
  */
-async function scanDirectory(
+function scanDirectory(
   dir: string,
   namespace: string[],
   components: Map<string, ComponentInfo>
-): Promise<void> {
-  const entries = await readdir(dir, { withFileTypes: true });
+): void {
+  const entries = readdirSync(dir, { withFileTypes: true });
 
   for (const entry of entries) {
     const name = entry.name;
@@ -73,7 +69,7 @@ async function scanDirectory(
 
     if (entry.isDirectory()) {
       // Check if this directory is a separate project (has its own index.blade)
-      const hasIndexBlade = await hasFile(fullPath, ENTRY_FILE);
+      const hasIndexBlade = hasFile(fullPath, ENTRY_FILE);
 
       if (hasIndexBlade) {
         // This is a separate project boundary, skip it
@@ -82,7 +78,7 @@ async function scanDirectory(
 
       // Recurse into subdirectory with updated namespace
       const folderName = toPascalCase(name);
-      await scanDirectory(fullPath, [...namespace, folderName], components);
+      scanDirectory(fullPath, [...namespace, folderName], components);
     } else if (entry.isFile() && name.endsWith(BLADE_EXTENSION)) {
       // Skip the entry file (index.blade) - it's not a component
       if (name === ENTRY_FILE) {
@@ -115,10 +111,10 @@ async function scanDirectory(
 /**
  * Checks if a directory contains a specific file.
  */
-async function hasFile(dir: string, filename: string): Promise<boolean> {
+function hasFile(dir: string, filename: string): boolean {
   try {
     const filePath = join(dir, filename);
-    const stats = await stat(filePath);
+    const stats = statSync(filePath);
     return stats.isFile();
   } catch {
     return false;

@@ -3,7 +3,7 @@ import { compile } from '../src/compiler/index.js';
 
 describe('Minimal test', () => {
   it('should compile empty string', async () => {
-    const result = await compile('');
+    const result = compile('');
     expect(result).toBeDefined();
   });
 });

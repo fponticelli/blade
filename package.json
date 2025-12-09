@@ -18,7 +18,8 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
     "typecheck": "turbo typecheck",
     "check": "turbo check",
-    "clean": "turbo clean && rm -rf node_modules"
+    "clean": "turbo clean && rm -rf node_modules",
+    "publish:package": "node scripts/publish.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.18.1",

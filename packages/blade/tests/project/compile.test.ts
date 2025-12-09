@@ -6,27 +6,27 @@ const fixturesPath = resolve(__dirname, '../fixtures/project');
 
 describe('compileProject', () => {
   describe('simple project', () => {
-    it('compiles project with index.blade entry', async () => {
+    it('compiles project with index.blade entry', () => {
       const projectRoot = resolve(fixturesPath, 'simple');
-      const result = await compileProject(projectRoot);
+      const result = compileProject(projectRoot);
 
       expect(result.success).toBe(true);
       expect(result.ast).toBeDefined();
       expect(result.errors).toHaveLength(0);
     });
 
-    it('discovers components in project', async () => {
+    it('discovers components in project', () => {
       const projectRoot = resolve(fixturesPath, 'simple');
-      const result = await compileProject(projectRoot);
+      const result = compileProject(projectRoot);
 
       expect(result.context.components.has('Button')).toBe(true);
     });
   });
 
   describe('nested project', () => {
-    it('compiles project and discovers nested components', async () => {
+    it('compiles project and discovers nested components', () => {
       const projectRoot = resolve(fixturesPath, 'nested');
-      const result = await compileProject(projectRoot);
+      const result = compileProject(projectRoot);
 
       expect(result.success).toBe(true);
       expect(result.context.components.has('Button')).toBe(true);
@@ -37,9 +37,9 @@ describe('compileProject', () => {
   });
 
   describe('error handling', () => {
-    it('reports error for missing component', async () => {
+    it('reports error for missing component', () => {
       const projectRoot = resolve(fixturesPath, 'missing-component');
-      const result = await compileProject(projectRoot);
+      const result = compileProject(projectRoot);
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
@@ -49,17 +49,17 @@ describe('compileProject', () => {
       expect(error?.message).toContain('not found');
     });
 
-    it('reports error for project without index.blade', async () => {
+    it('reports error for project without index.blade', () => {
       const projectRoot = resolve(fixturesPath, 'no-entry');
 
-      await expect(compileProject(projectRoot)).rejects.toThrow(/index\.blade/);
+      expect(() => compileProject(projectRoot)).toThrow(/index\.blade/);
     });
   });
 
   describe('project options', () => {
-    it('accepts custom entry point', async () => {
+    it('accepts custom entry point', () => {
       const projectRoot = resolve(fixturesPath, 'simple');
-      const result = await compileProject(projectRoot, {
+      const result = compileProject(projectRoot, {
         entry: 'index.blade',
       });
 

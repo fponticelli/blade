@@ -49,27 +49,24 @@ import type {
 /**
  * Helper to compile and extract the root node
  */
-async function compileAndGetRoot(
-  source: string,
-  options?: CompileOptions
-): Promise<RootNode> {
-  const result = await compile(source, options);
+function compileAndGetRoot(source: string, options?: CompileOptions): RootNode {
+  const result = compile(source, options);
   return result.root;
 }
 
 /**
  * Helper to compile and check for errors
  */
-async function compileAndGetErrors(source: string, options?: CompileOptions) {
-  const result = await compile(source, options);
+function compileAndGetErrors(source: string, options?: CompileOptions) {
+  const result = compile(source, options);
   return result.diagnostics.filter(d => d.level === 'error');
 }
 
 /**
  * Helper to compile and check for warnings
  */
-async function compileAndGetWarnings(source: string, options?: CompileOptions) {
-  const result = await compile(source, options);
+function compileAndGetWarnings(source: string, options?: CompileOptions) {
+  const result = compile(source, options);
   return result.diagnostics.filter(d => d.level === 'warning');
 }
 
@@ -79,7 +76,7 @@ async function compileAndGetWarnings(source: string, options?: CompileOptions) {
 
 describe('Compiler - Basic Structure', () => {
   it('should compile an empty template', async () => {
-    const result = await compile('');
+    const result = compile('');
 
     expect(result).toBeDefined();
     expect(result.root).toBeDefined();
@@ -89,7 +86,7 @@ describe('Compiler - Basic Structure', () => {
   });
 
   it('should compile plain text', async () => {
-    const root = await compileAndGetRoot('Hello, World!');
+    const root = compileAndGetRoot('Hello, World!');
 
     expect(root.children).toHaveLength(1);
     const textNode = root.children[0] as TextNode;
@@ -103,7 +100,7 @@ describe('Compiler - Basic Structure', () => {
   });
 
   it('should compile plain HTML', async () => {
-    const root = await compileAndGetRoot('<div>Hello</div>');
+    const root = compileAndGetRoot('<div>Hello</div>');
 
     expect(root.children).toHaveLength(1);
     const element = root.children[0] as ElementNode;
@@ -113,7 +110,7 @@ describe('Compiler - Basic Structure', () => {
   });
 
   it('should include source location for all nodes', async () => {
-    const root = await compileAndGetRoot('<div>test</div>');
+    const root = compileAndGetRoot('<div>test</div>');
 
     expect(root.location).toBeDefined();
     expect(root.location.start).toBeDefined();
@@ -124,7 +121,7 @@ describe('Compiler - Basic Structure', () => {
   });
 
   it('should populate template metadata', async () => {
-    const root = await compileAndGetRoot('$data.value');
+    const root = compileAndGetRoot('$data.value');
 
     expect(root.metadata).toBeDefined();
     expect(root.metadata.globalsUsed).toBeDefined();
@@ -140,7 +137,7 @@ describe('Compiler - Basic Structure', () => {
 
 describe('Compiler - Simple Expressions', () => {
   it('should parse simple path expression: $foo', async () => {
-    const root = await compileAndGetRoot('$foo');
+    const root = compileAndGetRoot('$foo');
     const textNode = root.children[0] as TextNode;
     const segment = textNode.segments[0];
 
@@ -159,7 +156,7 @@ describe('Compiler - Simple Expressions', () => {
   });
 
   it('should parse dotted path: $data.user.name', async () => {
-    const root = await compileAndGetRoot('$data.user.name');
+    const root = compileAndGetRoot('$data.user.name');
     const textNode = root.children[0] as TextNode;
     const segment = textNode.segments[0];
 
@@ -179,7 +176,7 @@ describe('Compiler - Simple Expressions', () => {
   });
 
   it('should parse global path: $.currency', async () => {
-    const root = await compileAndGetRoot('$.currency');
+    const root = compileAndGetRoot('$.currency');
     const textNode = root.children[0] as TextNode;
     const segment = textNode.segments[0];
 
@@ -196,7 +193,7 @@ describe('Compiler - Simple Expressions', () => {
   });
 
   it('should parse array index: $items[0]', async () => {
-    const root = await compileAndGetRoot('$items[0]');
+    const root = compileAndGetRoot('$items[0]');
     const textNode = root.children[0] as TextNode;
     const segment = textNode.segments[0];
 
@@ -218,7 +215,7 @@ describe('Compiler - Simple Expressions', () => {
   });
 
   it('should parse array wildcard: $items[*].price', async () => {
-    const root = await compileAndGetRoot('$items[*].price');
+    const root = compileAndGetRoot('$items[*].price');
     const textNode = root.children[0] as TextNode;
     const segment = textNode.segments[0];
 
@@ -243,7 +240,7 @@ describe('Compiler - Complex Expressions', () => {
     ];
 
     for (const test of tests) {
-      const root = await compileAndGetRoot(test.source);
+      const root = compileAndGetRoot(test.source);
       const textNode = root.children[0] as TextNode;
       const segment = textNode.segments[0];
 
@@ -276,7 +273,7 @@ describe('Compiler - Complex Expressions', () => {
     ];
 
     for (const op of operators) {
-      const root = await compileAndGetRoot(`\${a ${op} b}`);
+      const root = compileAndGetRoot(`\${a ${op} b}`);
       const textNode = root.children[0] as TextNode;
       const segment = textNode.segments[0];
 
@@ -292,7 +289,7 @@ describe('Compiler - Complex Expressions', () => {
   });
 
   it('should parse unary operations', async () => {
-    const root1 = await compileAndGetRoot('${!isValid}');
+    const root1 = compileAndGetRoot('${!isValid}');
     const textNode1 = root1.children[0] as TextNode;
     const segment1 = textNode1.segments[0];
     expect(segment1.kind).toBe('expr');
@@ -302,7 +299,7 @@ describe('Compiler - Complex Expressions', () => {
       expect(expr1.operator).toBe('!');
     }
 
-    const root2 = await compileAndGetRoot('${-total}');
+    const root2 = compileAndGetRoot('${-total}');
     const textNode2 = root2.children[0] as TextNode;
     const segment2 = textNode2.segments[0];
     expect(segment2.kind).toBe('expr');
@@ -314,7 +311,7 @@ describe('Compiler - Complex Expressions', () => {
   });
 
   it('should parse ternary expressions', async () => {
-    const root = await compileAndGetRoot('${isValid ? "Yes" : "No"}');
+    const root = compileAndGetRoot('${isValid ? "Yes" : "No"}');
     const textNode = root.children[0] as TextNode;
     const segment = textNode.segments[0];
 
@@ -329,7 +326,7 @@ describe('Compiler - Complex Expressions', () => {
   });
 
   it('should parse function calls', async () => {
-    const root = await compileAndGetRoot('${formatCurrency(total)}');
+    const root = compileAndGetRoot('${formatCurrency(total)}');
     const textNode = root.children[0] as TextNode;
     const segment = textNode.segments[0];
 
@@ -343,9 +340,7 @@ describe('Compiler - Complex Expressions', () => {
   });
 
   it('should parse nested function calls', async () => {
-    const root = await compileAndGetRoot(
-      '${formatCurrency(sum(items[*].price))}'
-    );
+    const root = compileAndGetRoot('${formatCurrency(sum(items[*].price))}');
     const textNode = root.children[0] as TextNode;
     const segment = textNode.segments[0];
 
@@ -360,7 +355,7 @@ describe('Compiler - Complex Expressions', () => {
   });
 
   it('should respect operator precedence', async () => {
-    const root = await compileAndGetRoot('${a + b * c}');
+    const root = compileAndGetRoot('${a + b * c}');
     const textNode = root.children[0] as TextNode;
     const segment = textNode.segments[0];
 
@@ -377,7 +372,7 @@ describe('Compiler - Complex Expressions', () => {
 
 describe('Compiler - Expression Interpolation', () => {
   it('should parse mixed text and expressions', async () => {
-    const root = await compileAndGetRoot('Total: ${formatCurrency(total)}');
+    const root = compileAndGetRoot('Total: ${formatCurrency(total)}');
     const textNode = root.children[0] as TextNode;
 
     expect(textNode.segments).toHaveLength(2);
@@ -390,7 +385,7 @@ describe('Compiler - Expression Interpolation', () => {
   });
 
   it('should parse multiple expressions in text', async () => {
-    const root = await compileAndGetRoot('Page ${page} of ${total}');
+    const root = compileAndGetRoot('Page ${page} of ${total}');
     const textNode = root.children[0] as TextNode;
 
     expect(textNode.segments).toHaveLength(4);
@@ -407,7 +402,7 @@ describe('Compiler - Expression Interpolation', () => {
 
 describe('Compiler - HTML Elements', () => {
   it('should parse self-closing tags', async () => {
-    const root = await compileAndGetRoot('<br />');
+    const root = compileAndGetRoot('<br />');
     const element = root.children[0] as ElementNode;
 
     expect(element.kind).toBe('element');
@@ -416,7 +411,7 @@ describe('Compiler - HTML Elements', () => {
   });
 
   it('should parse nested elements', async () => {
-    const root = await compileAndGetRoot('<div><span>test</span></div>');
+    const root = compileAndGetRoot('<div><span>test</span></div>');
     const div = root.children[0] as ElementNode;
 
     expect(div.tag).toBe('div');
@@ -427,7 +422,7 @@ describe('Compiler - HTML Elements', () => {
   });
 
   it('should parse multiple sibling elements', async () => {
-    const root = await compileAndGetRoot('<div>A</div><div>B</div>');
+    const root = compileAndGetRoot('<div>A</div><div>B</div>');
 
     expect(root.children).toHaveLength(2);
     expect((root.children[0] as ElementNode).tag).toBe('div');
@@ -437,7 +432,7 @@ describe('Compiler - HTML Elements', () => {
 
 describe('Compiler - HTML Attributes', () => {
   it('should parse static attributes', async () => {
-    const root = await compileAndGetRoot('<div class="container">test</div>');
+    const root = compileAndGetRoot('<div class="container">test</div>');
     const element = root.children[0] as ElementNode;
     const attr = element.attributes[0] as StaticAttributeNode;
 
@@ -447,7 +442,7 @@ describe('Compiler - HTML Attributes', () => {
   });
 
   it('should parse expression attributes', async () => {
-    const root = await compileAndGetRoot(
+    const root = compileAndGetRoot(
       '<button disabled=${!isValid}>Submit</button>'
     );
     const element = root.children[0] as ElementNode;
@@ -460,7 +455,7 @@ describe('Compiler - HTML Attributes', () => {
   });
 
   it('should parse mixed attributes (interpolation)', async () => {
-    const root = await compileAndGetRoot(
+    const root = compileAndGetRoot(
       '<div class="status-${order.status}">test</div>'
     );
     const element = root.children[0] as ElementNode;
@@ -478,7 +473,7 @@ describe('Compiler - HTML Attributes', () => {
   });
 
   it('should parse multiple attributes', async () => {
-    const root = await compileAndGetRoot(
+    const root = compileAndGetRoot(
       '<input type="text" value=$name disabled=${!valid} />'
     );
     const element = root.children[0] as ElementNode;
@@ -490,7 +485,7 @@ describe('Compiler - HTML Attributes', () => {
   });
 
   it('should handle attributes without values (boolean)', async () => {
-    const root = await compileAndGetRoot('<input disabled />');
+    const root = compileAndGetRoot('<input disabled />');
     const element = root.children[0] as ElementNode;
     const attr = element.attributes[0] as StaticAttributeNode;
 
@@ -505,7 +500,7 @@ describe('Compiler - HTML Attributes', () => {
 
 describe('Compiler - @if Directive', () => {
   it('should parse simple @if', async () => {
-    const root = await compileAndGetRoot('@if(isValid) { <div>Valid</div> }');
+    const root = compileAndGetRoot('@if(isValid) { <div>Valid</div> }');
     const ifNode = root.children[0] as IfNode;
 
     expect(ifNode.kind).toBe('if');
@@ -523,7 +518,7 @@ describe('Compiler - @if Directive', () => {
         <span>No</span>
       }
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const ifNode = root.children[0] as IfNode;
 
     expect(ifNode.branches).toHaveLength(1);
@@ -543,7 +538,7 @@ describe('Compiler - @if Directive', () => {
         <span>Unknown</span>
       }
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const ifNode = root.children[0] as IfNode;
 
     expect(ifNode.branches).toHaveLength(3);
@@ -553,7 +548,7 @@ describe('Compiler - @if Directive', () => {
 
 describe('Compiler - @for Directive', () => {
   it('should parse @for...of for values', async () => {
-    const root = await compileAndGetRoot(
+    const root = compileAndGetRoot(
       '@for(item of items) { <li>$item.name</li> }'
     );
     const forNode = root.children[0] as ForNode;
@@ -567,7 +562,7 @@ describe('Compiler - @for Directive', () => {
   });
 
   it('should parse @for...of with index', async () => {
-    const root = await compileAndGetRoot(
+    const root = compileAndGetRoot(
       '@for(item, index of items) { <li>${index}. $item.name</li> }'
     );
     const forNode = root.children[0] as ForNode;
@@ -578,9 +573,7 @@ describe('Compiler - @for Directive', () => {
   });
 
   it('should parse @for...in for keys/indices', async () => {
-    const root = await compileAndGetRoot(
-      '@for(index in items) { <li>$index</li> }'
-    );
+    const root = compileAndGetRoot('@for(index in items) { <li>$index</li> }');
     const forNode = root.children[0] as ForNode;
 
     expect(forNode.itemVar).toBe('index');
@@ -588,7 +581,7 @@ describe('Compiler - @for Directive', () => {
   });
 
   it('should parse complex expression in @for', async () => {
-    const root = await compileAndGetRoot(
+    const root = compileAndGetRoot(
       '@for(item of data.orders[0].items) { <li>$item</li> }'
     );
     const forNode = root.children[0] as ForNode;
@@ -609,7 +602,7 @@ describe('Compiler - @match Directive', () => {
         }
       }
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const matchNode = root.children[0] as MatchNode;
 
     expect(matchNode.kind).toBe('match');
@@ -635,7 +628,7 @@ describe('Compiler - @match Directive', () => {
         }
       }
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const matchNode = root.children[0] as MatchNode;
 
     expect(matchNode.cases).toHaveLength(2);
@@ -657,7 +650,7 @@ describe('Compiler - @match Directive', () => {
         }
       }
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const matchNode = root.children[0] as MatchNode;
 
     expect(matchNode.defaultCase).toBeDefined();
@@ -678,7 +671,7 @@ describe('Compiler - @match Directive', () => {
         }
       }
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const matchNode = root.children[0] as MatchNode;
 
     expect(matchNode.cases).toHaveLength(2);
@@ -694,7 +687,7 @@ describe('Compiler - @match Directive', () => {
 
 describe('Compiler - @@ Blocks', () => {
   it('should parse simple variable declaration', async () => {
-    const root = await compileAndGetRoot('@@ { let x = 10; }');
+    const root = compileAndGetRoot('@@ { let x = 10; }');
     const letNode = root.children[0] as LetNode;
 
     expect(letNode.kind).toBe('let');
@@ -711,7 +704,7 @@ describe('Compiler - @@ Blocks', () => {
         let z = x + y;
       }
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     expect(root.children).toHaveLength(3);
     expect((root.children[0] as LetNode).name).toBe('x');
@@ -720,7 +713,7 @@ describe('Compiler - @@ Blocks', () => {
   });
 
   it('should parse global variable assignment', async () => {
-    const root = await compileAndGetRoot('@@ { let $.currency = "EUR"; }');
+    const root = compileAndGetRoot('@@ { let $.currency = "EUR"; }');
     const letNode = root.children[0] as LetNode;
 
     expect(letNode.name).toBe('currency');
@@ -728,7 +721,7 @@ describe('Compiler - @@ Blocks', () => {
   });
 
   it('should parse function declarations', async () => {
-    const root = await compileAndGetRoot('@@ { let add = (a, b) => a + b; }');
+    const root = compileAndGetRoot('@@ { let add = (a, b) => a + b; }');
     const letNode = root.children[0] as LetNode;
 
     expect(letNode.value.kind).toBe('function');
@@ -739,7 +732,7 @@ describe('Compiler - @@ Blocks', () => {
   });
 
   it('should parse complex function expressions', async () => {
-    const root = await compileAndGetRoot(
+    const root = compileAndGetRoot(
       '@@ { let discounted = (amount, percent) => amount * (1 - percent / 100); }'
     );
     const letNode = root.children[0] as LetNode;
@@ -763,7 +756,7 @@ describe('Compiler - Component Definitions', () => {
         <div>$title</div>
       </template:Card>
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     expect(root.components.size).toBe(1);
     expect(root.components.has('Card')).toBe(true);
@@ -781,7 +774,7 @@ describe('Compiler - Component Definitions', () => {
         <span>Content</span>
       </template:Price>
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const comp = root.components.get('Price')!;
 
     expect(comp.props).toHaveLength(3);
@@ -809,7 +802,7 @@ describe('Compiler - Component Definitions', () => {
         <p>Footer</p>
       </template:Footer>
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     expect(root.components.size).toBe(2);
     expect(root.components.has('Header')).toBe(true);
@@ -819,7 +812,7 @@ describe('Compiler - Component Definitions', () => {
 
 describe('Compiler - Component Usage', () => {
   it('should parse component instance', async () => {
-    const root = await compileAndGetRoot('<Card title="Test" />');
+    const root = compileAndGetRoot('<Card title="Test" />');
     const comp = root.children[0] as ComponentNode;
 
     expect(comp.kind).toBe('component');
@@ -828,7 +821,7 @@ describe('Compiler - Component Usage', () => {
   });
 
   it('should parse component props', async () => {
-    const root = await compileAndGetRoot(
+    const root = compileAndGetRoot(
       '<Price amount=$order.total currency="EUR" />'
     );
     const comp = root.children[0] as ComponentNode;
@@ -846,14 +839,14 @@ describe('Compiler - Component Usage', () => {
         <p>Content here</p>
       </Card>
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const comp = root.children[0] as ComponentNode;
 
     expect(comp.children).toHaveLength(1);
   });
 
   it('should track component prop path mappings', async () => {
-    const root = await compileAndGetRoot('<Card title=$order.title />');
+    const root = compileAndGetRoot('<Card title=$order.title />');
     const comp = root.children[0] as ComponentNode;
 
     expect(comp.propPathMapping).toBeDefined();
@@ -868,7 +861,7 @@ describe('Compiler - Slots', () => {
         <slot />
       </template:Card>
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const comp = root.components.get('Card')!;
     const slot = comp.body[0] as SlotNode;
 
@@ -884,7 +877,7 @@ describe('Compiler - Slots', () => {
         <slot name="footer" />
       </template:Card>
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const comp = root.components.get('Card')!;
 
     expect(comp.body).toHaveLength(2);
@@ -900,7 +893,7 @@ describe('Compiler - Slots', () => {
         </slot>
       </template:Card>
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const comp = root.components.get('Card')!;
     const slot = comp.body[0] as SlotNode;
 
@@ -917,7 +910,7 @@ describe('Compiler - Slots', () => {
         <p>Default content</p>
       </Card>
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const comp = root.children[0] as ComponentNode;
 
     expect(comp.children.length).toBeGreaterThan(0);
@@ -930,7 +923,7 @@ describe('Compiler - Slots', () => {
 
 describe('Compiler - Fragments', () => {
   it('should parse empty fragment', async () => {
-    const root = await compileAndGetRoot('<></>');
+    const root = compileAndGetRoot('<></>');
     const fragment = root.children[0] as FragmentNode;
 
     expect(fragment.kind).toBe('fragment');
@@ -945,7 +938,7 @@ describe('Compiler - Fragments', () => {
         <span>B</span>
       </>
     `;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const fragment = root.children[0] as FragmentNode;
 
     expect(fragment.children.length).toBeGreaterThan(0);
@@ -953,7 +946,7 @@ describe('Compiler - Fragments', () => {
 
   it('should preserve whitespace in fragments', async () => {
     const source = '<>\n  <span>A</span>\n  <span>B</span>\n</>';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const fragment = root.children[0] as FragmentNode;
 
     expect(fragment.preserveWhitespace).toBe(true);
@@ -967,7 +960,7 @@ describe('Compiler - Fragments', () => {
 describe('Compiler - Comments', () => {
   it('should parse line comments', async () => {
     const source = '// This is a comment\n<div>Content</div>';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     // By default, comments should not be in the AST
     const hasComment = root.children.some(c => c.kind === 'comment');
@@ -976,7 +969,7 @@ describe('Compiler - Comments', () => {
 
   it('should parse block comments', async () => {
     const source = '/* Block comment */\n<div>Content</div>';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     const hasComment = root.children.some(c => c.kind === 'comment');
     expect(hasComment).toBe(false);
@@ -984,7 +977,7 @@ describe('Compiler - Comments', () => {
 
   it('should parse HTML comments', async () => {
     const source = '<>\n  <!-- HTML comment -->\n  <div>Content</div>\n</>';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     // HTML comments inside fragments should be preserved
     const fragment = root.children[0] as FragmentNode;
@@ -1000,7 +993,7 @@ describe('Compiler - Comments', () => {
 
   it('should include comments when option is set', async () => {
     const source = '// Comment\n<div>Content</div>';
-    const result = await compile(source, { includeMetadata: true });
+    const result = compile(source, { includeMetadata: true });
 
     // When includeComments or includeMetadata is true, comments might be tracked
     expect(result).toBeDefined();
@@ -1013,7 +1006,7 @@ describe('Compiler - Comments', () => {
 
 describe('Compiler - Metadata Collection', () => {
   it('should track paths accessed', async () => {
-    const root = await compileAndGetRoot('$order.total + $order.tax');
+    const root = compileAndGetRoot('$order.total + $order.tax');
 
     expect(root.metadata.pathsAccessed.size).toBeGreaterThan(0);
     expect(Array.from(root.metadata.pathsAccessed)).toContain('order.total');
@@ -1021,16 +1014,14 @@ describe('Compiler - Metadata Collection', () => {
   });
 
   it('should track global variables used', async () => {
-    const root = await compileAndGetRoot('$.currency');
+    const root = compileAndGetRoot('$.currency');
 
     expect(root.metadata.globalsUsed.size).toBeGreaterThan(0);
     expect(Array.from(root.metadata.globalsUsed)).toContain('currency');
   });
 
   it('should track helper functions used', async () => {
-    const root = await compileAndGetRoot(
-      '${formatCurrency(total)} ${sum(items)}'
-    );
+    const root = compileAndGetRoot('${formatCurrency(total)} ${sum(items)}');
 
     expect(root.metadata.helpersUsed.size).toBe(2);
     expect(Array.from(root.metadata.helpersUsed)).toContain('formatCurrency');
@@ -1038,7 +1029,7 @@ describe('Compiler - Metadata Collection', () => {
   });
 
   it('should track components used', async () => {
-    const root = await compileAndGetRoot('<Card /><Header />');
+    const root = compileAndGetRoot('<Card /><Header />');
 
     expect(root.metadata.componentsUsed.size).toBe(2);
     expect(Array.from(root.metadata.componentsUsed)).toContain('Card');
@@ -1048,7 +1039,7 @@ describe('Compiler - Metadata Collection', () => {
 
 describe('Compiler - Source Maps', () => {
   it('should generate source map when requested', async () => {
-    const result = await compile('<div>test</div>', { includeSourceMap: true });
+    const result = compile('<div>test</div>', { includeSourceMap: true });
 
     expect(result.sourceMap).toBeDefined();
     expect(result.sourceMap!.version).toBe(3);
@@ -1057,7 +1048,7 @@ describe('Compiler - Source Maps', () => {
   });
 
   it('should not generate source map by default', async () => {
-    const result = await compile('<div>test</div>');
+    const result = compile('<div>test</div>');
 
     expect(result.sourceMap).toBeUndefined();
   });
@@ -1069,33 +1060,33 @@ describe('Compiler - Source Maps', () => {
 
 describe('Compiler - Syntax Errors', () => {
   it('should report unclosed tag', async () => {
-    const errors = await compileAndGetErrors('<div>');
+    const errors = compileAndGetErrors('<div>');
 
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].message).toMatch(/unclosed|closing/i);
   });
 
   it('should report mismatched tags', async () => {
-    const errors = await compileAndGetErrors('<div></span>');
+    const errors = compileAndGetErrors('<div></span>');
 
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].message).toMatch(/mismatch|closing/i);
   });
 
   it('should report invalid expression syntax', async () => {
-    const errors = await compileAndGetErrors('${invalid syntax here}');
+    const errors = compileAndGetErrors('${invalid syntax here}');
 
     expect(errors.length).toBeGreaterThan(0);
   });
 
   it('should report invalid directive syntax', async () => {
-    const errors = await compileAndGetErrors('@if() { <div>test</div> }');
+    const errors = compileAndGetErrors('@if() { <div>test</div> }');
 
     expect(errors.length).toBeGreaterThan(0);
   });
 
   it('should include error location', async () => {
-    const errors = await compileAndGetErrors('<div>');
+    const errors = compileAndGetErrors('<div>');
 
     if (errors.length > 0) {
       expect(errors[0].location).toBeDefined();
@@ -1106,14 +1097,14 @@ describe('Compiler - Syntax Errors', () => {
 
 describe('Compiler - Validation Errors', () => {
   it('should detect undefined variables when strict', async () => {
-    const errors = await compileAndGetErrors('$undefinedVar', { strict: true });
+    const errors = compileAndGetErrors('$undefinedVar', { strict: true });
 
     // In strict mode, undefined variables should be reported
     expect(errors.length).toBeGreaterThanOrEqual(0);
   });
 
   it('should detect component name not capitalized', async () => {
-    const errors = await compileAndGetErrors('<myComponent />');
+    const errors = compileAndGetErrors('<myComponent />');
 
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].message).toMatch(/capital/i);
@@ -1126,7 +1117,7 @@ describe('Compiler - Validation Errors', () => {
       </template:Card>
       <Card />
     `;
-    const errors = await compileAndGetErrors(source, { validate: true });
+    const errors = compileAndGetErrors(source, { validate: true });
 
     // Should report missing required prop 'title'
     expect(errors.length).toBeGreaterThan(0);
@@ -1137,7 +1128,7 @@ describe('Compiler - Validation Errors', () => {
       <template:Card><div>1</div></template:Card>
       <template:Card><div>2</div></template:Card>
     `;
-    const errors = await compileAndGetErrors(source);
+    const errors = compileAndGetErrors(source);
 
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].message).toMatch(/duplicate/i);
@@ -1147,7 +1138,7 @@ describe('Compiler - Validation Errors', () => {
 describe('Compiler - Warnings', () => {
   it('should warn on unused variables', async () => {
     const source = '@@ { let x = 10; }\n<div>test</div>';
-    const warnings = await compileAndGetWarnings(source, { validate: true });
+    const warnings = compileAndGetWarnings(source, { validate: true });
 
     // May warn about unused variable x
     expect(warnings).toBeDefined();
@@ -1160,7 +1151,7 @@ describe('Compiler - Warnings', () => {
         @@ { let x = 20; }
       }
     `;
-    const warnings = await compileAndGetWarnings(source, { validate: true });
+    const warnings = compileAndGetWarnings(source, { validate: true });
 
     // May warn about variable shadowing
     expect(warnings).toBeDefined();
@@ -1174,7 +1165,7 @@ describe('Compiler - Warnings', () => {
 describe('Compiler - Options', () => {
   it('should respect maxExpressionDepth', async () => {
     const deepExpr = '${' + 'a + '.repeat(100) + 'b' + '}'.repeat(100);
-    const errors = await compileAndGetErrors(deepExpr, {
+    const errors = compileAndGetErrors(deepExpr, {
       maxExpressionDepth: 10,
     });
 
@@ -1219,7 +1210,7 @@ describe('Compiler - Complex Templates', () => {
       </div>
     `;
 
-    const result = await compile(source);
+    const result = compile(source);
     expect(result.diagnostics.filter(d => d.level === 'error')).toHaveLength(0);
     expect(result.root.children.length).toBeGreaterThan(0);
   });
@@ -1250,7 +1241,7 @@ describe('Compiler - Complex Templates', () => {
       </Card>
     `;
 
-    const result = await compile(source);
+    const result = compile(source);
     expect(result.diagnostics.filter(d => d.level === 'error')).toHaveLength(0);
     expect(result.root.components.size).toBe(1);
   });
@@ -1303,7 +1294,7 @@ describe('Compiler - Complex Templates', () => {
       </div>
     `;
 
-    const result = await compile(source);
+    const result = compile(source);
     expect(result.diagnostics.filter(d => d.level === 'error')).toHaveLength(0);
 
     // Verify metadata
@@ -1319,22 +1310,22 @@ describe('Compiler - Complex Templates', () => {
 
 describe('Compiler - Edge Cases', () => {
   it('should handle empty expressions', async () => {
-    const errors = await compileAndGetErrors('${}');
+    const errors = compileAndGetErrors('${}');
     expect(errors.length).toBeGreaterThan(0);
   });
 
   it('should handle whitespace-only templates', async () => {
-    const root = await compileAndGetRoot('   \n  \t  ');
+    const root = compileAndGetRoot('   \n  \t  ');
     expect(root.children.length).toBeGreaterThanOrEqual(0);
   });
 
   it('should handle special characters in text', async () => {
-    const root = await compileAndGetRoot('Special: & < > " \' `');
+    const root = compileAndGetRoot('Special: & < > " \' `');
     expect(root.children).toHaveLength(1);
   });
 
   it('should handle unicode in templates', async () => {
-    const root = await compileAndGetRoot('<div>Unicode: 你好 мир 🚀</div>');
+    const root = compileAndGetRoot('<div>Unicode: 你好 мир 🚀</div>');
     expect(root.children).toHaveLength(1);
   });
 
@@ -1349,15 +1340,13 @@ describe('Compiler - Edge Cases', () => {
       source += '</div>';
     }
 
-    const result = await compile(source);
+    const result = compile(source);
     expect(result).toBeDefined();
   });
 
   it('should handle very long attribute values', async () => {
     const longValue = 'x'.repeat(10000);
-    const root = await compileAndGetRoot(
-      `<div data-value="${longValue}">test</div>`
-    );
+    const root = compileAndGetRoot(`<div data-value="${longValue}">test</div>`);
     expect(root.children).toHaveLength(1);
   });
 
@@ -1366,14 +1355,14 @@ describe('Compiler - Edge Cases', () => {
       .fill(0)
       .map((_, i) => `<div>Item ${i}</div>`)
       .join('\n');
-    const result = await compile(items);
+    const result = compile(items);
     expect(result.root.children.length).toBe(1000);
   });
 });
 
 describe('Compiler - Whitespace Handling', () => {
   it('should normalize whitespace in text nodes', async () => {
-    const root = await compileAndGetRoot('<div>  multiple   spaces  </div>');
+    const root = compileAndGetRoot('<div>  multiple   spaces  </div>');
     const div = root.children[0] as ElementNode;
     // Whitespace normalization behavior depends on implementation
     expect(div.children.length).toBeGreaterThanOrEqual(1);
@@ -1381,13 +1370,13 @@ describe('Compiler - Whitespace Handling', () => {
 
   it('should preserve whitespace in fragments', async () => {
     const source = '<>\n  <span>A</span>\n  <span>B</span>\n</>';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
     const fragment = root.children[0] as FragmentNode;
     expect(fragment.preserveWhitespace).toBe(true);
   });
 
   it('should handle leading/trailing whitespace', async () => {
-    const root = await compileAndGetRoot('\n  <div>test</div>  \n');
+    const root = compileAndGetRoot('\n  <div>test</div>  \n');
     expect(root.children.length).toBeGreaterThanOrEqual(1);
   });
 });
@@ -1399,7 +1388,7 @@ describe('Compiler - Whitespace Handling', () => {
 describe('Compiler - Style Tags with Curly Braces', () => {
   it('should parse style tag with plain CSS curly braces', async () => {
     const source = '<style>body { color: red; }</style>';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     expect(root.children).toHaveLength(1);
     const style = root.children[0] as ElementNode;
@@ -1417,7 +1406,7 @@ describe('Compiler - Style Tags with Curly Braces', () => {
 
   it('should parse style tag with expression interpolation in CSS', async () => {
     const source = '<style>body { color: ${primaryColor}; }</style>';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     const style = root.children[0] as ElementNode;
     const text = style.children[0] as TextNode;
@@ -1439,7 +1428,7 @@ describe('Compiler - Style Tags with Curly Braces', () => {
         background: \${headerBg};
       }
     </style>`;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     const style = root.children[0] as ElementNode;
     const text = style.children[0] as TextNode;
@@ -1457,7 +1446,7 @@ describe('Compiler - Style Tags with Curly Braces', () => {
         }
       }
     </style>`;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     const style = root.children[0] as ElementNode;
     expect(style.children).toHaveLength(1);
@@ -1473,7 +1462,7 @@ describe('Compiler - Style Tags with Curly Braces', () => {
         body { color: \${color}; }
       </style>
     }`;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     const ifNode = root.children[0] as IfNode;
     expect(ifNode.kind).toBe('if');
@@ -1499,7 +1488,7 @@ describe('Compiler - Style Tags with Curly Braces', () => {
 describe('Compiler - Null Coalescing Operator (??)', () => {
   it('should parse simple null coalescing expression', async () => {
     const source = '${value ?? "default"}';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     const text = root.children[0] as TextNode;
     expect(text.segments).toHaveLength(1);
@@ -1508,7 +1497,7 @@ describe('Compiler - Null Coalescing Operator (??)', () => {
 
   it('should parse null coalescing in style tag', async () => {
     const source = `<style>body { font-family: \${fontFamily ?? 'Arial'}; }</style>`;
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     const style = root.children[0] as ElementNode;
     const text = style.children[0] as TextNode;
@@ -1519,7 +1508,7 @@ describe('Compiler - Null Coalescing Operator (??)', () => {
 
   it('should parse chained null coalescing', async () => {
     const source = '${a ?? b ?? c}';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     const text = root.children[0] as TextNode;
     expect(text.segments[0].kind).toBe('expr');
@@ -1527,7 +1516,7 @@ describe('Compiler - Null Coalescing Operator (??)', () => {
 
   it('should parse null coalescing with property access', async () => {
     const source = '${user.name ?? user.email ?? "Anonymous"}';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     const text = root.children[0] as TextNode;
     expect(text.segments[0].kind).toBe('expr');
@@ -1535,7 +1524,7 @@ describe('Compiler - Null Coalescing Operator (??)', () => {
 
   it('should parse null coalescing in @if condition', async () => {
     const source = '@if (value ?? fallback) { <span>Has value</span> }';
-    const root = await compileAndGetRoot(source);
+    const root = compileAndGetRoot(source);
 
     const ifNode = root.children[0] as IfNode;
     expect(ifNode.kind).toBe('if');

@@ -27,6 +27,8 @@ import type {
   EvaluatorConfig,
 } from '../evaluator/index.js';
 import { evaluate } from '../evaluator/index.js';
+import type { CompileOptions } from '../compiler/index.js';
+import { compile } from '../compiler/index.js';
 
 // =============================================================================
 // Error Classes
@@ -1080,4 +1082,33 @@ export function createScope(
     data,
     globals,
   };
+}
+
+// =============================================================================
+// One-Step Compilation and Rendering
+// =============================================================================
+
+/**
+ * Compiles a template source and returns a ready-to-use string renderer.
+ *
+ * This is a convenience function that combines compile() and createStringRenderer()
+ * into a single call.
+ *
+ * @param source - Template source string
+ * @param compileOptions - Optional compilation options
+ * @returns A function that renders data to HTML
+ *
+ * @example
+ * ```typescript
+ * const render = compileToString('<div>Hello, ${name}!</div>');
+ * const result = render({ name: 'World' });
+ * console.log(result.html); // "<div>Hello, World!</div>"
+ * ```
+ */
+export function compileToString(
+  source: string,
+  compileOptions?: CompileOptions
+): StringRenderer {
+  const template = compile(source, compileOptions);
+  return createStringRenderer(template);
 }
