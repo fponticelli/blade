@@ -6,7 +6,7 @@
 **Completed**: 2025-12-08
 **Input**: User description: "the resume in samples should parse correctly in @bladets/template and should render correctly in both template and tempo"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Parse Resume Template Successfully (Priority: P1)
 
@@ -88,7 +88,7 @@ As a developer, I want to render the resume template reactively in the browser u
 - What happens with CSS expressions containing complex interpolations?
   - Expected: All expressions in `<style>` blocks should be evaluated correctly
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -111,7 +111,7 @@ As a developer, I want to render the resume template reactively in the browser u
 - **Data Context**: The JSON object (e.g., `samples/data.json`) providing values for expression evaluation
 - **Rendered Output**: The final HTML string (template) or DOM tree (tempo) produced by rendering
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

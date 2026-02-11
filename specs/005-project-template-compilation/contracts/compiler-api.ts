@@ -7,7 +7,12 @@
  * These interfaces define the public API surface for project compilation features.
  */
 
-import type { RootNode, ExpressionNode, Diagnostic, SourceLocation } from '../../../packages/blade/src/ast/types'
+import type {
+  RootNode,
+  ExpressionNode,
+  Diagnostic,
+  SourceLocation,
+} from '../../../packages/blade/src/ast/types';
 
 // =============================================================================
 // @props Directive Types
@@ -22,25 +27,25 @@ import type { RootNode, ExpressionNode, Diagnostic, SourceLocation } from '../..
  */
 export interface PropDeclaration {
   /** Variable name without $ prefix */
-  name: string
+  name: string;
 
   /** True if no default value provided */
-  required: boolean
+  required: boolean;
 
   /** Default value expression (undefined if required) */
-  defaultValue: ExpressionNode | undefined
+  defaultValue: ExpressionNode | undefined;
 
   /** Source location for error reporting */
-  location: SourceLocation
+  location: SourceLocation;
 }
 
 /**
  * The @props() directive AST node.
  */
 export interface PropsDirective {
-  type: 'PropsDirective'
-  props: PropDeclaration[]
-  location: SourceLocation
+  type: 'PropsDirective';
+  props: PropDeclaration[];
+  location: SourceLocation;
 }
 
 // =============================================================================
@@ -55,13 +60,13 @@ export interface ProjectOptions {
    * Entry point filename.
    * @default 'index.blade'
    */
-  entry?: string
+  entry?: string;
 
   /**
    * Enable source tracking attributes on rendered output.
    * @default true
    */
-  sourceTracking?: boolean
+  sourceTracking?: boolean;
 }
 
 /**
@@ -72,7 +77,7 @@ export interface CompileOptionsWithProject {
    * Project root for component resolution.
    * When specified, components are discovered from this folder.
    */
-  projectRoot?: string
+  projectRoot?: string;
 
   // ... other existing compile options
 }
@@ -86,19 +91,19 @@ export interface CompileOptionsWithProject {
  */
 export interface ComponentInfo {
   /** Tag name for usage (e.g., 'Button', 'Components.Form.Input') */
-  tagName: string
+  tagName: string;
 
   /** Absolute path to .blade file */
-  filePath: string
+  filePath: string;
 
   /** Namespace segments (e.g., ['Components', 'Form'] for Components.Form.Input) */
-  namespace: string[]
+  namespace: string[];
 
   /** Parsed prop declarations (lazy-loaded) */
-  props: PropDeclaration[] | undefined
+  props: PropDeclaration[] | undefined;
 
   /** True if props were inferred from variable usage (no @props directive) */
-  propsInferred: boolean
+  propsInferred: boolean;
 }
 
 /**
@@ -106,19 +111,19 @@ export interface ComponentInfo {
  */
 export interface ProjectContext {
   /** Absolute path to project root */
-  rootPath: string
+  rootPath: string;
 
   /** Entry point file path */
-  entryPath: string
+  entryPath: string;
 
   /** Discovered components keyed by tag name */
-  components: Map<string, ComponentInfo>
+  components: Map<string, ComponentInfo>;
 
   /** Parsed JSON Schema (if schema.json exists) */
-  schema: JsonSchema | undefined
+  schema: JsonSchema | undefined;
 
   /** Sample data from samples/*.json */
-  samples: Map<string, unknown>
+  samples: Map<string, unknown>;
 }
 
 // =============================================================================
@@ -129,13 +134,13 @@ export interface ProjectContext {
  * Subset of JSON Schema needed for completion extraction.
  */
 export interface JsonSchema {
-  type?: string | string[]
-  properties?: Record<string, JsonSchema>
-  items?: JsonSchema
-  required?: string[]
-  description?: string
-  default?: unknown
-  enum?: unknown[]
+  type?: string | string[];
+  properties?: Record<string, JsonSchema>;
+  items?: JsonSchema;
+  required?: string[];
+  description?: string;
+  default?: unknown;
+  enum?: unknown[];
 }
 
 // =============================================================================
@@ -147,19 +152,19 @@ export interface JsonSchema {
  */
 export interface ProjectResult {
   /** Compiled AST with all components resolved */
-  ast: RootNode
+  ast: RootNode;
 
   /** Project context used during compilation */
-  context: ProjectContext
+  context: ProjectContext;
 
   /** Non-fatal warnings (e.g., @props syntax errors with fallback) */
-  warnings: Diagnostic[]
+  warnings: Diagnostic[];
 
   /** Fatal errors preventing successful compilation */
-  errors: Diagnostic[]
+  errors: Diagnostic[];
 
   /** True if compilation succeeded (errors is empty) */
-  success: boolean
+  success: boolean;
 }
 
 // =============================================================================
@@ -186,7 +191,7 @@ export interface ProjectResult {
 export declare function compileProject(
   projectPath: string,
   options?: ProjectOptions
-): Promise<ProjectResult>
+): Promise<ProjectResult>;
 
 /**
  * Discover components in a project folder.
@@ -204,7 +209,7 @@ export declare function compileProject(
  */
 export declare function discoverComponents(
   projectPath: string
-): Promise<Map<string, ComponentInfo>>
+): Promise<Map<string, ComponentInfo>>;
 
 /**
  * Resolve a component tag name to file path.
@@ -222,7 +227,7 @@ export declare function discoverComponents(
 export declare function resolveComponent(
   tagName: string,
   projectPath: string
-): Promise<string | undefined>
+): Promise<string | undefined>;
 
 /**
  * Parse @props() directive from template source.
@@ -236,9 +241,7 @@ export declare function resolveComponent(
  * // → [{ name: 'label', required: true }, { name: 'disabled', required: false, ... }]
  * ```
  */
-export declare function parseProps(
-  source: string
-): PropsDirective | undefined
+export declare function parseProps(source: string): PropsDirective | undefined;
 
 /**
  * Load and parse schema.json from project.
@@ -248,7 +251,7 @@ export declare function parseProps(
  */
 export declare function loadProjectSchema(
   projectPath: string
-): Promise<JsonSchema | undefined>
+): Promise<JsonSchema | undefined>;
 
 /**
  * Load sample data from project's samples/ directory.
@@ -258,4 +261,4 @@ export declare function loadProjectSchema(
  */
 export declare function loadProjectSamples(
   projectPath: string
-): Promise<Map<string, unknown>>
+): Promise<Map<string, unknown>>;

@@ -45,11 +45,11 @@ Embed dynamic values with `$identifier` or `${expression}`:
 
 ```html
 @if(user.isAdmin) {
-  <span class="badge">Admin</span>
+<span class="badge">Admin</span>
 } else if(user.isModerator) {
-  <span class="badge">Mod</span>
+<span class="badge">Mod</span>
 } else {
-  <span class="badge">User</span>
+<span class="badge">User</span>
 }
 ```
 
@@ -57,32 +57,24 @@ Embed dynamic values with `$identifier` or `${expression}`:
 
 ```html
 @for item of items {
-  <li>$item.name - ${formatCurrency(item.price)}</li>
-}
-
-@for item, index of items {
-  <li>${index + 1}. $item.name</li>
+<li>$item.name - ${formatCurrency(item.price)}</li>
+} @for item, index of items {
+<li>${index + 1}. $item.name</li>
 }
 ```
 
 #### Pattern Matching (`@match`)
 
 ```html
-@match(status) {
-  when "pending" { <span class="yellow">Pending</span> }
-  when "approved" { <span class="green">Approved</span> }
-  when "rejected" { <span class="red">Rejected</span> }
-  * { <span>Unknown</span> }
-}
+@match(status) { when "pending" { <span class="yellow">Pending</span> } when
+"approved" { <span class="green">Approved</span> } when "rejected" {
+<span class="red">Rejected</span> } * { <span>Unknown</span> } }
 ```
 
 ### Variables (`@@`)
 
 ```html
-@@ {
-  let total = price * quantity;
-  let discounted = total * 0.9;
-}
+@@ { let total = price * quantity; let discounted = total * 0.9; }
 <p>Final price: ${formatCurrency(discounted)}</p>
 ```
 
@@ -115,63 +107,95 @@ Props marked with `!` are required. Use `?` for optional props with defaults.
 ### Formatting
 
 ```html
-${formatCurrency(99.99)}           <!-- $99.99 -->
-${formatNumber(1234.5, 2)}         <!-- 1,234.50 -->
-${formatPercent(0.156, 1)}         <!-- 15.6% -->
-${formatDate(date, 'long')}        <!-- November 27, 2025 -->
+${formatCurrency(99.99)}
+<!-- $99.99 -->
+${formatNumber(1234.5, 2)}
+<!-- 1,234.50 -->
+${formatPercent(0.156, 1)}
+<!-- 15.6% -->
+${formatDate(date, 'long')}
+<!-- November 27, 2025 -->
 ```
 
 ### String Operations
 
 ```html
-${upper(name)}                     <!-- JOHN -->
-${lower(name)}                     <!-- john -->
-${capitalize(word)}                <!-- Hello -->
-${truncate(text, 50)}              <!-- Long text... -->
-${trim(input)}                     <!-- trimmed -->
-${replace(str, 'old', 'new')}      <!-- replaced -->
+${upper(name)}
+<!-- JOHN -->
+${lower(name)}
+<!-- john -->
+${capitalize(word)}
+<!-- Hello -->
+${truncate(text, 50)}
+<!-- Long text... -->
+${trim(input)}
+<!-- trimmed -->
+${replace(str, 'old', 'new')}
+<!-- replaced -->
 ```
 
 ### Array Operations
 
 ```html
-${len(items)}                      <!-- 5 -->
-${join(tags, ', ')}                <!-- a, b, c -->
-${first(items)}                    <!-- first item -->
-${last(items)}                     <!-- last item -->
-${sort(numbers)}                   <!-- sorted array -->
-${unique(values)}                  <!-- deduplicated -->
-${pluck(users, 'name')}            <!-- ['Alice', 'Bob'] -->
+${len(items)}
+<!-- 5 -->
+${join(tags, ', ')}
+<!-- a, b, c -->
+${first(items)}
+<!-- first item -->
+${last(items)}
+<!-- last item -->
+${sort(numbers)}
+<!-- sorted array -->
+${unique(values)}
+<!-- deduplicated -->
+${pluck(users, 'name')}
+<!-- ['Alice', 'Bob'] -->
 ```
 
 ### Math
 
 ```html
-${sum(1, 2, 3)}                    <!-- 6 -->
-${avg(values)}                     <!-- average -->
-${min(a, b, c)}                    <!-- minimum -->
-${max(a, b, c)}                    <!-- maximum -->
-${round(3.7)}                      <!-- 4 -->
-${clamp(value, 0, 100)}            <!-- bounded -->
+${sum(1, 2, 3)}
+<!-- 6 -->
+${avg(values)}
+<!-- average -->
+${min(a, b, c)}
+<!-- minimum -->
+${max(a, b, c)}
+<!-- maximum -->
+${round(3.7)}
+<!-- 4 -->
+${clamp(value, 0, 100)}
+<!-- bounded -->
 ```
 
 ### Date/Time
 
 ```html
-${now()}                           <!-- current date -->
-${year(date)}                      <!-- 2025 -->
-${addDays(date, 7)}                <!-- date + 7 days -->
-${diffDays(start, end)}            <!-- days between -->
-${isBefore(date1, date2)}          <!-- true/false -->
+${now()}
+<!-- current date -->
+${year(date)}
+<!-- 2025 -->
+${addDays(date, 7)}
+<!-- date + 7 days -->
+${diffDays(start, end)}
+<!-- days between -->
+${isBefore(date1, date2)}
+<!-- true/false -->
 ```
 
 ### Type Checking
 
 ```html
-${isDefined(value)}                <!-- true if not null/undefined -->
-${isEmpty(arr)}                    <!-- true if empty -->
-${isArray(value)}                  <!-- true if array -->
-${type(value)}                     <!-- 'string', 'number', etc -->
+${isDefined(value)}
+<!-- true if not null/undefined -->
+${isEmpty(arr)}
+<!-- true if empty -->
+${isArray(value)}
+<!-- true if array -->
+${type(value)}
+<!-- 'string', 'number', etc -->
 ```
 
 ## API Reference
@@ -182,10 +206,10 @@ Compiles a template string into a `CompiledTemplate`.
 
 ```typescript
 const compiled = await compile(templateString, {
-  validate: true,           // Enable validation
-  strict: true,             // Strict mode
-  includeSourceMap: true,   // Generate source maps
-  projectRoot: './src',     // Enable project component resolution
+  validate: true, // Enable validation
+  strict: true, // Strict mode
+  includeSourceMap: true, // Generate source maps
+  projectRoot: './src', // Enable project component resolution
 });
 ```
 
@@ -200,7 +224,7 @@ const result = render(data, {
   globals: { locale: 'en-US', currency: 'USD' },
   helpers: customHelpers,
   config: {
-    htmlEscape: true,       // Auto-escape expressions (default: true)
+    htmlEscape: true, // Auto-escape expressions (default: true)
     includeComments: false, // Strip HTML comments (default: false)
   },
 });
@@ -227,10 +251,10 @@ Prevent runaway templates with configurable limits:
 ```typescript
 const result = render(data, {
   limits: {
-    maxLoopNesting: 5,          // Max nested @for depth
+    maxLoopNesting: 5, // Max nested @for depth
     maxIterationsPerLoop: 1000, // Max items per loop
-    maxTotalIterations: 10000,  // Max total iterations
-    maxComponentDepth: 10,      // Max component nesting
+    maxTotalIterations: 10000, // Max total iterations
+    maxComponentDepth: 10, // Max component nesting
   },
 });
 ```

@@ -132,6 +132,7 @@
 ### Parallel Opportunities
 
 **User Story 2 (Documentation)** - All tasks T008-T014 can run in parallel:
+
 ```
 T008: Section 3.6 removal
 T009: Section 7.1 cleanup
@@ -143,6 +144,7 @@ T014: CompileOptions docs cleanup
 ```
 
 **User Story 3 (Code Cleanup)** - Tasks T016-T017 can run in parallel:
+
 ```
 T016: AST types JSDoc cleanup
 T017: Test README cleanup
@@ -171,6 +173,7 @@ T017: Test README cleanup
 ### Single Developer Strategy
 
 Recommended order for sequential execution:
+
 1. T001-T002 (Setup)
 2. T003-T007 (US1 - Core removal)
 3. T008-T015 (US2 - Documentation)

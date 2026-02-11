@@ -21,17 +21,18 @@ Add a live preview panel to the Blade VSCode extension that renders templates us
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Type Safety First | ✅ PASS | Uses existing typed compile/render APIs from blade package |
-| II. Source Auditability | ✅ PASS | Preview renders source-attributed HTML (rd-source attributes) |
-| III. Security by Default | ✅ PASS | Uses sandboxed template execution, no dynamic code execution |
-| IV. Component Isolation | ✅ PASS | Components resolved via existing project context |
-| V. Developer Experience | ✅ PASS | Core feature: live preview with error feedback |
+| Principle                | Status  | Notes                                                         |
+| ------------------------ | ------- | ------------------------------------------------------------- |
+| I. Type Safety First     | ✅ PASS | Uses existing typed compile/render APIs from blade package    |
+| II. Source Auditability  | ✅ PASS | Preview renders source-attributed HTML (rd-source attributes) |
+| III. Security by Default | ✅ PASS | Uses sandboxed template execution, no dynamic code execution  |
+| IV. Component Isolation  | ✅ PASS | Components resolved via existing project context              |
+| V. Developer Experience  | ✅ PASS | Core feature: live preview with error feedback                |
 
 **Quality Standards**:
+
 - ✅ Testing: Will add integration tests for preview functionality
 - ✅ Performance: Debounced refresh prevents performance issues
 - ✅ Documentation: Will update README with preview feature
@@ -120,17 +121,21 @@ packages/blade/
 ## Key Design Decisions
 
 ### D1: Webview vs. Custom Editor
+
 **Decision**: Use VSCode Webview Panel (not Custom Editor)
 **Rationale**: Webview panels support side-by-side display, can be triggered programmatically, and are the standard approach for preview panels (Markdown preview uses this).
 
 ### D2: Compilation Location
+
 **Decision**: Compile in extension host, not in webview
 **Rationale**: Reuse existing blade package APIs, maintain type safety, avoid loading compilation code in webview.
 
 ### D3: Live Refresh Strategy
+
 **Decision**: Text document change listener with 300ms debounce
 **Rationale**: Provides instant feedback while avoiding excessive re-renders during typing.
 
 ### D4: Sample Selection Persistence
+
 **Decision**: Use VSCode workspace state
 **Rationale**: Persists across sessions, scoped to workspace (project), no file pollution.

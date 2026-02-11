@@ -19,8 +19,8 @@
 
 **Purpose**: Build configuration changes for dual ESM/CJS output
 
-- [X] T001 Update Vite config to output both ESM and CJS formats in packages/blade/vite.config.ts
-- [X] T002 Run build to verify dual output generation with `npm run build` in packages/blade/
+- [x] T001 Update Vite config to output both ESM and CJS formats in packages/blade/vite.config.ts
+- [x] T002 Run build to verify dual output generation with `npm run build` in packages/blade/
 
 ---
 
@@ -30,12 +30,12 @@
 
 **⚠️ CRITICAL**: No user story verification can begin until this phase is complete
 
-- [X] T003 Add CommonJS entry point (`main`) field in packages/blade/package.json
-- [X] T004 Add ESM entry point (`module`) field in packages/blade/package.json
-- [X] T005 Configure `exports` field with conditional exports for main entry in packages/blade/package.json
-- [X] T006 Configure `exports` field with conditional exports for lsp/server entry in packages/blade/package.json
-- [X] T007 Add `engines` field specifying Node.js >=18.0.0 in packages/blade/package.json
-- [X] T008 Update `files` array to include README.md in packages/blade/package.json
+- [x] T003 Add CommonJS entry point (`main`) field in packages/blade/package.json
+- [x] T004 Add ESM entry point (`module`) field in packages/blade/package.json
+- [x] T005 Configure `exports` field with conditional exports for main entry in packages/blade/package.json
+- [x] T006 Configure `exports` field with conditional exports for lsp/server entry in packages/blade/package.json
+- [x] T007 Add `engines` field specifying Node.js >=18.0.0 in packages/blade/package.json
+- [x] T008 Update `files` array to include README.md in packages/blade/package.json
 
 **Checkpoint**: Foundation ready - user story verification can now begin
 
@@ -49,11 +49,11 @@
 
 ### Implementation for User Story 1
 
-- [X] T009 [US1] Verify ESM output exists at packages/blade/dist/index.js after build
-- [X] T010 [US1] Verify TypeScript declarations exist at packages/blade/dist/index.d.ts after build
-- [X] T011 [US1] Verify LSP server ESM output exists at packages/blade/dist/lsp/server.js after build
-- [X] T012 [US1] Create test ESM project and verify import works (manual verification)
-- [X] T013 [US1] Verify TypeScript IntelliSense works in test ESM project (manual verification)
+- [x] T009 [US1] Verify ESM output exists at packages/blade/dist/index.js after build
+- [x] T010 [US1] Verify TypeScript declarations exist at packages/blade/dist/index.d.ts after build
+- [x] T011 [US1] Verify LSP server ESM output exists at packages/blade/dist/lsp/server.js after build
+- [x] T012 [US1] Create test ESM project and verify import works (manual verification)
+- [x] T013 [US1] Verify TypeScript IntelliSense works in test ESM project (manual verification)
 
 **Checkpoint**: ESM usage fully functional - package can be used in modern projects
 
@@ -67,10 +67,10 @@
 
 ### Implementation for User Story 2
 
-- [X] T014 [US2] Verify CJS output exists at packages/blade/dist/index.cjs after build
-- [X] T015 [US2] Verify LSP server CJS output exists at packages/blade/dist/lsp/server.cjs after build
-- [X] T016 [US2] Create test CJS project and verify require works (manual verification)
-- [X] T017 [US2] Verify all public APIs work identically to ESM version (manual verification)
+- [x] T014 [US2] Verify CJS output exists at packages/blade/dist/index.cjs after build
+- [x] T015 [US2] Verify LSP server CJS output exists at packages/blade/dist/lsp/server.cjs after build
+- [x] T016 [US2] Create test CJS project and verify require works (manual verification)
+- [x] T017 [US2] Verify all public APIs work identically to ESM version (manual verification)
 
 **Checkpoint**: CommonJS usage fully functional - package supports legacy projects
 
@@ -84,11 +84,11 @@
 
 ### Implementation for User Story 3
 
-- [X] T018 [P] [US3] Add `homepage` field with GitHub README link in packages/blade/package.json
-- [X] T019 [P] [US3] Add `bugs` field with GitHub issues link in packages/blade/package.json
-- [X] T020 [US3] Add `prepublishOnly` script to run checks before publish in packages/blade/package.json
-- [X] T021 [US3] Run `npm pack` and verify tarball size is under 500KB
-- [X] T022 [US3] Verify tarball contains only expected files (dist/, README.md, LICENSE, package.json)
+- [x] T018 [P] [US3] Add `homepage` field with GitHub README link in packages/blade/package.json
+- [x] T019 [P] [US3] Add `bugs` field with GitHub issues link in packages/blade/package.json
+- [x] T020 [US3] Add `prepublishOnly` script to run checks before publish in packages/blade/package.json
+- [x] T021 [US3] Run `npm pack` and verify tarball size is under 500KB
+- [x] T022 [US3] Verify tarball contains only expected files (dist/, README.md, LICENSE, package.json)
 
 **Checkpoint**: Package metadata complete - ready for NPM publishing
 
@@ -98,9 +98,9 @@
 
 **Purpose**: Final verification and documentation
 
-- [X] T023 Run full verification checklist from quickstart.md
-- [X] T024 Verify no development files (tests, source, config) are in tarball
-- [X] T025 Document dual package hazard warning in README if not already present
+- [x] T023 Run full verification checklist from quickstart.md
+- [x] T024 Verify no development files (tests, source, config) are in tarball
+- [x] T025 Document dual package hazard warning in README if not already present
 
 ---
 

@@ -14,10 +14,14 @@ import type {
   Hover,
   Diagnostic,
   Position,
-  TextDocumentIdentifier
-} from 'vscode-languageserver'
+  TextDocumentIdentifier,
+} from 'vscode-languageserver';
 
-import type { ComponentInfo, JsonSchema, PropDeclaration } from './compiler-api'
+import type {
+  ComponentInfo,
+  JsonSchema,
+  PropDeclaration,
+} from './compiler-api';
 
 // =============================================================================
 // Project LSP Context
@@ -28,22 +32,22 @@ import type { ComponentInfo, JsonSchema, PropDeclaration } from './compiler-api'
  */
 export interface ProjectLspContext {
   /** Project root path */
-  rootPath: string
+  rootPath: string;
 
   /** Discovered components for completion */
-  components: Map<string, ComponentInfo>
+  components: Map<string, ComponentInfo>;
 
   /** Flattened schema properties for variable completion */
-  schemaProperties: SchemaPropertyInfo[]
+  schemaProperties: SchemaPropertyInfo[];
 
   /** Sample values keyed by dot-path (e.g., 'user.name' → ['John', 'Jane']) */
-  sampleValues: Map<string, unknown[]>
+  sampleValues: Map<string, unknown[]>;
 
   /** Last updated timestamp for cache invalidation */
-  lastUpdated: number
+  lastUpdated: number;
 
   /** Whether context is valid (no errors during load) */
-  valid: boolean
+  valid: boolean;
 }
 
 /**
@@ -51,19 +55,19 @@ export interface ProjectLspContext {
  */
 export interface SchemaPropertyInfo {
   /** Dot-separated path from root (e.g., 'user.name') */
-  path: string
+  path: string;
 
   /** JSON Schema type(s) */
-  type: string | string[]
+  type: string | string[];
 
   /** Whether required in parent object */
-  required: boolean
+  required: boolean;
 
   /** Description from schema */
-  description?: string
+  description?: string;
 
   /** Enum values if constrained */
-  enumValues?: unknown[]
+  enumValues?: unknown[];
 }
 
 // =============================================================================
@@ -75,22 +79,22 @@ export interface SchemaPropertyInfo {
  */
 export interface ComponentCompletionItem {
   /** Tag name to insert */
-  tagName: string
+  tagName: string;
 
   /** Required props for snippet generation */
-  requiredProps: string[]
+  requiredProps: string[];
 
   /** Optional props with defaults */
   optionalProps: Array<{
-    name: string
-    defaultValue: string
-  }>
+    name: string;
+    defaultValue: string;
+  }>;
 
   /** File path for documentation */
-  filePath: string
+  filePath: string;
 
   /** Namespace segments */
-  namespace: string[]
+  namespace: string[];
 }
 
 /**
@@ -107,7 +111,7 @@ export interface ComponentCompletionItem {
 export declare function getComponentCompletions(
   context: ProjectLspContext,
   prefix: string
-): CompletionItem[]
+): CompletionItem[];
 
 /**
  * Generate prop completions for component tag.
@@ -125,7 +129,7 @@ export declare function getPropCompletions(
   context: ProjectLspContext,
   componentTag: string,
   existingProps: string[]
-): CompletionItem[]
+): CompletionItem[];
 
 /**
  * Generate variable/property completions from schema.
@@ -141,7 +145,7 @@ export declare function getPropCompletions(
 export declare function getSchemaCompletions(
   context: ProjectLspContext,
   prefix: string
-): CompletionItem[]
+): CompletionItem[];
 
 // =============================================================================
 // Definition Provider
@@ -152,13 +156,13 @@ export declare function getSchemaCompletions(
  */
 export interface ComponentDefinitionResult {
   /** Component tag name */
-  tagName: string
+  tagName: string;
 
   /** Location of component file */
-  location: Location
+  location: Location;
 
   /** Component file path */
-  filePath: string
+  filePath: string;
 }
 
 /**
@@ -173,7 +177,7 @@ export declare function getComponentDefinition(
   context: ProjectLspContext,
   document: TextDocumentIdentifier,
   position: Position
-): ComponentDefinitionResult | undefined
+): ComponentDefinitionResult | undefined;
 
 // =============================================================================
 // Hover Provider
@@ -184,19 +188,19 @@ export declare function getComponentDefinition(
  */
 export interface VariableHoverInfo {
   /** Variable path (e.g., '$user.name') */
-  path: string
+  path: string;
 
   /** Type from schema */
-  type?: string
+  type?: string;
 
   /** Description from schema */
-  description?: string
+  description?: string;
 
   /** Example values from samples */
   examples: Array<{
-    source: string
-    value: unknown
-  }>
+    source: string;
+    value: unknown;
+  }>;
 }
 
 /**
@@ -204,17 +208,17 @@ export interface VariableHoverInfo {
  */
 export interface ComponentHoverInfo {
   /** Component tag name */
-  tagName: string
+  tagName: string;
 
   /** File path */
-  filePath: string
+  filePath: string;
 
   /** Props documentation */
   props: Array<{
-    name: string
-    required: boolean
-    defaultValue?: string
-  }>
+    name: string;
+    required: boolean;
+    defaultValue?: string;
+  }>;
 }
 
 /**
@@ -229,7 +233,7 @@ export declare function getHoverInfo(
   context: ProjectLspContext,
   document: TextDocumentIdentifier,
   position: Position
-): Hover | undefined
+): Hover | undefined;
 
 // =============================================================================
 // Diagnostics Provider
@@ -251,7 +255,7 @@ export declare function getHoverInfo(
 export declare function getProjectDiagnostics(
   context: ProjectLspContext,
   document: TextDocumentIdentifier
-): Diagnostic[]
+): Diagnostic[];
 
 /**
  * Validate sample files against schema.
@@ -261,7 +265,7 @@ export declare function getProjectDiagnostics(
  */
 export declare function validateSamples(
   context: ProjectLspContext
-): Map<string, Diagnostic[]>
+): Map<string, Diagnostic[]>;
 
 // =============================================================================
 // Workspace Management
@@ -275,7 +279,7 @@ export declare function validateSamples(
  */
 export declare function initializeProjectContext(
   workspacePath: string
-): Promise<ProjectLspContext | undefined>
+): Promise<ProjectLspContext | undefined>;
 
 /**
  * Invalidate project context cache.
@@ -287,7 +291,7 @@ export declare function initializeProjectContext(
 export declare function invalidateProjectContext(
   context: ProjectLspContext,
   changedFile: string
-): void
+): void;
 
 /**
  * Refresh project context.
@@ -297,4 +301,4 @@ export declare function invalidateProjectContext(
  */
 export declare function refreshProjectContext(
   context: ProjectLspContext
-): Promise<void>
+): Promise<void>;

@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: User description: "new package blade-tempo that from the template can render a @tempots/dom Renderable that takes a signal of data to update its own content"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Render Template as Reactive UI Component (Priority: P1)
 
@@ -76,7 +76,7 @@ A developer wants to use custom helper functions in their Blade templates render
 - What happens when an expression throws a runtime error (e.g., calling method on undefined)?
   - The expression renders as empty string, a warning is logged to console, and surrounding template continues to render normally
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -99,7 +99,7 @@ A developer wants to use custom helper functions in their Blade templates render
 - **BladeRenderable**: A Tempo Renderable generated from a Blade template that responds to signal updates
 - **RenderOptions**: Configuration for rendering behavior (helpers, globals, escaping settings)
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

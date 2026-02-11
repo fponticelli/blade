@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: User description: "Renderer - Phase 6 implementation enabling rendering of compiled template AST to HTML output with expression evaluation, directive processing, and component instantiation"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Render Static and Dynamic Content (Priority: P1)
 
@@ -157,7 +157,7 @@ As a platform operator, I want the renderer to enforce resource limits to preven
 - What happens with whitespace in FragmentNodes? Whitespace is preserved exactly
 - What happens with HTML comments? Configurable - included or excluded based on options
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -191,7 +191,7 @@ As a platform operator, I want the renderer to enforce resource limits to preven
 - **ResourceLimits**: Bounds for loop iterations, nesting depth, component depth, etc.
 - **Scope**: The evaluation context with locals, data, and globals
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

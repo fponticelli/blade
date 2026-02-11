@@ -296,17 +296,21 @@
 ### Parallel Opportunities
 
 **Phase 2 (Foundational)**:
+
 - T005, T006, T007 are sequential (same file, related functions)
 
 **Phase 3 (US1 - Escaping)**:
+
 - T010, T011 tests in parallel
 - T012-T020 sequential (same tokenizer file)
 
 **Phase 4-8 (US2-US6 - Helpers)**:
+
 - All helper implementations within a story can run in parallel
 - Different user stories can run in parallel
 
 **Phase 9 (LSP)**:
+
 - T103, T104, T107 in parallel
 
 ---
@@ -351,6 +355,7 @@ Task: "Implement concat(...arrays) in packages/blade/src/helpers/index.ts"
 ### Parallel Team Strategy
 
 With multiple developers after Phase 2:
+
 - Developer A: US1 (Escaping) + US4 (Dates)
 - Developer B: US2 (Arrays) + US5 (Numbers)
 - Developer C: US3 (Strings) + US6 (Utilities)
@@ -359,20 +364,20 @@ With multiple developers after Phase 2:
 
 ## Summary
 
-| Metric | Count |
-|--------|-------|
-| **Total Tasks** | 113 |
-| **Setup Phase** | 4 |
-| **Foundational Phase** | 5 |
-| **US1 (Escaping)** | 11 |
-| **US2 (Arrays)** | 12 |
-| **US3 (Strings)** | 18 |
-| **US4 (Dates)** | 21 |
-| **US5 (Numbers)** | 15 |
-| **US6 (Utilities)** | 16 |
-| **LSP Integration** | 5 |
-| **Polish** | 6 |
-| **Parallel Tasks** | 78 (69%) |
+| Metric                 | Count    |
+| ---------------------- | -------- |
+| **Total Tasks**        | 113      |
+| **Setup Phase**        | 4        |
+| **Foundational Phase** | 5        |
+| **US1 (Escaping)**     | 11       |
+| **US2 (Arrays)**       | 12       |
+| **US3 (Strings)**      | 18       |
+| **US4 (Dates)**        | 21       |
+| **US5 (Numbers)**      | 15       |
+| **US6 (Utilities)**    | 16       |
+| **LSP Integration**    | 5        |
+| **Polish**             | 6        |
+| **Parallel Tasks**     | 78 (69%) |
 
 **MVP Scope**: US1-US3 (P1 priorities) = 46 tasks
 **Full Scope**: All user stories + LSP + Polish = 113 tasks

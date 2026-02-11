@@ -92,9 +92,7 @@
         "1": { "name": "punctuation.definition.condition.end.blade" },
         "2": { "name": "punctuation.section.block.begin.blade" }
       },
-      "patterns": [
-        { "include": "#expression-content" }
-      ]
+      "patterns": [{ "include": "#expression-content" }]
     },
 
     "directive-else-if": {
@@ -109,9 +107,7 @@
         "1": { "name": "punctuation.definition.condition.end.blade" },
         "2": { "name": "punctuation.section.block.begin.blade" }
       },
-      "patterns": [
-        { "include": "#expression-content" }
-      ]
+      "patterns": [{ "include": "#expression-content" }]
     },
 
     "directive-else": {
@@ -165,9 +161,7 @@
         "1": { "name": "punctuation.definition.condition.end.blade" },
         "2": { "name": "punctuation.section.block.begin.blade" }
       },
-      "patterns": [
-        { "include": "#expression-content" }
-      ]
+      "patterns": [{ "include": "#expression-content" }]
     },
 
     "directive-when": {
@@ -203,9 +197,7 @@
       "endCaptures": {
         "1": { "name": "punctuation.section.block.end.blade" }
       },
-      "patterns": [
-        { "include": "#let-declaration" }
-      ]
+      "patterns": [{ "include": "#let-declaration" }]
     },
 
     "let-declaration": {
@@ -262,9 +254,7 @@
       "endCaptures": {
         "1": { "name": "punctuation.definition.expression.end.blade" }
       },
-      "patterns": [
-        { "include": "#expression-content" }
-      ]
+      "patterns": [{ "include": "#expression-content" }]
     },
 
     "expression-simple": {
@@ -474,9 +464,7 @@
           "endCaptures": {
             "1": { "name": "punctuation.definition.expression.end.blade" }
           },
-          "patterns": [
-            { "include": "#expression-content" }
-          ]
+          "patterns": [{ "include": "#expression-content" }]
         }
       ]
     },
@@ -499,9 +487,7 @@
       "endCaptures": {
         "1": { "name": "punctuation.definition.tag.end.blade" }
       },
-      "patterns": [
-        { "include": "#attribute" }
-      ]
+      "patterns": [{ "include": "#attribute" }]
     },
 
     "component-closing": {
@@ -534,9 +520,7 @@
       "endCaptures": {
         "1": { "name": "punctuation.definition.tag.end.blade" }
       },
-      "patterns": [
-        { "include": "#attribute" }
-      ]
+      "patterns": [{ "include": "#attribute" }]
     },
 
     "html-opening-tag": {
@@ -550,9 +534,7 @@
       "endCaptures": {
         "1": { "name": "punctuation.definition.tag.end.blade" }
       },
-      "patterns": [
-        { "include": "#attribute" }
-      ]
+      "patterns": [{ "include": "#attribute" }]
     },
 
     "html-closing-tag": {
@@ -598,9 +580,7 @@
       "endCaptures": {
         "1": { "name": "punctuation.definition.expression.end.blade" }
       },
-      "patterns": [
-        { "include": "#expression-content" }
-      ]
+      "patterns": [{ "include": "#expression-content" }]
     },
 
     "attribute-expression-value": {
@@ -615,9 +595,7 @@
       "endCaptures": {
         "1": { "name": "punctuation.definition.expression.end.blade" }
       },
-      "patterns": [
-        { "include": "#expression-content" }
-      ]
+      "patterns": [{ "include": "#expression-content" }]
     },
 
     "attribute-static": {

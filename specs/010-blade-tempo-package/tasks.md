@@ -60,7 +60,7 @@
 ### Implementation for User Story 1
 
 - [ ] T013 [P] [US1] Implement TextNode converter (literal + expression segments) in packages/blade-tempo/src/nodes/text.ts
-- [ ] T014 [P] [US1] Implement ElementNode converter (html.* with static/dynamic attributes) in packages/blade-tempo/src/nodes/element.ts
+- [ ] T014 [P] [US1] Implement ElementNode converter (html.\* with static/dynamic attributes) in packages/blade-tempo/src/nodes/element.ts
 - [ ] T015 [P] [US1] Implement IfNode converter using Tempo's when() in packages/blade-tempo/src/nodes/if.ts
 - [ ] T016 [P] [US1] Implement ForNode converter using Tempo's foreach() in packages/blade-tempo/src/nodes/for.ts
 - [ ] T017 [P] [US1] Implement FragmentNode converter using Tempo's fragment() in packages/blade-tempo/src/nodes/fragment.ts
@@ -157,6 +157,7 @@
 ### Parallel Opportunities
 
 **Phase 1 - Setup**:
+
 ```
 Task: "Create tsconfig.json" [P]
 Task: "Create vite.config.ts" [P]
@@ -164,6 +165,7 @@ Task: "Create .gitignore" [P]
 ```
 
 **Phase 3 - US1 Node Converters**:
+
 ```
 Task: "Implement TextNode converter" [P]
 Task: "Implement ElementNode converter" [P]
@@ -173,6 +175,7 @@ Task: "Implement FragmentNode converter" [P]
 ```
 
 **Phase 4 - US2 Node Converters**:
+
 ```
 Task: "Implement MatchNode converter" [P]
 Task: "Implement LetNode converter" [P]

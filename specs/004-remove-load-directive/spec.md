@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: User description: "let's remove the concept of @load entirely from this project"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Template Author Uses Components Without @load (Priority: P1)
 
@@ -63,7 +63,7 @@ A developer removes all @load-related code from the compiler, parser, AST types,
 - How does the system handle templates that previously relied on @load for component resolution?
   - Components must either be defined inline in the same template or resolved through a component registry (if one exists). The removal of @load assumes inline component definitions are sufficient for the current use case.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -81,7 +81,7 @@ A developer removes all @load-related code from the compiler, parser, AST types,
 - **Component**: A reusable template fragment defined with `<template:Name>` syntax within a template
 - **Compiler**: The module that transforms Blade template source into a compiled template structure
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

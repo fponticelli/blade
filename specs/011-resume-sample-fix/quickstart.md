@@ -42,6 +42,7 @@ result.errors.slice(0, 5).forEach(e => console.log('  -', e.message));
 ```
 
 Expected output (before fix):
+
 ```
 Errors: 26
   - Unclosed tag: <style>
@@ -106,13 +107,13 @@ npm run vscode
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
+| File                                           | Purpose           |
+| ---------------------------------------------- | ----------------- |
 | `packages/blade/src/parser/template-parser.ts` | Main fix location |
-| `packages/blade/tests/compiler.test.ts` | Add parser tests |
-| `packages/blade/tests/renderer.test.ts` | Add render tests |
-| `samples/resume/index.blade` | Test fixture |
-| `samples/resume/samples/data.json` | Test data |
+| `packages/blade/tests/compiler.test.ts`        | Add parser tests  |
+| `packages/blade/tests/renderer.test.ts`        | Add render tests  |
+| `samples/resume/index.blade`                   | Test fixture      |
+| `samples/resume/samples/data.json`             | Test data         |
 
 ## Validation Checklist
 

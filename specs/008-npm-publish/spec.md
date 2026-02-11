@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: User description: "publishing blade to NPM using the common formats currently used"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Install and Use in ESM Project (Priority: P1)
 
@@ -59,7 +59,7 @@ A developer searching for a template engine discovers blade on NPM. They want to
 - How does the package behave when imported in a browser environment without bundling?
 - What happens when an older Node.js version that doesn't fully support ESM tries to use the package?
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -79,7 +79,7 @@ A developer searching for a template engine discovers blade on NPM. They want to
 - **Distribution Files**: Compiled JavaScript (ESM and CJS), TypeScript declarations, and bundled assets
 - **NPM Registry Entry**: Published package metadata, tarball, and version history on npmjs.com
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

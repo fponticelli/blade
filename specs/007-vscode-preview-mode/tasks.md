@@ -233,16 +233,16 @@ Task: "Create preview CSS styles at packages/blade-vscode/media/preview.css"
 
 ### Task Count Summary
 
-| Phase | Tasks | Cumulative |
-|-------|-------|------------|
-| Setup | 6 | 6 |
-| Foundational | 4 | 10 |
-| US1 (P1) | 10 | 20 |
-| US2 (P1) | 4 | 24 |
-| US3 (P2) | 4 | 28 |
-| US4 (P2) | 4 | 32 |
-| Polish | 5 | 37 |
-| **Total** | **37** | |
+| Phase        | Tasks  | Cumulative |
+| ------------ | ------ | ---------- |
+| Setup        | 6      | 6          |
+| Foundational | 4      | 10         |
+| US1 (P1)     | 10     | 20         |
+| US2 (P1)     | 4      | 24         |
+| US3 (P2)     | 4      | 28         |
+| US4 (P2)     | 4      | 32         |
+| Polish       | 5      | 37         |
+| **Total**    | **37** |            |
 
 ---
 

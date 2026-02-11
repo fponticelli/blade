@@ -17,20 +17,21 @@ Represents a single prop declared in `@props()` directive.
 ```typescript
 interface PropDeclaration {
   /** Variable name without $ prefix */
-  name: string
+  name: string;
 
   /** Whether the prop is required (no default value) */
-  required: boolean
+  required: boolean;
 
   /** Default value expression (if not required) */
-  defaultValue: ExpressionNode | undefined
+  defaultValue: ExpressionNode | undefined;
 
   /** Source location of the declaration */
-  location: SourceLocation
+  location: SourceLocation;
 }
 ```
 
 **Relationships**:
+
 - Attached to `RootNode` for file-level props
 - Used by `ComponentInfo` for discovered components
 
@@ -40,17 +41,18 @@ AST node for the `@props()` directive itself.
 
 ```typescript
 interface PropsDirective {
-  type: 'PropsDirective'
+  type: 'PropsDirective';
 
   /** Declared props */
-  props: PropDeclaration[]
+  props: PropDeclaration[];
 
   /** Source location */
-  location: SourceLocation
+  location: SourceLocation;
 }
 ```
 
 **Lifecycle**:
+
 1. Parsed from template source by `PropsParser`
 2. Attached to `RootNode.propsDirective`
 3. Used during component validation and LSP completion
@@ -66,16 +68,16 @@ Configuration for a Blade project.
 ```typescript
 interface ProjectConfig {
   /** Absolute path to project root (folder containing index.blade) */
-  rootPath: string
+  rootPath: string;
 
   /** Entry point filename (default: 'index.blade') */
-  entry: string
+  entry: string;
 
   /** Parsed JSON Schema from schema.json (if present) */
-  schema: JsonSchema | undefined
+  schema: JsonSchema | undefined;
 
   /** Loaded sample data from samples/*.json */
-  samples: Map<string, unknown>
+  samples: Map<string, unknown>;
 }
 ```
 
@@ -86,23 +88,24 @@ Information about a discovered component.
 ```typescript
 interface ComponentInfo {
   /** Tag name for usage (e.g., 'Button', 'Components.Form.Input') */
-  tagName: string
+  tagName: string;
 
   /** Absolute path to .blade file */
-  filePath: string
+  filePath: string;
 
   /** Resolved namespace segments (e.g., ['Components', 'Form', 'Input']) */
-  namespace: string[]
+  namespace: string[];
 
   /** Parsed props (lazy-loaded on first access) */
-  props: PropDeclaration[] | undefined
+  props: PropDeclaration[] | undefined;
 
   /** Whether props were inferred (no @props directive) */
-  propsInferred: boolean
+  propsInferred: boolean;
 }
 ```
 
 **State Transitions**:
+
 1. `DISCOVERED`: File found, props not parsed
 2. `PARSED`: Props extracted from file
 3. `ERROR`: File couldn't be parsed (stored with error diagnostic)
@@ -114,19 +117,19 @@ Runtime context for project compilation.
 ```typescript
 interface ProjectContext {
   /** Project configuration */
-  config: ProjectConfig
+  config: ProjectConfig;
 
   /** Discovered components keyed by tag name */
-  components: Map<string, ComponentInfo>
+  components: Map<string, ComponentInfo>;
 
   /** Components passed via template (shadow discovered) */
-  templateComponents: Map<string, ComponentDefinition>
+  templateComponents: Map<string, ComponentDefinition>;
 
   /** Collected warnings during discovery */
-  warnings: Diagnostic[]
+  warnings: Diagnostic[];
 
   /** Collected errors during discovery */
-  errors: Diagnostic[]
+  errors: Diagnostic[];
 }
 ```
 
@@ -141,13 +144,13 @@ interface RootNode {
   // ... existing fields ...
 
   /** @props directive at file start (if present) */
-  propsDirective: PropsDirective | undefined
+  propsDirective: PropsDirective | undefined;
 
   /** Inferred props (if no @props directive) */
-  inferredProps: PropDeclaration[] | undefined
+  inferredProps: PropDeclaration[] | undefined;
 
   /** Project context (only set when compiled with project) */
-  projectContext: ProjectContext | undefined
+  projectContext: ProjectContext | undefined;
 }
 ```
 
@@ -159,30 +162,30 @@ Minimal types for extracting completion information from schema.json.
 
 ```typescript
 interface JsonSchema {
-  type?: string | string[]
-  properties?: Record<string, JsonSchema>
-  items?: JsonSchema
-  required?: string[]
-  description?: string
-  default?: unknown
-  enum?: unknown[]
+  type?: string | string[];
+  properties?: Record<string, JsonSchema>;
+  items?: JsonSchema;
+  required?: string[];
+  description?: string;
+  default?: unknown;
+  enum?: unknown[];
 }
 
 interface SchemaPropertyInfo {
   /** Path from root (e.g., ['user', 'name']) */
-  path: string[]
+  path: string[];
 
   /** JSON Schema type(s) */
-  type: string | string[]
+  type: string | string[];
 
   /** Whether required in parent object */
-  required: boolean
+  required: boolean;
 
   /** Description from schema */
-  description: string | undefined
+  description: string | undefined;
 
   /** Possible enum values */
-  enumValues: unknown[] | undefined
+  enumValues: unknown[] | undefined;
 }
 ```
 
@@ -197,16 +200,16 @@ LSP-specific project context with caching.
 ```typescript
 interface ProjectLspContext {
   /** Underlying project context */
-  project: ProjectContext
+  project: ProjectContext;
 
   /** Flattened schema properties for completion */
-  schemaProperties: SchemaPropertyInfo[]
+  schemaProperties: SchemaPropertyInfo[];
 
   /** Sample values keyed by path (e.g., 'user.name' → ['John', 'Jane']) */
-  sampleValues: Map<string, unknown[]>
+  sampleValues: Map<string, unknown[]>;
 
   /** Last modification time for cache invalidation */
-  lastUpdated: number
+  lastUpdated: number;
 }
 ```
 
@@ -217,16 +220,16 @@ Completion item for component tags.
 ```typescript
 interface ComponentCompletionItem {
   /** Tag name to insert */
-  tagName: string
+  tagName: string;
 
   /** Required props for snippet generation */
-  requiredProps: string[]
+  requiredProps: string[];
 
   /** Optional props for documentation */
-  optionalProps: Array<{ name: string; default: string }>
+  optionalProps: Array<{ name: string; default: string }>;
 
   /** File path for go-to-definition */
-  filePath: string
+  filePath: string;
 }
 ```
 
@@ -236,27 +239,27 @@ interface ComponentCompletionItem {
 
 ### PropDeclaration Validation
 
-| Field | Rule |
-|-------|------|
-| name | Must be valid identifier (alphanumeric + underscore, not starting with number) |
-| required | Mutually exclusive with defaultValue being defined |
-| defaultValue | Must be valid expression (parsed by ExpressionParser) |
+| Field        | Rule                                                                           |
+| ------------ | ------------------------------------------------------------------------------ |
+| name         | Must be valid identifier (alphanumeric + underscore, not starting with number) |
+| required     | Mutually exclusive with defaultValue being defined                             |
+| defaultValue | Must be valid expression (parsed by ExpressionParser)                          |
 
 ### ComponentInfo Validation
 
-| Field | Rule |
-|-------|------|
-| tagName | Must start with uppercase letter; dot-separated segments each start uppercase |
-| filePath | Must exist and be readable .blade file |
-| namespace | Must match folder structure |
+| Field     | Rule                                                                          |
+| --------- | ----------------------------------------------------------------------------- |
+| tagName   | Must start with uppercase letter; dot-separated segments each start uppercase |
+| filePath  | Must exist and be readable .blade file                                        |
+| namespace | Must match folder structure                                                   |
 
 ### ProjectConfig Validation
 
-| Field | Rule |
-|-------|------|
-| rootPath | Must be absolute path to existing directory |
-| entry | Must exist as file in rootPath |
-| schema | If present, must be valid JSON and valid JSON Schema |
+| Field    | Rule                                                 |
+| -------- | ---------------------------------------------------- |
+| rootPath | Must be absolute path to existing directory          |
+| entry    | Must exist as file in rootPath                       |
+| schema   | If present, must be valid JSON and valid JSON Schema |
 
 ---
 

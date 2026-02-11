@@ -26,8 +26,8 @@ export interface TemplateLoader {
 
 ```typescript
 export interface CompileOptions {
-  loader?: TemplateLoader;    // BEING REMOVED
-  maxLoadDepth?: number;       // BEING REMOVED
+  loader?: TemplateLoader; // BEING REMOVED
+  maxLoadDepth?: number; // BEING REMOVED
   // ...remaining options stay
 }
 ```
@@ -44,6 +44,7 @@ The following entities remain as-is:
 ## Relationships
 
 No relationship changes. Components continue to be:
+
 1. Defined inline in templates using `<template:Name>` syntax
 2. Stored in the `components` Map of the compiled template root
 3. Referenced by `ComponentNode` instances in the AST
@@ -51,6 +52,7 @@ No relationship changes. Components continue to be:
 ## Validation Rules
 
 No new validation rules. Existing component validation remains:
+
 - Component names must start with capital letter
 - Required props must be provided
 - Circular dependencies prevented (not applicable without external loading)

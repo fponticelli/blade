@@ -3,6 +3,7 @@
 Auto-generated from all feature plans. Last updated: 2025-11-25
 
 ## Active Technologies
+
 - TypeScript 5.7.2 (ESM modules) + @bladets/template ^0.2.0, @bladets/tempo ^0.1.1, vscode-languageserver ^9.0.1 (011-resume-sample-fix)
 - N/A (file-based template processing) (011-resume-sample-fix)
 
@@ -40,6 +41,7 @@ npm test && npm run lint
 TypeScript 5.x (ESM modules): Follow standard conventions
 
 ## Recent Changes
+
 - 011-resume-sample-fix: Added TypeScript 5.7.2 (ESM modules) + @bladets/template ^0.2.0, @bladets/tempo ^0.1.1, vscode-languageserver ^9.0.1
 
 - 010-blade-tempo-package: Added TypeScript 5.7.2 (ESM modules) + @tempots/dom (peer), @bladets/template (peer)

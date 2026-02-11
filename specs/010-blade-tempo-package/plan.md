@@ -21,17 +21,18 @@ Create `@bladets/tempo`, a new npm package that converts compiled Blade template
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Type Safety First | PASS | TypeScript throughout, leverages Blade's typed AST |
-| II. Source Auditability | PASS | Source tracking attributes preserved in DOM output |
-| III. Security by Default | PASS | HTML escaping inherited from Blade evaluator, no dynamic code execution |
-| IV. Component Isolation | PASS | Blade component scope isolation maintained |
-| V. Developer Experience | PASS | Simple API (5 lines to render), TypeScript types exported |
+| Principle                | Status | Notes                                                                   |
+| ------------------------ | ------ | ----------------------------------------------------------------------- |
+| I. Type Safety First     | PASS   | TypeScript throughout, leverages Blade's typed AST                      |
+| II. Source Auditability  | PASS   | Source tracking attributes preserved in DOM output                      |
+| III. Security by Default | PASS   | HTML escaping inherited from Blade evaluator, no dynamic code execution |
+| IV. Component Isolation  | PASS   | Blade component scope isolation maintained                              |
+| V. Developer Experience  | PASS   | Simple API (5 lines to render), TypeScript types exported               |
 
 **Quality Standards**:
+
 - Unit tests for each node type conversion
 - Integration tests for reactive update scenarios
 - Bundle size monitoring in CI

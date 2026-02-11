@@ -21,17 +21,18 @@ Remove the `@load` directive concept from the Blade template system. This is a s
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Type Safety First | PASS | Removal simplifies type surface; no type safety impact |
-| II. Source Auditability | PASS | Not affected by this change |
-| III. Security by Default | PASS | Removing dynamic loading is security-positive |
-| IV. Component Isolation | PASS | Inline components remain fully supported |
-| V. Developer Experience | PASS | Cleaner docs/LSP without non-functional @load references |
+| Principle                | Status | Notes                                                    |
+| ------------------------ | ------ | -------------------------------------------------------- |
+| I. Type Safety First     | PASS   | Removal simplifies type surface; no type safety impact   |
+| II. Source Auditability  | PASS   | Not affected by this change                              |
+| III. Security by Default | PASS   | Removing dynamic loading is security-positive            |
+| IV. Component Isolation  | PASS   | Inline components remain fully supported                 |
+| V. Developer Experience  | PASS   | Cleaner docs/LSP without non-functional @load references |
 
 **Quality Standards Check**:
+
 - Testing: Removing @load test case; existing tests will pass
 - Documentation: Will update SPECIFICATION.md (breaking change documented)
 - Code Review: All changes pass typecheck, lint, and tests
@@ -78,19 +79,19 @@ packages/blade/
 
 ## Files to Modify
 
-| File | Change Type | Description |
-|------|-------------|-------------|
-| `packages/blade/src/compiler/index.ts` | DELETE | Remove `TemplateLoader` interface, `loader` and `maxLoadDepth` from `CompileOptions` |
-| `packages/blade/src/ast/types.ts` | EDIT | Remove `@load` reference from `ComponentDefinition` JSDoc |
-| `packages/blade/src/lsp/providers/hover.ts` | DELETE | Remove `load` entry from hover documentation |
-| `packages/blade/tests/compiler.test.ts` | DELETE | Remove `should use custom loader for components` test |
-| `packages/blade/tests/README.md` | EDIT | Remove mention of custom component loaders |
-| `docs/SPECIFICATION.md` | DELETE | Remove sections 3.6 (@load syntax), 7.1 (@load processing), 7.3 (loader behavior), grammar rule, and examples |
+| File                                        | Change Type | Description                                                                                                   |
+| ------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- |
+| `packages/blade/src/compiler/index.ts`      | DELETE      | Remove `TemplateLoader` interface, `loader` and `maxLoadDepth` from `CompileOptions`                          |
+| `packages/blade/src/ast/types.ts`           | EDIT        | Remove `@load` reference from `ComponentDefinition` JSDoc                                                     |
+| `packages/blade/src/lsp/providers/hover.ts` | DELETE      | Remove `load` entry from hover documentation                                                                  |
+| `packages/blade/tests/compiler.test.ts`     | DELETE      | Remove `should use custom loader for components` test                                                         |
+| `packages/blade/tests/README.md`            | EDIT        | Remove mention of custom component loaders                                                                    |
+| `docs/SPECIFICATION.md`                     | DELETE      | Remove sections 3.6 (@load syntax), 7.1 (@load processing), 7.3 (loader behavior), grammar rule, and examples |
 
 ## Risk Assessment
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Breaking external consumers using TemplateLoader | Low | Medium | Feature was never implemented in parser; unlikely anyone uses it |
-| Missing a reference to @load | Low | Low | Grep-based search ensures complete removal |
-| Tests fail after removal | Low | High | Run full test suite; loader test is the only one using @load |
+| Risk                                             | Likelihood | Impact | Mitigation                                                       |
+| ------------------------------------------------ | ---------- | ------ | ---------------------------------------------------------------- |
+| Breaking external consumers using TemplateLoader | Low        | Medium | Feature was never implemented in parser; unlikely anyone uses it |
+| Missing a reference to @load                     | Low        | Low    | Grep-based search ensures complete removal                       |
+| Tests fail after removal                         | Low        | High   | Run full test suite; loader test is the only one using @load     |

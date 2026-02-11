@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: User description: "Project-based Template Compilation with Auto-loaded Components, Dot-notation Namespacing, and Schema-driven LSP"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Compile Multi-file Template Project (Priority: P1)
 
@@ -151,7 +151,7 @@ The LSP validates that sample JSON files conform to the project's `schema.json`.
 - How does the system behave when `schema.json` contains invalid JSON?
 - What happens when `samples/` contains non-JSON files?
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -207,7 +207,7 @@ The LSP validates that sample JSON files conform to the project's `schema.json`.
 - **Sample**: Example data files in `samples/` directory used for LSP hints and schema validation.
 - **Namespace**: The dot-notation path derived from folder structure (e.g., `Components.Form` for `components/form/`).
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

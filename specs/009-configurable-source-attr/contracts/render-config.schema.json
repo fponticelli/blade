@@ -18,13 +18,7 @@
           "description": "Valid HTML attribute name prefix"
         }
       ],
-      "examples": [
-        "rd-",
-        "data-track-",
-        "audit-",
-        "",
-        "my_prefix_"
-      ]
+      "examples": ["rd-", "data-track-", "audit-", "", "my_prefix_"]
     }
   }
 }

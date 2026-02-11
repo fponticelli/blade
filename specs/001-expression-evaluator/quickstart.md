@@ -20,16 +20,16 @@ const scope: Scope = {
   locals: {},
   data: {
     user: { name: 'Alice', age: 30 },
-    order: { total: 99.99, items: [{ price: 50 }, { price: 49.99 }] }
+    order: { total: 99.99, items: [{ price: 50 }, { price: 49.99 }] },
   },
-  globals: { currency: 'USD' }
+  globals: { currency: 'USD' },
 };
 
 // Create evaluation context
 const context: EvaluationContext = {
   scope,
   helpers: {},
-  config: { maxFunctionDepth: 10, maxRecursionDepth: 50 }
+  config: { maxFunctionDepth: 10, maxRecursionDepth: 50 },
 };
 
 // Evaluate a path expression (AST node)
@@ -37,10 +37,13 @@ const pathNode = {
   kind: 'path' as const,
   segments: [
     { kind: 'key' as const, key: 'user' },
-    { kind: 'key' as const, key: 'name' }
+    { kind: 'key' as const, key: 'name' },
   ],
   isGlobal: false,
-  location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 10, offset: 9 } }
+  location: {
+    start: { line: 1, column: 1, offset: 0 },
+    end: { line: 1, column: 10, offset: 9 },
+  },
 };
 
 const result = evaluate(pathNode, context);
@@ -54,18 +57,19 @@ import { evaluate } from '@bladets/template';
 import type { HelperFunction, Scope } from '@bladets/template';
 
 // Define a helper function
-const formatCurrency: HelperFunction = (scope, setWarning) => (value: unknown) => {
-  const currency = scope.globals.currency ?? 'USD';
-  const num = Number(value);
-  if (isNaN(num)) {
-    setWarning(`formatCurrency received non-numeric value: ${value}`);
-    return String(value);
-  }
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency as string
-  }).format(num);
-};
+const formatCurrency: HelperFunction =
+  (scope, setWarning) => (value: unknown) => {
+    const currency = scope.globals.currency ?? 'USD';
+    const num = Number(value);
+    if (isNaN(num)) {
+      setWarning(`formatCurrency received non-numeric value: ${value}`);
+      return String(value);
+    }
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency as string,
+    }).format(num);
+  };
 
 const sum: HelperFunction = (scope, setWarning) => (arr: unknown) => {
   if (!Array.isArray(arr)) {
@@ -79,31 +83,42 @@ const context: EvaluationContext = {
   scope: {
     locals: {},
     data: { items: [{ price: 10 }, { price: 20 }, { price: 30 }] },
-    globals: { currency: 'EUR' }
+    globals: { currency: 'EUR' },
   },
   helpers: { formatCurrency, sum },
-  config: { maxFunctionDepth: 10, maxRecursionDepth: 50 }
+  config: { maxFunctionDepth: 10, maxRecursionDepth: 50 },
 };
 
 // Evaluate: sum(items[*].price)
 const callNode = {
   kind: 'call' as const,
   callee: 'sum',
-  args: [{
-    kind: 'wildcard' as const,
-    path: {
-      kind: 'path' as const,
-      segments: [
-        { kind: 'key' as const, key: 'items' },
-        { kind: 'star' as const },
-        { kind: 'key' as const, key: 'price' }
-      ],
-      isGlobal: false,
-      location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 20, offset: 19 } }
+  args: [
+    {
+      kind: 'wildcard' as const,
+      path: {
+        kind: 'path' as const,
+        segments: [
+          { kind: 'key' as const, key: 'items' },
+          { kind: 'star' as const },
+          { kind: 'key' as const, key: 'price' },
+        ],
+        isGlobal: false,
+        location: {
+          start: { line: 1, column: 1, offset: 0 },
+          end: { line: 1, column: 20, offset: 19 },
+        },
+      },
+      location: {
+        start: { line: 1, column: 1, offset: 0 },
+        end: { line: 1, column: 20, offset: 19 },
+      },
     },
-    location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 20, offset: 19 } }
-  }],
-  location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 25, offset: 24 } }
+  ],
+  location: {
+    start: { line: 1, column: 1, offset: 0 },
+    end: { line: 1, column: 25, offset: 24 },
+  },
 };
 
 const total = evaluate(callNode, context);
@@ -158,11 +173,15 @@ Path access is implicitly null-safe:
 const scope: Scope = {
   locals: {},
   data: { user: null },
-  globals: {}
+  globals: {},
 };
 
 // $user.profile.name returns undefined (no error)
-const result = evaluate(userProfileNamePath, { scope, helpers: {}, config: defaultConfig });
+const result = evaluate(userProfileNamePath, {
+  scope,
+  helpers: {},
+  config: defaultConfig,
+});
 console.log(result); // undefined
 ```
 
@@ -174,7 +193,7 @@ Use the `$.` prefix for global access:
 const scope: Scope = {
   locals: { currency: 'EUR' },
   data: { currency: 'GBP' },
-  globals: { currency: 'USD' }
+  globals: { currency: 'USD' },
 };
 
 // $currency → 'EUR' (locals)
@@ -216,7 +235,9 @@ try {
   const result = evaluate(expression, context);
 } catch (error) {
   if (error instanceof EvaluationError) {
-    console.error(`Evaluation error at line ${error.location.start.line}: ${error.message}`);
+    console.error(
+      `Evaluation error at line ${error.location.start.line}: ${error.message}`
+    );
     console.error(`Error code: ${error.code}`);
   } else {
     throw error;

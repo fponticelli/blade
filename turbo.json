@@ -38,18 +38,9 @@
       "outputs": []
     },
     "check": {
-      "dependsOn": [
-        "^build"
-      ],
-      "inputs": [
-        "src/**",
-        "package.json",
-        "tsconfig.json",
-        "vite.config.ts"
-      ],
-      "outputs": [
-        "dist/**"
-      ]
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "package.json", "tsconfig.json", "vite.config.ts"],
+      "outputs": ["dist/**"]
     },
     "clean": {
       "cache": false

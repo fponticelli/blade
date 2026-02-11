@@ -35,32 +35,32 @@ my-template/
 ### Compiling a Project
 
 ```typescript
-import { compileProject, render } from 'blade'
+import { compileProject, render } from 'blade';
 
 // Compile the project
-const result = await compileProject('/path/to/my-template')
+const result = await compileProject('/path/to/my-template');
 
 if (!result.success) {
-  console.error('Compilation errors:', result.errors)
-  process.exit(1)
+  console.error('Compilation errors:', result.errors);
+  process.exit(1);
 }
 
 // Render with data
 const html = render(result.ast, {
   user: { name: 'John', email: 'john@example.com' },
-  items: [{ id: 1, name: 'Item 1' }]
-})
+  items: [{ id: 1, name: 'Item 1' }],
+});
 ```
 
 ### Single File with Project Context
 
 ```typescript
-import { compile } from 'blade'
+import { compile } from 'blade';
 
 // Compile a single file with access to project components
 const result = compile(templateSource, {
-  projectRoot: '/path/to/my-template'
-})
+  projectRoot: '/path/to/my-template',
+});
 ```
 
 ---
@@ -120,11 +120,11 @@ components/
 
 ### Folder Name Conversion
 
-| Folder Name | Component Prefix |
-|-------------|------------------|
-| `form` | `Form` |
-| `form-helpers` | `FormHelpers` |
-| `form_utils` | `FormUtils` |
+| Folder Name    | Component Prefix |
+| -------------- | ---------------- |
+| `form`         | `Form`           |
+| `form-helpers` | `FormHelpers`    |
+| `form_utils`   | `FormUtils`      |
 
 ### Usage
 
@@ -152,7 +152,7 @@ my-template/
 To compile the nested project:
 
 ```typescript
-await compileProject('/path/to/my-template/admin')
+await compileProject('/path/to/my-template/admin');
 ```
 
 ---
@@ -191,6 +191,7 @@ Create `schema.json` to define prop types for LSP intelligence:
 ### LSP Benefits
 
 With `schema.json`, the LSP provides:
+
 - Property completions after `$user.`
 - Type information on hover
 - Validation of sample files
@@ -223,6 +224,7 @@ Add example data files to `samples/` for hover hints:
 ```
 
 Hovering over `$user.name` in VS Code shows:
+
 ```
 $user.name
 Type: string
@@ -266,6 +268,7 @@ Warning: Invalid @props syntax at button.blade:1.
 ### Component Completions
 
 Type `<` to see available components:
+
 ```
 <Bu|
   → Button
@@ -276,6 +279,7 @@ Type `<` to see available components:
 ### Prop Completions
 
 Inside a component tag, get prop suggestions:
+
 ```blade
 <Button |
   → label (required)
@@ -299,15 +303,15 @@ Hover over variables for type and example information from schema and samples.
 
 ```typescript
 interface ProjectOptions {
-  entry?: string  // Default: 'index.blade'
+  entry?: string; // Default: 'index.blade'
 }
 
 interface ProjectResult {
-  ast: RootNode
-  context: ProjectContext
-  warnings: Diagnostic[]
-  errors: Diagnostic[]
-  success: boolean
+  ast: RootNode;
+  context: ProjectContext;
+  warnings: Diagnostic[];
+  errors: Diagnostic[];
+  success: boolean;
 }
 ```
 
@@ -315,14 +319,14 @@ interface ProjectResult {
 
 ```typescript
 interface CompileOptions {
-  projectRoot?: string  // Enable component resolution
+  projectRoot?: string; // Enable component resolution
 }
 ```
 
 ### discoverComponents(path)
 
 ```typescript
-const components = await discoverComponents('/path/to/project')
+const components = await discoverComponents('/path/to/project');
 // Map<string, ComponentInfo>
 ```
 

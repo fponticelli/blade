@@ -16,6 +16,7 @@
 ## Path Conventions
 
 Based on plan.md structure:
+
 - **LSP Server**: `packages/blade/src/lsp/`
 - **VS Code Extension**: `packages/blade-vscode/`
 - **Tests**: `packages/blade/tests/lsp/`

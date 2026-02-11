@@ -41,7 +41,10 @@ export async function renderTemplate(
     );
 
     console.log('[Preview] Project root:', projectRoot);
-    console.log('[Preview] Discovered components:', Array.from(projectComponents.keys()));
+    console.log(
+      '[Preview] Discovered components:',
+      Array.from(projectComponents.keys())
+    );
     console.log('[Preview] Component count:', projectComponents.size);
 
     // Compile the template with project root for component resolution
@@ -53,14 +56,20 @@ export async function renderTemplate(
     // Merge project components into the compiled template's components
     // Create a new mutable map with all components
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mergedComponents = new Map(compileResult.root.components) as Map<string, any>;
+    const mergedComponents = new Map(compileResult.root.components) as Map<
+      string,
+      any
+    >;
     for (const [name, def] of projectComponents) {
       if (!mergedComponents.has(name)) {
         mergedComponents.set(name, def);
       }
     }
 
-    console.log('[Preview] Merged component names:', Array.from(mergedComponents.keys()));
+    console.log(
+      '[Preview] Merged component names:',
+      Array.from(mergedComponents.keys())
+    );
 
     // Create a new compile result with merged components
     const mergedCompileResult = {
@@ -71,7 +80,10 @@ export async function renderTemplate(
       },
     };
 
-    console.log('[Preview] mergedCompileResult.root.components:', Array.from(mergedCompileResult.root.components.keys()));
+    console.log(
+      '[Preview] mergedCompileResult.root.components:',
+      Array.from(mergedCompileResult.root.components.keys())
+    );
 
     // Check for compilation diagnostics (errors and warnings)
     if (compileResult.diagnostics && compileResult.diagnostics.length > 0) {
@@ -231,7 +243,7 @@ async function discoverAndCompileComponents(
       const baseName = file.replace('.blade', '');
       const componentName = baseName
         .split('-')
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
         .join('');
 
       try {
@@ -253,12 +265,19 @@ async function discoverAndCompileComponents(
         const props = propsResult.directive?.props ?? [];
         const componentDef = {
           name: componentName,
-          props: props.map((p: { name: string; required: boolean; defaultValue?: unknown; location: unknown }) => ({
-            name: p.name,
-            required: p.required,
-            defaultValue: p.defaultValue,
-            location: p.location,
-          })),
+          props: props.map(
+            (p: {
+              name: string;
+              required: boolean;
+              defaultValue?: unknown;
+              location: unknown;
+            }) => ({
+              name: p.name,
+              required: p.required,
+              defaultValue: p.defaultValue,
+              location: p.location,
+            })
+          ),
           body: compiled.root.children,
           location: compiled.root.location,
         };

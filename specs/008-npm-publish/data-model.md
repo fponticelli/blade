@@ -15,17 +15,17 @@ The package.json file serves as the primary configuration artifact for NPM publi
 
 **Key Fields**:
 
-| Field | Type | Purpose |
-|-------|------|---------|
-| `name` | string | Scoped package name (`@bladets/template`) |
-| `version` | semver | Package version for registry |
-| `type` | string | Module system default (`module` for ESM) |
+| Field     | Type   | Purpose                                    |
+| --------- | ------ | ------------------------------------------ |
+| `name`    | string | Scoped package name (`@bladets/template`)  |
+| `version` | semver | Package version for registry               |
+| `type`    | string | Module system default (`module` for ESM)   |
 | `exports` | object | Conditional exports for ESM/CJS resolution |
-| `main` | string | Legacy CJS entry point (fallback) |
-| `module` | string | Legacy ESM entry point (bundlers) |
-| `types` | string | TypeScript declaration entry |
-| `files` | array | Files included in published tarball |
-| `engines` | object | Node.js version requirement |
+| `main`    | string | Legacy CJS entry point (fallback)          |
+| `module`  | string | Legacy ESM entry point (bundlers)          |
+| `types`   | string | TypeScript declaration entry               |
+| `files`   | array  | Files included in published tarball        |
+| `engines` | object | Node.js version requirement                |
 
 ### Distribution Files
 
@@ -33,15 +33,15 @@ Build artifacts produced by Vite and included in the npm package.
 
 **File Structure**:
 
-| File | Format | Purpose |
-|------|--------|---------|
-| `dist/index.js` | ESM | Main entry for `import` |
-| `dist/index.cjs` | CJS | Main entry for `require` |
-| `dist/index.d.ts` | TypeScript | Type declarations |
-| `dist/lsp/server.js` | ESM | LSP server module (ESM) |
-| `dist/lsp/server.cjs` | CJS | LSP server module (CJS) |
-| `dist/server.d.ts` | TypeScript | LSP server type declarations |
-| `dist/*.js.map` | JSON | Source maps for debugging |
+| File                  | Format     | Purpose                      |
+| --------------------- | ---------- | ---------------------------- |
+| `dist/index.js`       | ESM        | Main entry for `import`      |
+| `dist/index.cjs`      | CJS        | Main entry for `require`     |
+| `dist/index.d.ts`     | TypeScript | Type declarations            |
+| `dist/lsp/server.js`  | ESM        | LSP server module (ESM)      |
+| `dist/lsp/server.cjs` | CJS        | LSP server module (CJS)      |
+| `dist/server.d.ts`    | TypeScript | LSP server type declarations |
+| `dist/*.js.map`       | JSON       | Source maps for debugging    |
 
 ## Relationships
 

@@ -6,6 +6,7 @@
 ## Summary
 
 Add project compilation mode to Blade enabling multi-file template projects with:
+
 - Convention-based component discovery from folder structure
 - `@props()` directive for declaring component inputs
 - Dot-notation namespacing for nested folders (`<Components.Form.Input />`)
@@ -17,7 +18,7 @@ This extends the existing compiler and LSP infrastructure with filesystem-aware 
 
 **Language/Version**: TypeScript 5.7.2 (ESM modules)
 **Primary Dependencies**: vscode-languageserver ^9.0.1, vscode-languageclient ^9.0.1 (existing)
-**Storage**: Filesystem-based (project folders, .blade files, schema.json, samples/*.json)
+**Storage**: Filesystem-based (project folders, .blade files, schema.json, samples/\*.json)
 **Testing**: Vitest with coverage
 **Target Platform**: Node.js (compiler), VS Code (LSP extension)
 **Project Type**: Monorepo (packages/blade, packages/blade-vscode)
@@ -27,17 +28,18 @@ This extends the existing compiler and LSP infrastructure with filesystem-aware 
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Type Safety First | ✅ PASS | `@props()` declarations enable compile-time validation; JSON Schema support for data contracts |
-| II. Source Auditability | ✅ PASS | Component resolution paths tracked via existing `propPathMapping`; file origins preserved |
-| III. Security by Default | ✅ PASS | No new code execution paths; component scope isolation maintained |
-| IV. Component Isolation | ✅ PASS | Components only access props; template-passed components shadow auto-loaded (clarified) |
-| V. Developer Experience | ✅ PASS | LSP completions, go-to-definition, schema-driven hints enhance productivity |
+| Principle                | Status  | Notes                                                                                          |
+| ------------------------ | ------- | ---------------------------------------------------------------------------------------------- |
+| I. Type Safety First     | ✅ PASS | `@props()` declarations enable compile-time validation; JSON Schema support for data contracts |
+| II. Source Auditability  | ✅ PASS | Component resolution paths tracked via existing `propPathMapping`; file origins preserved      |
+| III. Security by Default | ✅ PASS | No new code execution paths; component scope isolation maintained                              |
+| IV. Component Isolation  | ✅ PASS | Components only access props; template-passed components shadow auto-loaded (clarified)        |
+| V. Developer Experience  | ✅ PASS | LSP completions, go-to-definition, schema-driven hints enhance productivity                    |
 
 **Quality Standards Compliance**:
+
 - All new code will have unit tests (project discovery, @props parsing, component resolution)
 - Integration tests for multi-file project scenarios
 - Error messages will include source locations and actionable context
@@ -119,6 +121,7 @@ packages/blade/
 ### Constitution Re-check (Post-Phase 1) ✅
 
 All principles continue to pass. Design decisions reinforce:
+
 - Type safety via PropDeclaration types and JSON Schema integration
 - Source auditability via ComponentInfo.filePath tracking
 - Security via unchanged sandboxing (no new code execution)

@@ -81,17 +81,20 @@ lack of tooling support make debugging impossible for complex templates.
 ## Quality Standards
 
 **Testing Requirements**:
+
 - All parsing and rendering code MUST have unit tests
 - Expression evaluation MUST cover all operator precedence and coercion cases
 - Integration tests MUST verify end-to-end template scenarios
 - Parser fuzzing SHOULD be used to discover edge cases
 
 **Performance Expectations**:
+
 - Compilation is a one-time cost; optimize for render-time performance
 - Memory usage during rendering MUST be bounded by resource limits
 - Large dataset handling MUST not cause exponential memory growth
 
 **Documentation Standards**:
+
 - Public API changes MUST update the specification document
 - Breaking changes MUST be documented with migration guidance
 - Helper functions MUST include signature and example usage
@@ -99,17 +102,20 @@ lack of tooling support make debugging impossible for complex templates.
 ## Development Workflow
 
 **Code Review Requirements**:
+
 - All changes MUST pass type checking (`npm run typecheck`)
 - All changes MUST pass linting (`npm run lint`)
 - All changes MUST pass existing tests (`npm test`)
 - New features MUST include tests
 
 **Branching Strategy**:
+
 - Feature branches for new work
 - Main branch MUST always be deployable
 - Breaking changes require version bump planning
 
 **Commit Standards**:
+
 - Use conventional commits format
 - Reference issues where applicable
 - Keep commits focused and atomic
@@ -121,6 +127,7 @@ standards for the Blade project. All pull requests and code reviews MUST verify
 compliance with these principles.
 
 **Amendment Procedure**:
+
 1. Propose changes via pull request to constitution.md
 2. Document rationale for changes
 3. Require explicit approval before merge
@@ -130,6 +137,7 @@ compliance with these principles.
    - PATCH: Clarifications and wording fixes
 
 **Compliance Review**:
+
 - Constitution Check in plan-template.md gates implementation work
 - Violations MUST be justified in Complexity Tracking table
 - Unjustified violations block feature completion

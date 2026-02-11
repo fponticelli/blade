@@ -21,17 +21,18 @@ Implement the template renderer for Blade - the runtime component that transform
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| **I. Type Safety First** | ✅ PASS | TypeScript implementation; type coercion uses Phase 5 evaluator |
-| **II. Source Auditability** | ✅ PASS | rd-source, rd-source-op, rd-source-note attributes implemented per spec |
-| **III. Security by Default** | ✅ PASS | HTML escaping by default; resource limits enforced; only registered helpers |
-| **IV. Component Isolation** | ✅ PASS | Components get isolated scope with only props; no parent access |
-| **V. Developer Experience** | ✅ PASS | Errors include source locations; simple render() API; factory pattern for reuse |
+| Principle                    | Status  | Notes                                                                           |
+| ---------------------------- | ------- | ------------------------------------------------------------------------------- |
+| **I. Type Safety First**     | ✅ PASS | TypeScript implementation; type coercion uses Phase 5 evaluator                 |
+| **II. Source Auditability**  | ✅ PASS | rd-source, rd-source-op, rd-source-note attributes implemented per spec         |
+| **III. Security by Default** | ✅ PASS | HTML escaping by default; resource limits enforced; only registered helpers     |
+| **IV. Component Isolation**  | ✅ PASS | Components get isolated scope with only props; no parent access                 |
+| **V. Developer Experience**  | ✅ PASS | Errors include source locations; simple render() API; factory pattern for reuse |
 
 **Quality Standards Compliance**:
+
 - ✅ Unit tests for all AST node rendering
 - ✅ Integration tests for end-to-end template scenarios
 - ✅ No external dependencies

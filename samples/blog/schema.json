@@ -24,10 +24,24 @@
         "slug": { "type": "string", "description": "URL slug" },
         "excerpt": { "type": "string", "description": "Short excerpt" },
         "content": { "type": "string", "description": "Post content (HTML)" },
-        "publishedAt": { "type": "string", "format": "date-time", "description": "Publication date" },
-        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update date" },
-        "readingTime": { "type": "number", "description": "Estimated reading time in minutes" },
-        "featured": { "type": "boolean", "description": "Whether this is a featured post" },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Publication date"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update date"
+        },
+        "readingTime": {
+          "type": "number",
+          "description": "Estimated reading time in minutes"
+        },
+        "featured": {
+          "type": "boolean",
+          "description": "Whether this is a featured post"
+        },
         "author": {
           "type": "object",
           "description": "Post author",
@@ -55,7 +69,11 @@
               "author": { "type": "string", "description": "Commenter name" },
               "email": { "type": "string", "description": "Commenter email" },
               "content": { "type": "string", "description": "Comment text" },
-              "createdAt": { "type": "string", "format": "date-time", "description": "Comment date" },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Comment date"
+              },
               "likes": { "type": "number", "description": "Number of likes" },
               "replies": {
                 "type": "array",

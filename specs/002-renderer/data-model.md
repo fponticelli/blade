@@ -35,7 +35,7 @@ interface RenderContext {
 
   // Component context
   components: Map<string, ComponentDefinition>;
-  slots: Map<string, TemplateNode[]>;  // Caller's slot content
+  slots: Map<string, TemplateNode[]>; // Caller's slot content
 }
 ```
 
@@ -43,13 +43,13 @@ interface RenderContext {
 
 ```typescript
 interface RenderConfig {
-  includeComments: boolean;        // Render HTML comments
-  includeSourceTracking: boolean;  // Add rd-source attributes
-  preserveWhitespace: boolean;     // Preserve all whitespace
-  htmlEscape: boolean;             // Escape expression values
-  sourceTrackingPrefix: string;    // Default: "rd-"
+  includeComments: boolean; // Render HTML comments
+  includeSourceTracking: boolean; // Add rd-source attributes
+  preserveWhitespace: boolean; // Preserve all whitespace
+  htmlEscape: boolean; // Escape expression values
+  sourceTrackingPrefix: string; // Default: "rd-"
   includeOperationTracking: boolean; // Add rd-source-op
-  includeNoteGeneration: boolean;  // Add rd-source-note
+  includeNoteGeneration: boolean; // Add rd-source-note
 }
 ```
 
@@ -78,13 +78,13 @@ interface RuntimeMetadata {
 
 ```typescript
 interface ResourceLimits {
-  maxLoopNesting: number;         // Default: 5
-  maxIterationsPerLoop: number;   // Default: 1000
-  maxTotalIterations: number;     // Default: 10000
-  maxFunctionCallDepth: number;   // Default: 10
-  maxExpressionNodes: number;     // Default: 1000
-  maxRecursionDepth: number;      // Default: 50
-  maxComponentDepth: number;      // Default: 10
+  maxLoopNesting: number; // Default: 5
+  maxIterationsPerLoop: number; // Default: 1000
+  maxTotalIterations: number; // Default: 10000
+  maxFunctionCallDepth: number; // Default: 10
+  maxExpressionNodes: number; // Default: 1000
+  maxRecursionDepth: number; // Default: 50
+  maxComponentDepth: number; // Default: 10
 }
 ```
 
@@ -104,6 +104,7 @@ class RenderError extends Error {
 ```
 
 **Error Codes**:
+
 - `LOOP_NESTING_EXCEEDED`: Loop nesting depth exceeded
 - `ITERATION_LIMIT_EXCEEDED`: Too many iterations
 - `COMPONENT_DEPTH_EXCEEDED`: Component nesting too deep
@@ -129,8 +130,8 @@ class ResourceLimitError extends RenderError {
 
 ```typescript
 interface Scope {
-  locals: Record<string, unknown>;  // Template-local variables
-  data: unknown;                    // Render data
+  locals: Record<string, unknown>; // Template-local variables
+  data: unknown; // Render data
   globals: Record<string, unknown>; // Global configuration
 }
 ```
@@ -168,9 +169,9 @@ function addToScope(
 
 ```typescript
 type ResolvedAttribute =
-  | { kind: 'present'; name: string }           // Boolean true
+  | { kind: 'present'; name: string } // Boolean true
   | { kind: 'value'; name: string; value: string } // String value
-  | { kind: 'omit' };                           // null/undefined/false
+  | { kind: 'omit' }; // null/undefined/false
 
 function resolveAttribute(
   attr: AttributeNode,
@@ -190,8 +191,8 @@ interface PathTracker {
   track(path: string): void;
   trackOperation(op: string): void;
 
-  getSourceAttribute(): string | null;      // "path1,path2"
-  getOperationAttribute(): string | null;   // "op1,op2"
+  getSourceAttribute(): string | null; // "path1,path2"
+  getOperationAttribute(): string | null; // "op1,op2"
 }
 ```
 
@@ -313,10 +314,10 @@ Initial State
 
 ## Validation Rules
 
-| Field | Rule | Error |
-|-------|------|-------|
-| loopNesting | <= limits.maxLoopNesting | ResourceLimitError |
-| totalIterations | <= limits.maxTotalIterations | ResourceLimitError |
-| componentDepth | <= limits.maxComponentDepth | ResourceLimitError |
-| component name | exists in components map | RenderError(UNKNOWN_COMPONENT) |
-| expression | valid per evaluator | EvaluationError (propagated) |
+| Field           | Rule                         | Error                          |
+| --------------- | ---------------------------- | ------------------------------ |
+| loopNesting     | <= limits.maxLoopNesting     | ResourceLimitError             |
+| totalIterations | <= limits.maxTotalIterations | ResourceLimitError             |
+| componentDepth  | <= limits.maxComponentDepth  | ResourceLimitError             |
+| component name  | exists in components map     | RenderError(UNKNOWN_COMPONENT) |
+| expression      | valid per evaluator          | EvaluationError (propagated)   |

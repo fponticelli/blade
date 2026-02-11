@@ -11,8 +11,19 @@ import type {
   SampleInfo,
   PreviewState,
 } from './types';
-import { findProjectRoot, isComponentFile, debounce, getNonce, hashProjectPath } from './utils';
-import { discoverSamples, loadSample, loadAllSamples, getDefaultSample } from './samples';
+import {
+  findProjectRoot,
+  isComponentFile,
+  debounce,
+  getNonce,
+  hashProjectPath,
+} from './utils';
+import {
+  discoverSamples,
+  loadSample,
+  loadAllSamples,
+  getDefaultSample,
+} from './samples';
 import { renderTemplate, validateSampleData } from './renderer';
 
 /**
@@ -33,7 +44,9 @@ export class PreviewPanelManager {
   /**
    * Get or create the singleton instance.
    */
-  public static getInstance(context: vscode.ExtensionContext): PreviewPanelManager {
+  public static getInstance(
+    context: vscode.ExtensionContext
+  ): PreviewPanelManager {
     if (!PreviewPanelManager.instance) {
       PreviewPanelManager.instance = new PreviewPanelManager(context);
     }
@@ -87,10 +100,7 @@ export class PreviewPanelManager {
    * Create a new webview panel.
    */
   private createPanel(): void {
-    const mediaPath = vscode.Uri.joinPath(
-      this.context.extensionUri,
-      'media'
-    );
+    const mediaPath = vscode.Uri.joinPath(this.context.extensionUri, 'media');
 
     this.panel = vscode.window.createWebviewPanel(
       'bladePreview',
@@ -114,11 +124,7 @@ export class PreviewPanelManager {
     );
 
     // Handle panel dispose
-    this.panel.onDidDispose(
-      () => this.handleDispose(),
-      null,
-      this.disposables
-    );
+    this.panel.onDidDispose(() => this.handleDispose(), null, this.disposables);
   }
 
   /**
@@ -129,28 +135,25 @@ export class PreviewPanelManager {
     this.debouncedRefresh = debounce(() => this.refresh(), 300);
 
     // Listen for text document changes
-    const textChangeDisposable = vscode.workspace.onDidChangeTextDocument(
-      (e) => {
-        if (
-          e.document.languageId === 'blade' &&
-          e.document.uri.fsPath === this.state?.activeFile
-        ) {
-          this.debouncedRefresh?.();
-        }
+    const textChangeDisposable = vscode.workspace.onDidChangeTextDocument(e => {
+      if (
+        e.document.languageId === 'blade' &&
+        e.document.uri.fsPath === this.state?.activeFile
+      ) {
+        this.debouncedRefresh?.();
       }
-    );
+    });
     this.disposables.push(textChangeDisposable);
 
     // Listen for active editor changes
     const editorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(
-      (editor) => this.handleEditorChange(editor)
+      editor => this.handleEditorChange(editor)
     );
     this.disposables.push(editorChangeDisposable);
 
     // Listen for sample file changes
-    const sampleWatcher = vscode.workspace.createFileSystemWatcher(
-      '**/samples/*.json'
-    );
+    const sampleWatcher =
+      vscode.workspace.createFileSystemWatcher('**/samples/*.json');
     sampleWatcher.onDidChange(() => this.refresh());
     sampleWatcher.onDidCreate(() => this.sendSamplesList());
     sampleWatcher.onDidDelete(() => this.sendSamplesList());
@@ -297,9 +300,10 @@ export class PreviewPanelManager {
 
     // Get template source
     const editor = vscode.window.activeTextEditor;
-    const templateSource = editor?.document.uri.fsPath === activeFile
-      ? editor.document.getText()
-      : await this.readFile(activeFile);
+    const templateSource =
+      editor?.document.uri.fsPath === activeFile
+        ? editor.document.getText()
+        : await this.readFile(activeFile);
 
     if (!templateSource) {
       this.postMessage({
@@ -311,7 +315,11 @@ export class PreviewPanelManager {
     }
 
     // Render template
-    const result = await renderTemplate(templateSource, projectRoot, sample.data);
+    const result = await renderTemplate(
+      templateSource,
+      projectRoot,
+      sample.data
+    );
 
     if (result.success && result.html) {
       this.state.lastSuccessfulHtml = result.html;
@@ -387,7 +395,9 @@ export class PreviewPanelManager {
     }
 
     // Import sample creation function
-    const { createComponentSample, parsePropsForSample } = await import('./samples.js');
+    const { createComponentSample, parsePropsForSample } = await import(
+      './samples.js'
+    );
 
     // Read the component file to parse props
     const componentPath = this.state.activeFile;
@@ -404,7 +414,9 @@ export class PreviewPanelManager {
       props
     );
 
-    vscode.window.showInformationMessage(`Created sample: ${path.basename(samplePath)}`);
+    vscode.window.showInformationMessage(
+      `Created sample: ${path.basename(samplePath)}`
+    );
 
     // Refresh samples list and preview
     await this.sendSamplesList();

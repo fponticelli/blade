@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: User description: "we should make the source attribute configurable"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Custom Attribute Prefix for Brand Consistency (Priority: P1)
 
@@ -59,7 +59,7 @@ A developer upgrading from a previous version of Blade expects the default behav
 - What happens when the prefix is an empty string? → System uses unprefixed attributes (`source`, `source-op`, `source-note`)
 - What happens when the prefix is very long (e.g., 100+ characters)? → Accepted as valid if characters are valid
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -75,7 +75,7 @@ A developer upgrading from a previous version of Blade expects the default behav
 
 - **RenderConfig**: Configuration object containing `sourceTrackingPrefix` field that determines the attribute name prefix
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

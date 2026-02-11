@@ -108,20 +108,20 @@
 
 ## Summary
 
-| Category | Item Count |
-|----------|------------|
-| API Contract Quality | 9 |
-| Integration Requirements | 8 |
-| Blade Feature Parity | 8 |
-| Error Handling & Resilience | 7 |
-| Performance Requirements | 6 |
-| Security Requirements | 3 |
-| Developer Experience | 5 |
-| Package Distribution | 6 |
-| Testing Requirements | 4 |
-| Assumptions & Dependencies | 3 |
-| Gaps & Ambiguities | 5 |
-| **Total** | **64** |
+| Category                    | Item Count |
+| --------------------------- | ---------- |
+| API Contract Quality        | 9          |
+| Integration Requirements    | 8          |
+| Blade Feature Parity        | 8          |
+| Error Handling & Resilience | 7          |
+| Performance Requirements    | 6          |
+| Security Requirements       | 3          |
+| Developer Experience        | 5          |
+| Package Distribution        | 6          |
+| Testing Requirements        | 4          |
+| Assumptions & Dependencies  | 3          |
+| Gaps & Ambiguities          | 5          |
+| **Total**                   | **64**     |
 
 ## Notes
 

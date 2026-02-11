@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: User description: "Expression Evaluator - Phase 5 implementation enabling execution of parsed template expressions"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Evaluate Simple Data Access (Priority: P1)
 
@@ -128,7 +128,7 @@ As a template author, I want variables to be resolved through a scope hierarchy 
 - What happens with `5 + null`? Arithmetic with null: `5`
 - What happens with `5 + undefined`? Results in `NaN`
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -156,7 +156,7 @@ As a template author, I want variables to be resolved through a scope hierarchy 
 - **Helper Function**: A registered function that receives scope for context-aware operations (formatting, aggregation)
 - **Path**: A series of property accesses like `order.customer.address.city` or array accesses like `items[0].name`
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

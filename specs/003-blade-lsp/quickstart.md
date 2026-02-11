@@ -42,6 +42,7 @@ Files with `.blade` extension are automatically recognized. You can also manuall
 ### Syntax Highlighting
 
 Open any `.blade` file to see:
+
 - HTML elements highlighted as HTML
 - Directives (`@if`, `@for`, `@match`) highlighted as keywords
 - Expressions (`${...}`) highlighted with embedded JS coloring
@@ -50,13 +51,16 @@ Open any `.blade` file to see:
 ### Autocompletion
 
 **Expression Completion** (inside `${...}`):
+
 - Type `${` then start typing to see variables
 - After a dot (e.g., `${user.`), see object properties
 - Helpers are suggested with signatures
 
 **Directive Completion** (after `@`):
+
 - Type `@` to see all directives
 - Snippets auto-insert proper structure:
+
   ```
   @if(|) {
 
@@ -64,16 +68,19 @@ Open any `.blade` file to see:
   ```
 
 **HTML Completion**:
+
 - Standard HTML tags and attributes
 - Dynamic attributes supported: `class={expression}`
 
 **Component Completion**:
+
 - Type `<` and component names are suggested
 - Inside component tags, props are suggested
 
 ### Diagnostics
 
 Errors appear as you type:
+
 - Syntax errors (red squiggles)
 - Unknown components (red)
 - Unused variables (gray/dim)
@@ -82,15 +89,18 @@ Errors appear as you type:
 ### Navigation
 
 **Go to Definition** (F12 or Ctrl+Click):
+
 - On component usage → jumps to `@component` definition
 - On variable → jumps to `@let` or `@for` declaration
 - On helper → jumps to helper definition (if source available)
 
 **Find References** (Shift+F12):
+
 - On component definition → lists all usages
 - On variable declaration → lists all usages
 
 **Hover** (mouse hover):
+
 - Variables show inferred type
 - Helpers show signature and description
 - Components show props documentation
@@ -246,14 +256,14 @@ Define helpers for completion:
 
 ## Keyboard Shortcuts
 
-| Action | Shortcut |
-|--------|----------|
-| Trigger Completion | Ctrl+Space |
-| Quick Fix | Ctrl+. |
-| Go to Definition | F12 or Ctrl+Click |
-| Find References | Shift+F12 |
-| Hover Info | Ctrl+K Ctrl+I |
-| Format Document | Shift+Alt+F |
+| Action             | Shortcut          |
+| ------------------ | ----------------- |
+| Trigger Completion | Ctrl+Space        |
+| Quick Fix          | Ctrl+.            |
+| Go to Definition   | F12 or Ctrl+Click |
+| Find References    | Shift+F12         |
+| Hover Info         | Ctrl+K Ctrl+I     |
+| Format Document    | Shift+Alt+F       |
 
 ## Troubleshooting
 

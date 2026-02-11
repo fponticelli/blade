@@ -13,11 +13,11 @@ This feature is a bug fix that doesn't introduce new data models. It modifies th
 
 The parser produces AST nodes defined in [ast/types.ts](../../packages/blade/src/ast/types.ts):
 
-| Node Type | Description | Affected by Fix |
-|-----------|-------------|-----------------|
-| `ElementNode` | HTML elements including `<style>` | Yes - children parsing |
-| `TextNode` | Text content with expression segments | Yes - raw content handling |
-| `TextSegment` | Literal or expression segment | Yes - expression extraction |
+| Node Type     | Description                           | Affected by Fix             |
+| ------------- | ------------------------------------- | --------------------------- |
+| `ElementNode` | HTML elements including `<style>`     | Yes - children parsing      |
+| `TextNode`    | Text content with expression segments | Yes - raw content handling  |
+| `TextSegment` | Literal or expression segment         | Yes - expression extraction |
 
 ### Text Segments (within TextNode)
 
@@ -28,6 +28,7 @@ type TextSegment =
 ```
 
 For raw content (style/script), segments will be:
+
 - `literal` - CSS/JS code between expressions
 - `expression` - `${...}` interpolations
 
@@ -37,9 +38,9 @@ The resume sample uses this data structure from `samples/resume/samples/data.jso
 
 ```typescript
 interface ResumeData {
-  fontFamily?: string;           // Optional, uses 'Arial' fallback
-  textColor: string;             // Required, e.g., "#4a4fb5"
-  borderColor: string;           // Required, e.g., "#4a4fb5"
+  fontFamily?: string; // Optional, uses 'Arial' fallback
+  textColor: string; // Required, e.g., "#4a4fb5"
+  borderColor: string; // Required, e.g., "#4a4fb5"
 
   includeWatermark: boolean;
   watermark: {

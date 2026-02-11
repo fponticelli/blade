@@ -32,7 +32,7 @@ const renderer = createTempoRenderer(template);
 // 4. Create reactive data
 const data = prop({
   name: 'Alice',
-  messages: ['Hello', 'Welcome', 'Goodbye']
+  messages: ['Hello', 'Welcome', 'Goodbye'],
 });
 
 // 5. Mount to DOM
@@ -80,16 +80,16 @@ const template = compile(`
 const renderer = createTempoRenderer(template);
 const data = prop({
   items: [
-    { name: 'Apple', price: 1.00 },
-    { name: 'Banana', price: 0.50 }
-  ]
+    { name: 'Apple', price: 1.0 },
+    { name: 'Banana', price: 0.5 },
+  ],
 });
 
 render(renderer(data), document.body);
 
 // Add item - list updates automatically
 data.value = {
-  items: [...data.value.items, { name: 'Orange', price: 0.75 }]
+  items: [...data.value.items, { name: 'Orange', price: 0.75 }],
 };
 ```
 
@@ -106,13 +106,13 @@ const template = compile(`
 const renderer = createTempoRenderer(template, {
   helpers: {
     formatCurrency: (n: number) => `$${n.toFixed(2)}`,
-    formatDate: (d: Date) => d.toLocaleDateString()
-  }
+    formatDate: (d: Date) => d.toLocaleDateString(),
+  },
 });
 
 const data = prop({
   total: 123.456,
-  createdAt: new Date()
+  createdAt: new Date(),
 });
 
 render(renderer(data), document.body);
@@ -130,8 +130,8 @@ const template = compile(`
 const renderer = createTempoRenderer(template, {
   globals: {
     siteName: 'My Awesome App',
-    version: '1.0.0'
-  }
+    version: '1.0.0',
+  },
 });
 
 const data = prop({}); // No data needed, using globals
@@ -152,23 +152,21 @@ const productTemplate = compile(`
 `);
 
 const ProductCard = createTempoRenderer(productTemplate, {
-  helpers: { formatCurrency: (n: number) => `$${n.toFixed(2)}` }
+  helpers: { formatCurrency: (n: number) => `$${n.toFixed(2)}` },
 });
 
 // Compose with regular Tempo components
 function App() {
   const products = prop([
     { name: 'Widget', price: 9.99 },
-    { name: 'Gadget', price: 19.99 }
+    { name: 'Gadget', price: 19.99 },
   ]);
 
   return html.div(
     html.h1('Product Catalog'),
     When(
       products.map(p => p.length > 0),
-      () => html.div(
-        ...products.value.map(p => ProductCard(prop(p)))
-      ),
+      () => html.div(...products.value.map(p => ProductCard(prop(p)))),
       () => html.p('No products available')
     )
   );
@@ -184,9 +182,12 @@ By default, expression errors are swallowed and logged:
 ```typescript
 const renderer = createTempoRenderer(template, {
   onError: (error, location) => {
-    console.error(`Template error at line ${location.start.line}:`, error.message);
+    console.error(
+      `Template error at line ${location.start.line}:`,
+      error.message
+    );
     // Optionally report to error tracking service
-  }
+  },
 });
 ```
 
@@ -207,7 +208,7 @@ const renderer = createTempoRenderer<UserData>(template);
 const data = prop<UserData>({
   name: 'Alice',
   email: 'alice@example.com',
-  preferences: { theme: 'dark' }
+  preferences: { theme: 'dark' },
 });
 
 // Type-safe updates

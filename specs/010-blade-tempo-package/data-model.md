@@ -26,11 +26,7 @@ import type {
 
 ```typescript
 // Already defined in @tempots/dom
-import type {
-  Renderable,
-  Signal,
-  Prop,
-} from '@tempots/dom';
+import type { Renderable, Signal, Prop } from '@tempots/dom';
 ```
 
 ### Package Types
@@ -39,13 +35,13 @@ import type {
 
 Configuration for creating a Tempo renderer from a Blade template.
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| helpers | `HelperRegistry` | No | `{}` | Custom helper functions for expressions |
-| globals | `Record<string, unknown>` | No | `{}` | Global variables accessible in template |
-| includeSourceTracking | `boolean` | No | `false` | Add rd-source attributes for debugging |
-| sourceTrackingPrefix | `string` | No | `'rd-'` | Prefix for source tracking attributes |
-| onError | `(error: Error, location: SourceLocation) => void` | No | console.warn | Error handler for runtime expression failures |
+| Field                 | Type                                               | Required | Default      | Description                                   |
+| --------------------- | -------------------------------------------------- | -------- | ------------ | --------------------------------------------- |
+| helpers               | `HelperRegistry`                                   | No       | `{}`         | Custom helper functions for expressions       |
+| globals               | `Record<string, unknown>`                          | No       | `{}`         | Global variables accessible in template       |
+| includeSourceTracking | `boolean`                                          | No       | `false`      | Add rd-source attributes for debugging        |
+| sourceTrackingPrefix  | `string`                                           | No       | `'rd-'`      | Prefix for source tracking attributes         |
+| onError               | `(error: Error, location: SourceLocation) => void` | No       | console.warn | Error handler for runtime expression failures |
 
 ```typescript
 interface TempoRenderOptions {
@@ -69,15 +65,15 @@ type TempoRenderer<T> = (data: Signal<T> | Prop<T>) => Renderable;
 
 Internal context passed through node converters during rendering.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| dataSignal | `Signal<unknown>` | The reactive data source |
-| scope | `Scope` | Current variable scope (locals + globals) |
-| helpers | `HelperRegistry` | Registered helper functions |
-| config | `RenderConfig` | Rendering configuration |
-| components | `Map<string, ComponentDefinition>` | Available component definitions |
-| slots | `Map<string, Renderable>` | Slot content from parent |
-| onError | `ErrorHandler` | Error callback |
+| Field      | Type                               | Description                               |
+| ---------- | ---------------------------------- | ----------------------------------------- |
+| dataSignal | `Signal<unknown>`                  | The reactive data source                  |
+| scope      | `Scope`                            | Current variable scope (locals + globals) |
+| helpers    | `HelperRegistry`                   | Registered helper functions               |
+| config     | `RenderConfig`                     | Rendering configuration                   |
+| components | `Map<string, ComponentDefinition>` | Available component definitions           |
+| slots      | `Map<string, Renderable>`          | Slot content from parent                  |
+| onError    | `ErrorHandler`                     | Error callback                            |
 
 ```typescript
 interface RenderContext {
@@ -132,19 +128,19 @@ type NodeConverter<T extends TemplateNode> = (
 
 ## Node Conversion Matrix
 
-| Blade Node Type | Output Renderable Type | Reactive Behavior |
-|-----------------|------------------------|-------------------|
-| TextNode (literal) | `text(string)` | Static |
-| TextNode (expr) | Signal-derived text | Updates on signal change |
-| ElementNode | `html.*` element | Attributes may be reactive |
-| IfNode | `when(signal, ...)` | Branch switches on signal |
-| ForNode | `foreach(signal, ...)` | List updates on signal |
-| MatchNode | Nested `when` | Pattern re-evaluated |
-| LetNode | Local signal creation | Scoped computation |
-| ComponentNode | Nested Renderable | Isolated data context |
-| FragmentNode | `fragment(...)` | Children may be reactive |
-| SlotNode | Content projection | From parent context |
-| CommentNode | No-op or `text` | Static |
+| Blade Node Type    | Output Renderable Type | Reactive Behavior          |
+| ------------------ | ---------------------- | -------------------------- |
+| TextNode (literal) | `text(string)`         | Static                     |
+| TextNode (expr)    | Signal-derived text    | Updates on signal change   |
+| ElementNode        | `html.*` element       | Attributes may be reactive |
+| IfNode             | `when(signal, ...)`    | Branch switches on signal  |
+| ForNode            | `foreach(signal, ...)` | List updates on signal     |
+| MatchNode          | Nested `when`          | Pattern re-evaluated       |
+| LetNode            | Local signal creation  | Scoped computation         |
+| ComponentNode      | Nested Renderable      | Isolated data context      |
+| FragmentNode       | `fragment(...)`        | Children may be reactive   |
+| SlotNode           | Content projection     | From parent context        |
+| CommentNode        | No-op or `text`        | Static                     |
 
 ## Validation Rules
 

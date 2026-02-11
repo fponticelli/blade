@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: User description: "vscode plugin should allow a preview mode that uses the samples (dropdown) to populate the template"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Preview Template with Sample Data (Priority: P1)
 
@@ -84,7 +84,7 @@ When a developer has multiple `.blade` files open and switches between tabs, the
 - What happens when sample data causes runtime evaluation errors? → Show the error with context (e.g., "Error evaluating expression at line 15: undefined variable 'foo'").
 - What happens when user edits a sample JSON file while preview is open? → Preview should refresh to reflect the changes.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -109,7 +109,7 @@ When a developer has multiple `.blade` files open and switches between tabs, the
 - **Sample Selector**: A dropdown UI element showing available sample JSON files from the project's `samples/` folder.
 - **Project Context**: The Blade project root containing `index.blade`, `schema.json`, and `samples/` folder.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

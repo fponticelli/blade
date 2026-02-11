@@ -15,14 +15,14 @@ Represents a parsed .blade file in the LSP workspace.
 
 ```typescript
 interface BladeDocument {
-  uri: string;                          // Document URI (file://...)
-  version: number;                      // Incremental version for sync
-  content: string;                      // Raw text content
-  ast: TemplateNode[] | null;           // Parsed AST (null if parse failed)
-  errors: ParseError[];                 // Parse errors
-  components: Map<string, ComponentDefinition>;  // Defined components
-  scope: DocumentScope;                 // Analyzed scope information
-  lastParsed: number;                   // Timestamp of last parse
+  uri: string; // Document URI (file://...)
+  version: number; // Incremental version for sync
+  content: string; // Raw text content
+  ast: TemplateNode[] | null; // Parsed AST (null if parse failed)
+  errors: ParseError[]; // Parse errors
+  components: Map<string, ComponentDefinition>; // Defined components
+  scope: DocumentScope; // Analyzed scope information
+  lastParsed: number; // Timestamp of last parse
 }
 ```
 
@@ -33,7 +33,7 @@ Scope analysis for a document.
 ```typescript
 interface DocumentScope {
   // Variables available at each position
-  variables: Map<number, ScopeVariable[]>;  // offset → variables
+  variables: Map<number, ScopeVariable[]>; // offset → variables
 
   // Components defined in this document
   components: ComponentInfo[];
@@ -47,9 +47,16 @@ interface DocumentScope {
 
 interface ScopeVariable {
   name: string;
-  kind: 'let' | 'for-item' | 'for-index' | 'for-key' | 'prop' | 'data' | 'global';
+  kind:
+    | 'let'
+    | 'for-item'
+    | 'for-index'
+    | 'for-key'
+    | 'prop'
+    | 'data'
+    | 'global';
   location: SourceLocation;
-  valueType?: string;  // Inferred or declared type
+  valueType?: string; // Inferred or declared type
 }
 
 interface ComponentInfo {
@@ -66,7 +73,7 @@ interface PropInfo {
 }
 
 interface SlotInfo {
-  name: string | null;  // null = default slot
+  name: string | null; // null = default slot
   location: SourceLocation;
 }
 
@@ -122,8 +129,8 @@ interface DataSchema {
 interface SchemaProperty {
   type: string | string[];
   description?: string;
-  properties?: Record<string, SchemaProperty>;  // For nested objects
-  items?: SchemaProperty;                        // For arrays
+  properties?: Record<string, SchemaProperty>; // For nested objects
+  items?: SchemaProperty; // For arrays
 }
 ```
 
@@ -138,20 +145,20 @@ interface LspConfig {
     deprecatedHelpers: 'error' | 'warning' | 'hint' | 'off';
     potentiallyUndefined: 'warning' | 'hint' | 'off';
     deepNesting: 'warning' | 'hint' | 'off';
-    deepNestingThreshold: number;  // Default: 4
+    deepNestingThreshold: number; // Default: 4
   };
 
   // Completion settings
   completion: {
-    dataSchemaPath?: string;      // Path to JSON schema file
+    dataSchemaPath?: string; // Path to JSON schema file
     helpersDefinitionPath?: string; // Path to helpers .d.ts or JSON
-    snippets: boolean;            // Enable snippet completions
+    snippets: boolean; // Enable snippet completions
   };
 
   // Performance settings
   performance: {
-    debounceMs: number;           // Parse debounce (default: 200)
-    maxFileSize: number;          // Max file size to parse (default: 1MB)
+    debounceMs: number; // Parse debounce (default: 200)
+    maxFileSize: number; // Max file size to parse (default: 1MB)
   };
 }
 ```
@@ -171,20 +178,20 @@ interface CompletionContext {
   // Computed context
   contextKind: CompletionContextKind;
   scopeVariables: ScopeVariable[];
-  partialToken?: string;  // Text being typed
+  partialToken?: string; // Text being typed
 }
 
 type CompletionContextKind =
-  | 'expression'           // Inside ${...}
-  | 'expression-path'      // After ${user.
-  | 'directive'            // After @
-  | 'directive-argument'   // Inside @if(...)
-  | 'html-tag'             // After <
-  | 'html-attribute'       // Inside <div ...>
+  | 'expression' // Inside ${...}
+  | 'expression-path' // After ${user.
+  | 'directive' // After @
+  | 'directive-argument' // Inside @if(...)
+  | 'html-tag' // After <
+  | 'html-attribute' // Inside <div ...>
   | 'html-attribute-value' // Inside attribute="..." or ={...}
-  | 'component-prop'       // Inside <MyComponent ...>
-  | 'slot-name'            // Inside <slot name="...">
-  | 'text';                // Plain text content
+  | 'component-prop' // Inside <MyComponent ...>
+  | 'slot-name' // Inside <slot name="...">
+  | 'text'; // Plain text content
 
 interface CompletionResult {
   items: CompletionItem[];
@@ -246,17 +253,17 @@ Standard scopes for syntax highlighting.
 // Blade-specific scopes (mapping to standard TextMate scopes)
 const BLADE_SCOPES = {
   // Directives
-  'directive.keyword': 'keyword.control.blade',           // @if, @for, @match
+  'directive.keyword': 'keyword.control.blade', // @if, @for, @match
   'directive.block': 'meta.block.directive.blade',
 
   // Expressions
-  'expression.delimiter': 'punctuation.section.embedded.blade',  // ${ }
+  'expression.delimiter': 'punctuation.section.embedded.blade', // ${ }
   'expression.content': 'meta.embedded.expression.blade',
-  'expression.path': 'variable.other.blade',              // user.name
-  'expression.operator': 'keyword.operator.blade',        // +, -, *, etc.
+  'expression.path': 'variable.other.blade', // user.name
+  'expression.operator': 'keyword.operator.blade', // +, -, *, etc.
 
   // Components
-  'component.name': 'entity.name.type.class.blade',       // <MyComponent>
+  'component.name': 'entity.name.type.class.blade', // <MyComponent>
   'component.prop': 'entity.other.attribute-name.blade',
 
   // HTML (inherit)
@@ -265,7 +272,7 @@ const BLADE_SCOPES = {
   'html.string': 'string.quoted.double.html',
 
   // Comments
-  'comment': 'comment.block.html',
+  comment: 'comment.block.html',
 
   // Strings
   'string.single': 'string.quoted.single.blade',
@@ -374,15 +381,15 @@ Completion Request
 
 ## Validation Rules
 
-| Context | Rule | Diagnostic |
-|---------|------|------------|
-| Document | Parse succeeds | PARSE_ERROR |
-| HTML | Tags are closed | UNCLOSED_TAG |
-| Expression | Valid syntax | INVALID_EXPRESSION |
-| Directive | Valid syntax and arguments | INVALID_DIRECTIVE |
-| Component | Exists in index | UNKNOWN_COMPONENT |
-| Component | Required props provided | MISSING_REQUIRED_PROP |
-| Variable | Used at least once | UNUSED_VARIABLE |
-| Helper | Not deprecated | DEPRECATED_HELPER |
-| @if nesting | Depth <= threshold | DEEP_NESTING |
-| Component | No circular dependencies | CIRCULAR_COMPONENT |
+| Context     | Rule                       | Diagnostic            |
+| ----------- | -------------------------- | --------------------- |
+| Document    | Parse succeeds             | PARSE_ERROR           |
+| HTML        | Tags are closed            | UNCLOSED_TAG          |
+| Expression  | Valid syntax               | INVALID_EXPRESSION    |
+| Directive   | Valid syntax and arguments | INVALID_DIRECTIVE     |
+| Component   | Exists in index            | UNKNOWN_COMPONENT     |
+| Component   | Required props provided    | MISSING_REQUIRED_PROP |
+| Variable    | Used at least once         | UNUSED_VARIABLE       |
+| Helper      | Not deprecated             | DEPRECATED_HELPER     |
+| @if nesting | Depth <= threshold         | DEEP_NESTING          |
+| Component   | No circular dependencies   | CIRCULAR_COMPONENT    |

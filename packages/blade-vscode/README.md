@@ -9,6 +9,7 @@ Language support for Blade template files (`.blade`) in Visual Studio Code.
 ### Syntax Highlighting
 
 Full syntax highlighting for Blade templates including:
+
 - HTML tags and attributes
 - Directives (`@if`, `@for`, `@match`, `@@`)
 - Expressions (`${...}`, `$variable`)
@@ -18,6 +19,7 @@ Full syntax highlighting for Blade templates including:
 ### Autocompletion
 
 Context-aware autocompletion for:
+
 - **Expressions**: Variables, helpers, and path completions inside `${...}`
 - **Directives**: `@if`, `@for`, `@match`, `@@` with snippet templates
 - **HTML**: Tags and attributes with context-aware suggestions
@@ -26,6 +28,7 @@ Context-aware autocompletion for:
 ### Diagnostics
 
 Real-time error detection:
+
 - Parse errors with precise location information
 - Unclosed tags and expressions
 - Invalid directive syntax
@@ -54,6 +57,7 @@ Preview your Blade templates with real sample data:
 4. Click Install
 
 Or install from the command line:
+
 ```bash
 code --install-extension fponticelli.blade-templates
 ```

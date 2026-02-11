@@ -212,7 +212,7 @@ Based on plan.md: Monorepo structure with `packages/blade/src/` and `packages/bl
 
 ## Phase 10: User Story 8 - Schema Validation for Samples (Priority: P3) ✅ COMPLETE
 
-**Goal**: LSP validates samples/*.json against schema.json
+**Goal**: LSP validates samples/\*.json against schema.json
 
 **Independent Test**: Create mismatched sample, verify diagnostic appears
 
@@ -243,19 +243,19 @@ Based on plan.md: Monorepo structure with `packages/blade/src/` and `packages/bl
 
 ## Summary
 
-| Phase | Story | Status |
-|-------|-------|--------|
-| Setup | - | ✅ Complete |
-| Foundational | - | ✅ Complete |
-| US1 | P1 - MVP | ✅ Complete |
-| US2 | P1 | ✅ Complete |
-| US3 | P1 | ✅ Complete |
-| US4 | P2 | ✅ Complete |
-| US5 | P2 | ✅ Complete |
-| US7 | P2 | ✅ Complete |
-| US6 | P3 | ✅ Complete |
-| US8 | P3 | ✅ Complete |
-| Polish | - | ✅ Complete |
+| Phase        | Story    | Status      |
+| ------------ | -------- | ----------- |
+| Setup        | -        | ✅ Complete |
+| Foundational | -        | ✅ Complete |
+| US1          | P1 - MVP | ✅ Complete |
+| US2          | P1       | ✅ Complete |
+| US3          | P1       | ✅ Complete |
+| US4          | P2       | ✅ Complete |
+| US5          | P2       | ✅ Complete |
+| US7          | P2       | ✅ Complete |
+| US6          | P3       | ✅ Complete |
+| US8          | P3       | ✅ Complete |
+| Polish       | -        | ✅ Complete |
 
 **Total: 78/78 tasks complete (100%)** ✅
 
@@ -264,6 +264,7 @@ Based on plan.md: Monorepo structure with `packages/blade/src/` and `packages/bl
 ## Implementation Files Created
 
 ### Project Module (`packages/blade/src/project/`)
+
 - `index.ts` - Module exports
 - `compile.ts` - compileProject() entry point
 - `discovery.ts` - discoverComponents() with recursive scanning
@@ -274,6 +275,7 @@ Based on plan.md: Monorepo structure with `packages/blade/src/` and `packages/bl
 - `utils.ts` - toPascalCase(), isHiddenFile()
 
 ### LSP Extensions (`packages/blade/src/lsp/`)
+
 - `project-context.ts` - ProjectLspContext, initializeProjectContext()
 - `providers/completion.ts` - Schema completions, component completions
 - `providers/definition.ts` - Go-to-definition for components
@@ -281,6 +283,7 @@ Based on plan.md: Monorepo structure with `packages/blade/src/` and `packages/bl
 - `providers/diagnostic.ts` - validateSamples(), validatePropsAgainstSchema()
 
 ### Test Files (`packages/blade/tests/`)
+
 - `project/compile.test.ts`
 - `project/discovery.test.ts`
 - `project/dotnotation.test.ts`
@@ -297,6 +300,7 @@ Based on plan.md: Monorepo structure with `packages/blade/src/` and `packages/bl
 - `lsp/sample-validation.test.ts`
 
 ### Test Fixtures (`packages/blade/tests/fixtures/project/`)
+
 - `simple/` - Basic project with button.blade
 - `missing-component/` - Project referencing non-existent component
 - `missing-required-prop/` - Project with missing required props

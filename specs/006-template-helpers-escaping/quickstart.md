@@ -26,6 +26,7 @@ Path: C:\\Users\\Documents
 ```
 
 **Output:**
+
 ```
 Contact: user@example.com
 Price: $100.00
@@ -47,6 +48,7 @@ Prices: $100, $50, $25
 ```
 
 **Rule of thumb:**
+
 - `@` needs escaping only before: `if`, `for`, `match`, `let`, `props`, `component`, `slot`
 - `$` needs escaping only before letters (a-z, A-Z) or underscore
 
@@ -338,10 +340,10 @@ import { render, compile, standardLibrary } from 'blade';
 
 const customHelpers = {
   ...standardLibrary,
-  myHelper: (scope, setWarning) => (value) => {
+  myHelper: (scope, setWarning) => value => {
     // Custom logic
     return result;
-  }
+  },
 };
 
 const html = render(ast, data, { helpers: customHelpers });

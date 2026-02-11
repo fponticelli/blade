@@ -21,17 +21,18 @@ Implement the expression evaluator for Blade templates - the core runtime compon
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| **I. Type Safety First** | ✅ PASS | TypeScript implementation; type coercion follows documented spec rules |
-| **II. Source Auditability** | ✅ PASS | Evaluator supports path tracking via metadata; paths accessed available for rd-source |
-| **III. Security by Default** | ✅ PASS | Only registered helpers callable; no eval/Function; depth limits in EvaluatorConfig |
-| **IV. Component Isolation** | ✅ PASS | Scope hierarchy enforces isolation; globals explicit via `$.` prefix |
-| **V. Developer Experience** | ✅ PASS | Clear error messages with source locations; consistent null handling |
+| Principle                    | Status  | Notes                                                                                 |
+| ---------------------------- | ------- | ------------------------------------------------------------------------------------- |
+| **I. Type Safety First**     | ✅ PASS | TypeScript implementation; type coercion follows documented spec rules                |
+| **II. Source Auditability**  | ✅ PASS | Evaluator supports path tracking via metadata; paths accessed available for rd-source |
+| **III. Security by Default** | ✅ PASS | Only registered helpers callable; no eval/Function; depth limits in EvaluatorConfig   |
+| **IV. Component Isolation**  | ✅ PASS | Scope hierarchy enforces isolation; globals explicit via `$.` prefix                  |
+| **V. Developer Experience**  | ✅ PASS | Clear error messages with source locations; consistent null handling                  |
 
 **Quality Standards Compliance**:
+
 - ✅ Unit tests required for all operator precedence and coercion cases
 - ✅ Expression evaluation covers all AST node types
 - ✅ No external dependencies to document

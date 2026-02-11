@@ -15,8 +15,8 @@ Configuration object for template rendering behavior.
 
 **Modified Fields**:
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| Field                  | Type     | Default | Description                                                |
+| ---------------------- | -------- | ------- | ---------------------------------------------------------- |
 | `sourceTrackingPrefix` | `string` | `"rd-"` | Prefix for source tracking attribute names. Now validated. |
 
 **Validation Rules**:
@@ -33,8 +33,8 @@ Error type for configuration validation failures.
 interface RenderConfigError {
   name: 'RenderConfigError';
   message: string;
-  field: string;       // Which config field failed validation
-  value: unknown;      // The invalid value provided
+  field: string; // Which config field failed validation
+  value: unknown; // The invalid value provided
 }
 ```
 
@@ -42,10 +42,10 @@ interface RenderConfigError {
 
 The following HTML attributes are generated based on `sourceTrackingPrefix`:
 
-| Base Name | Generated Attribute |
-|-----------|---------------------|
-| `source` | `${prefix}source` |
-| `source-op` | `${prefix}source-op` |
+| Base Name     | Generated Attribute    |
+| ------------- | ---------------------- |
+| `source`      | `${prefix}source`      |
+| `source-op`   | `${prefix}source-op`   |
 | `source-note` | `${prefix}source-note` |
 
 ## Relationships

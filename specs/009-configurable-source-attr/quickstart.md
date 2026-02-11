@@ -29,7 +29,7 @@ export function validateSourceTrackingPrefix(prefix: string): void {
   if (!VALID_PREFIX_REGEX.test(prefix)) {
     throw new Error(
       `Invalid sourceTrackingPrefix "${prefix}". ` +
-      `Prefix must be empty or start with a letter/underscore and contain only alphanumeric characters, hyphens, and underscores.`
+        `Prefix must be empty or start with a letter/underscore and contain only alphanumeric characters, hyphens, and underscores.`
     );
   }
 }
@@ -93,11 +93,15 @@ describe('sourceTrackingPrefix validation', () => {
   });
 
   it('rejects prefix starting with number', () => {
-    expect(() => validateSourceTrackingPrefix('123-')).toThrow(/Invalid sourceTrackingPrefix/);
+    expect(() => validateSourceTrackingPrefix('123-')).toThrow(
+      /Invalid sourceTrackingPrefix/
+    );
   });
 
   it('rejects prefix with invalid characters', () => {
-    expect(() => validateSourceTrackingPrefix('my@prefix')).toThrow(/Invalid sourceTrackingPrefix/);
+    expect(() => validateSourceTrackingPrefix('my@prefix')).toThrow(
+      /Invalid sourceTrackingPrefix/
+    );
   });
 });
 
@@ -109,7 +113,9 @@ describe('getSourceAttributeName', () => {
   });
 
   it('generates attribute with custom prefix', () => {
-    expect(getSourceAttributeName('data-track-', 'source')).toBe('data-track-source');
+    expect(getSourceAttributeName('data-track-', 'source')).toBe(
+      'data-track-source'
+    );
   });
 
   it('generates attribute with empty prefix', () => {
@@ -141,8 +147,8 @@ const render = createStringRenderer(compiled);
 const result = render(data, {
   config: {
     includeSourceTracking: true,
-    sourceTrackingPrefix: 'data-acme-'  // Custom prefix
-  }
+    sourceTrackingPrefix: 'data-acme-', // Custom prefix
+  },
 });
 // Output includes: data-acme-source="..."
 ```
@@ -153,8 +159,8 @@ const result = render(data, {
 const result = render(data, {
   config: {
     includeSourceTracking: true,
-    sourceTrackingPrefix: ''  // No prefix
-  }
+    sourceTrackingPrefix: '', // No prefix
+  },
 });
 // Output includes: source="..."
 ```
@@ -164,8 +170,8 @@ const result = render(data, {
 ```typescript
 const result = render(data, {
   config: {
-    sourceTrackingPrefix: '123-invalid'  // Starts with number
-  }
+    sourceTrackingPrefix: '123-invalid', // Starts with number
+  },
 });
 // Throws: Error: Invalid sourceTrackingPrefix "123-invalid". ...
 ```

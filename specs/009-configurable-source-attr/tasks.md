@@ -47,7 +47,7 @@
 
 ### Tests for User Story 1
 
-- [x] T007 [P] [US1] Test validateSourceTrackingPrefix accepts valid prefixes ('rd-', 'data-track-', 'audit_') in packages/blade/tests/renderer.test.ts
+- [x] T007 [P] [US1] Test validateSourceTrackingPrefix accepts valid prefixes ('rd-', 'data-track-', 'audit\_') in packages/blade/tests/renderer.test.ts
 - [x] T008 [P] [US1] Test validateSourceTrackingPrefix rejects invalid prefixes ('123-', 'my@prefix', 'has space') in packages/blade/tests/renderer.test.ts
 - [x] T009 [P] [US1] Test getSourceAttributeName generates correct names for all three base attributes in packages/blade/tests/renderer.test.ts
 

@@ -33,8 +33,5 @@
       }
     }
   },
-  "required": [
-    "title",
-    "items"
-  ]
+  "required": ["title", "items"]
 }

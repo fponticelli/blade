@@ -9,6 +9,7 @@
 **Decision**: Process escapes at tokenizer level during text content scanning
 
 **Rationale**:
+
 - Escape sequences (`\@`, `\$`, `\\`) should be processed during text tokenization
 - The tokenizer already distinguishes between text content and special characters
 - Processing at tokenizer level keeps the parser clean and maintains source location accuracy
@@ -16,18 +17,20 @@
 - If `\` is followed by any other character, emit both `\` and the character literally
 
 **Alternatives considered**:
+
 - Parser-level processing: Rejected - would complicate AST and lose source locations
 - Renderer-level processing: Rejected - escapes are syntax, not runtime behavior
 - Separate preprocessor pass: Rejected - adds complexity for simple feature
 
 **Implementation approach**:
+
 ```typescript
 // In tokenizer's text scanning:
 if (char === '\\') {
   const next = this.peek(1);
   if (next === '@' || next === '$' || next === '\\') {
-    text += next;  // Add escaped character literally
-    this.advance(2);  // Skip both \ and the escaped char
+    text += next; // Add escaped character literally
+    this.advance(2); // Skip both \ and the escaped char
     continue;
   }
   // Otherwise, \ is literal
@@ -40,6 +43,7 @@ if (char === '\\') {
 **Decision**: Leave as literal text (no escape needed)
 
 **Rationale**:
+
 - `@` only triggers directive parsing when followed by a valid directive keyword (if, for, match, etc.)
 - `$` only triggers variable parsing when followed by a letter (a-z, A-Z) or underscore
 - `@example.com` → literal text (not a directive)
@@ -47,10 +51,12 @@ if (char === '\\') {
 - This maximizes backward compatibility and reduces escape ceremony
 
 **Alternatives considered**:
+
 - Require escaping all `@` and `$`: Rejected - too verbose for common cases
 - Complex lookahead at all `@`/`$`: Current behavior - already implemented
 
 **Implementation approach**:
+
 - Current tokenizer behavior already handles this correctly
 - Verify with tests to ensure no regression
 
@@ -59,11 +65,13 @@ if (char === '\\') {
 **Decision**: Use runtime type checking with graceful fallbacks
 
 **Rationale**:
+
 - Functions like `len()`, `reverse()`, `indexOf()` work on both strings and arrays
 - Check type at runtime and dispatch to appropriate implementation
 - If type is unexpected, convert to most sensible type or return sensible default with warning
 
 **Implementation pattern**:
+
 ```typescript
 export const len: HelperFunction = (_scope, setWarning) => {
   return (value: unknown): number => {
@@ -87,6 +95,7 @@ export const len: HelperFunction = (_scope, setWarning) => {
 **Decision**: Return epoch date (1970-01-01) with warning
 
 **Rationale**:
+
 - Existing `expectDate()` helper already implements this pattern
 - Consistent with spec edge case definition
 - Allows templates to continue rendering without hard failures
@@ -99,6 +108,7 @@ export const len: HelperFunction = (_scope, setWarning) => {
 **Decision**: Follow established patterns in codebase + JavaScript conventions
 
 **Rationale**:
+
 - Existing helpers use camelCase (formatCurrency, formatDate, addDays)
 - Verb-first for actions: `add*`, `is*`, `to*`, `parse*`, `format*`
 - Noun for extractors: `first`, `last`, `year`, `month`
@@ -121,12 +131,14 @@ export const len: HelperFunction = (_scope, setWarning) => {
 **Decision**: Static metadata map with function signatures and examples
 
 **Rationale**:
+
 - Helper functions are known at compile time
 - Create a metadata registry with function name, parameters, return type, description, example
 - LSP completion provider queries this registry
 - Hover provider shows full documentation from registry
 
 **Implementation approach**:
+
 ```typescript
 // In helpers/metadata.ts (new file)
 export const helperMetadata: Record<string, HelperMetadata> = {
@@ -134,7 +146,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     signature: 'len(value: array | string): number',
     description: 'Returns the length of an array or string',
     examples: ['len([1,2,3]) → 3', 'len("hello") → 5'],
-    category: 'utility'
+    category: 'utility',
   },
   // ...
 };

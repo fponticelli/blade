@@ -43,7 +43,7 @@ const result = renderer(
   { amount: 99.99 },
   {
     helpers: standardHelpers,
-    globals: { currency: 'USD' }
+    globals: { currency: 'USD' },
   }
 );
 console.log(result.html); // "<p>Total: $99.99</p>"
@@ -86,11 +86,7 @@ const template = await compile(`
 
 const renderer = createStringRenderer(template);
 const result = renderer({
-  items: [
-    { name: 'Apple' },
-    { name: 'Banana' },
-    { name: 'Cherry' }
-  ]
+  items: [{ name: 'Apple' }, { name: 'Banana' }, { name: 'Cherry' }],
 });
 console.log(result.html);
 // "<ul><li>1. Apple</li><li>2. Banana</li><li>3. Cherry</li></ul>"
@@ -134,7 +130,7 @@ const template = await compile(`
 const renderer = createStringRenderer(template);
 const result = renderer({
   heading: 'Welcome',
-  content: 'Hello, World!'
+  content: 'Hello, World!',
 });
 console.log(result.html);
 // '<div class="card"><h2>Welcome</h2><div class="body"><p>Hello, World!</p></div></div>'
@@ -170,22 +166,24 @@ const result = renderer(data, {
   // Global variables
   globals: {
     currency: 'EUR',
-    locale: 'de-DE'
+    locale: 'de-DE',
   },
 
   // Helper functions
   helpers: {
     ...standardHelpers,
-    myHelper: (scope, setWarning) => (arg) => { /* ... */ }
+    myHelper: (scope, setWarning) => arg => {
+      /* ... */
+    },
   },
 
   // Rendering configuration
   config: {
-    htmlEscape: true,           // Escape expressions (default: true)
-    includeComments: false,     // Include HTML comments (default: false)
-    preserveWhitespace: false,  // Preserve all whitespace (default: false)
-    includeSourceTracking: false // Add rd-source attributes (default: false)
-  }
+    htmlEscape: true, // Escape expressions (default: true)
+    includeComments: false, // Include HTML comments (default: false)
+    preserveWhitespace: false, // Preserve all whitespace (default: false)
+    includeSourceTracking: false, // Add rd-source attributes (default: false)
+  },
 });
 ```
 
@@ -196,8 +194,8 @@ const result = renderer(data, {
   config: {
     includeSourceTracking: true,
     includeOperationTracking: true,
-    sourceTrackingPrefix: 'rd-'
-  }
+    sourceTrackingPrefix: 'rd-',
+  },
 });
 
 // Result:
@@ -212,9 +210,9 @@ import { DEFAULT_RESOURCE_LIMITS } from '@bladets/template';
 const result = renderer(data, {
   limits: {
     ...DEFAULT_RESOURCE_LIMITS,
-    maxIterationsPerLoop: 5000,  // Override specific limits
-    maxTotalIterations: 50000
-  }
+    maxIterationsPerLoop: 5000, // Override specific limits
+    maxTotalIterations: 50000,
+  },
 });
 ```
 
@@ -228,9 +226,13 @@ try {
 } catch (error) {
   if (error instanceof ResourceLimitError) {
     console.error(`Limit exceeded at line ${error.location.start.line}`);
-    console.error(`Limit: ${error.code}, Current: ${error.current}, Max: ${error.max}`);
+    console.error(
+      `Limit: ${error.code}, Current: ${error.current}, Max: ${error.max}`
+    );
   } else if (error instanceof RenderError) {
-    console.error(`Render error at line ${error.location.start.line}: ${error.message}`);
+    console.error(
+      `Render error at line ${error.location.start.line}: ${error.message}`
+    );
   } else {
     throw error;
   }

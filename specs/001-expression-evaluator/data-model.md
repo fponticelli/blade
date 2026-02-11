@@ -15,9 +15,9 @@ This document defines the data structures and types for the Expression Evaluator
 
 ```typescript
 interface Scope {
-  locals: Record<string, unknown>;  // Variables from @@ blocks
-  data: unknown;                     // Data passed to render()
-  globals: Record<string, unknown>;  // Configuration (locale, currency, etc.)
+  locals: Record<string, unknown>; // Variables from @@ blocks
+  data: unknown; // Data passed to render()
+  globals: Record<string, unknown>; // Configuration (locale, currency, etc.)
 }
 ```
 
@@ -54,8 +54,8 @@ type HelperFunction = (
 
 ```typescript
 interface EvaluatorConfig {
-  maxFunctionDepth: number;   // Default: 10
-  maxRecursionDepth: number;  // Default: 50
+  maxFunctionDepth: number; // Default: 10
+  maxRecursionDepth: number; // Default: 50
 }
 ```
 
@@ -92,7 +92,7 @@ class EvaluationError extends Error {
 ```typescript
 interface EvaluationResult {
   value: unknown;
-  pathsAccessed: string[];  // For rd-source generation
+  pathsAccessed: string[]; // For rd-source generation
 }
 ```
 
@@ -117,15 +117,15 @@ type ExprAst =
 
 ### Node Kind Mapping
 
-| Node Kind | Evaluation Action |
-|-----------|------------------|
-| `literal` | Return `value` directly |
-| `path` | Resolve through scope hierarchy |
-| `unary` | Apply `!` or `-` to operand |
-| `binary` | Apply operator with type coercion |
-| `ternary` | Evaluate condition, return truthy or falsy result |
-| `call` | Curry helper with scope, invoke with evaluated args |
-| `wildcard` | Expand path across array elements, flatten |
+| Node Kind  | Evaluation Action                                   |
+| ---------- | --------------------------------------------------- |
+| `literal`  | Return `value` directly                             |
+| `path`     | Resolve through scope hierarchy                     |
+| `unary`    | Apply `!` or `-` to operand                         |
+| `binary`   | Apply operator with type coercion                   |
+| `ternary`  | Evaluate condition, return truthy or falsy result   |
+| `call`     | Curry helper with scope, invoke with evaluated args |
+| `wildcard` | Expand path across array elements, flatten          |
 
 ### PathItem Types
 
@@ -153,45 +153,45 @@ For binary operations, coercion follows JavaScript semantics:
 
 ### Addition (`+`)
 
-| Left Type | Right Type | Result Type | Example |
-|-----------|------------|-------------|---------|
-| string | any | string | `"a" + 1` → `"a1"` |
-| any | string | string | `1 + "a"` → `"1a"` |
-| number | number | number | `1 + 2` → `3` |
-| number | boolean | number | `1 + true` → `2` |
-| number | null | number | `1 + null` → `1` |
-| number | undefined | NaN | `1 + undefined` → `NaN` |
+| Left Type | Right Type | Result Type | Example                 |
+| --------- | ---------- | ----------- | ----------------------- |
+| string    | any        | string      | `"a" + 1` → `"a1"`      |
+| any       | string     | string      | `1 + "a"` → `"1a"`      |
+| number    | number     | number      | `1 + 2` → `3`           |
+| number    | boolean    | number      | `1 + true` → `2`        |
+| number    | null       | number      | `1 + null` → `1`        |
+| number    | undefined  | NaN         | `1 + undefined` → `NaN` |
 
 ### Comparison Operators (`<`, `>`, `<=`, `>=`)
 
-| Operand Types | Behavior |
-|--------------|----------|
-| number, number | Numeric comparison |
-| string, string | Lexicographic comparison |
-| mixed | Convert to number, compare |
+| Operand Types  | Behavior                   |
+| -------------- | -------------------------- |
+| number, number | Numeric comparison         |
+| string, string | Lexicographic comparison   |
+| mixed          | Convert to number, compare |
 
 ### Equality (`==`, `!=`)
 
-| Comparison | Behavior |
-|------------|----------|
-| Same type | Value equality |
-| null == undefined | true |
-| Different types | Type coercion, then compare |
+| Comparison        | Behavior                    |
+| ----------------- | --------------------------- |
+| Same type         | Value equality              |
+| null == undefined | true                        |
+| Different types   | Type coercion, then compare |
 
 ### Logical (`&&`, `||`)
 
-| Operator | Returns |
-|----------|---------|
-| `&&` | Left if falsy, else right |
-| `||` | Left if truthy, else right |
+| Operator | Returns                   |
+| -------- | ------------------------- | --- | -------------------------- |
+| `&&`     | Left if falsy, else right |
+| `        |                           | `   | Left if truthy, else right |
 
 ### Nullish Coalescing (`??`)
 
 | Left Value | Returns |
-|------------|---------|
-| null | Right |
-| undefined | Right |
-| Any other | Left |
+| ---------- | ------- |
+| null       | Right   |
+| undefined  | Right   |
+| Any other  | Left    |
 
 ## Scope Hierarchy Example
 
@@ -199,7 +199,7 @@ For binary operations, coercion follows JavaScript semantics:
 const scope: Scope = {
   locals: { x: 1, total: 100 },
   data: { x: 2, order: { total: 50 } },
-  globals: { x: 3, currency: 'USD' }
+  globals: { x: 3, currency: 'USD' },
 };
 
 // Resolution examples:

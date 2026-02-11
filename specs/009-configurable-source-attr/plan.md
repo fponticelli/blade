@@ -21,15 +21,15 @@ Enable developers to customize the source tracking attribute prefix (default `rd
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| **I. Type Safety First** | ✅ PASS | TypeScript implementation; prefix is typed as string in RenderConfig |
-| **II. Source Auditability** | ✅ PASS | This feature enhances auditability by making the tracking attributes configurable |
-| **III. Security by Default** | ✅ PASS | Prefix validation ensures only valid HTML attribute names are accepted |
-| **IV. Component Isolation** | ✅ PASS | No impact on component scope isolation |
-| **V. Developer Experience** | ✅ PASS | Clear error messages for invalid prefixes; simple single-setting configuration |
+| Principle                    | Status  | Notes                                                                             |
+| ---------------------------- | ------- | --------------------------------------------------------------------------------- |
+| **I. Type Safety First**     | ✅ PASS | TypeScript implementation; prefix is typed as string in RenderConfig              |
+| **II. Source Auditability**  | ✅ PASS | This feature enhances auditability by making the tracking attributes configurable |
+| **III. Security by Default** | ✅ PASS | Prefix validation ensures only valid HTML attribute names are accepted            |
+| **IV. Component Isolation**  | ✅ PASS | No impact on component scope isolation                                            |
+| **V. Developer Experience**  | ✅ PASS | Clear error messages for invalid prefixes; simple single-setting configuration    |
 
 ## Project Structure
 

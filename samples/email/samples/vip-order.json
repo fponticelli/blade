@@ -24,7 +24,7 @@
         "name": "Cashmere Blend Sweater",
         "sku": "CSW-BLK-M",
         "quantity": 1,
-        "price": 189.00,
+        "price": 189.0,
         "discount": 28.35,
         "image": "https://stylehub.com/images/sweater-black.jpg"
       },
@@ -32,7 +32,7 @@
         "name": "Slim Fit Wool Trousers",
         "sku": "SFT-NAV-32",
         "quantity": 2,
-        "price": 145.00,
+        "price": 145.0,
         "discount": 0,
         "image": "https://stylehub.com/images/trousers-navy.jpg"
       },
@@ -40,14 +40,14 @@
         "name": "Italian Leather Belt",
         "sku": "ILB-BRN-M",
         "quantity": 1,
-        "price": 85.00,
+        "price": 85.0,
         "discount": 12.75,
         "image": "https://stylehub.com/images/belt-brown.jpg"
       }
     ],
     "totals": {
-      "subtotal": 564.00,
-      "discount": 41.10,
+      "subtotal": 564.0,
+      "discount": 41.1,
       "shipping": 0,
       "tax": 45.75,
       "total": 568.65
@@ -75,19 +75,19 @@
   "recommendations": [
     {
       "name": "Silk Pocket Square Set",
-      "price": 65.00,
+      "price": 65.0,
       "image": "https://stylehub.com/images/pocket-squares.jpg",
       "url": "https://stylehub.com/products/silk-pocket-square-set"
     },
     {
       "name": "Merino Wool Scarf",
-      "price": 95.00,
+      "price": 95.0,
       "image": "https://stylehub.com/images/wool-scarf.jpg",
       "url": "https://stylehub.com/products/merino-wool-scarf"
     },
     {
       "name": "Leather Card Holder",
-      "price": 55.00,
+      "price": 55.0,
       "image": "https://stylehub.com/images/card-holder.jpg",
       "url": "https://stylehub.com/products/leather-card-holder"
     }

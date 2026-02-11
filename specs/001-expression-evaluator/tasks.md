@@ -79,7 +79,7 @@
 
 ### Tests for User Story 2
 
-- [x] T016 [P] [US2] Test arithmetic operators (+, -, *, /, %) in packages/blade/tests/evaluator.test.ts
+- [x] T016 [P] [US2] Test arithmetic operators (+, -, \*, /, %) in packages/blade/tests/evaluator.test.ts
 - [x] T017 [P] [US2] Test comparison operators (==, !=, <, >, <=, >=) in packages/blade/tests/evaluator.test.ts
 - [x] T018 [P] [US2] Test logical operators (&&, ||) in packages/blade/tests/evaluator.test.ts
 - [x] T019 [P] [US2] Test unary operators (!, -) in packages/blade/tests/evaluator.test.ts
@@ -88,7 +88,7 @@
 ### Implementation for User Story 2
 
 - [x] T021 [US2] Implement evaluateUnary() for ! and - operators in packages/blade/src/evaluator/index.ts
-- [x] T022 [US2] Implement evaluateBinary() with arithmetic operators (+, -, *, /, %) in packages/blade/src/evaluator/index.ts
+- [x] T022 [US2] Implement evaluateBinary() with arithmetic operators (+, -, \*, /, %) in packages/blade/src/evaluator/index.ts
 - [x] T023 [US2] Add comparison operators to evaluateBinary() (==, !=, <, >, <=, >=) in packages/blade/src/evaluator/index.ts
 - [x] T024 [US2] Add logical operators with short-circuit evaluation (&&, ||) in packages/blade/src/evaluator/index.ts
 - [x] T025 [US2] Wire evaluateUnary() and evaluateBinary() into main evaluate() switch in packages/blade/src/evaluator/index.ts
@@ -237,13 +237,16 @@
 ### Parallel Opportunities
 
 Within Phase 2 (Foundational):
+
 - T004, T005, T006 can run in parallel (different functions)
 
 Within each User Story:
+
 - All test tasks marked [P] can run in parallel
 - Implementation tasks are sequential within a story
 
 Across User Stories:
+
 - US1, US2, US3, US4, US6 can all run in parallel after Phase 2
 - US5 should follow US2 (shares binary operator infrastructure)
 
@@ -285,6 +288,7 @@ Task: "Test implicit optional chaining in packages/blade/tests/evaluator.test.ts
 ### Parallel Team Strategy
 
 With multiple developers after Phase 2:
+
 - Developer A: US1 (path evaluation)
 - Developer B: US2 (operators)
 - Developer C: US3 (helpers)
@@ -295,18 +299,18 @@ With multiple developers after Phase 2:
 
 ## Summary
 
-| Phase | Tasks | Parallel | Description | Status |
-|-------|-------|----------|-------------|--------|
-| Setup | 3 | 0 | Error class, exports, test file | ✅ |
-| Foundational | 4 | 3 | Utility functions, evaluate skeleton | ✅ |
-| US1 (P1) | 8 | 4 | Path evaluation - MVP | ✅ |
-| US2 (P2) | 11 | 5 | Operators | ✅ |
-| US3 (P3) | 9 | 4 | Helper functions | ✅ |
-| US4 (P4) | 7 | 3 | Wildcards | ✅ |
-| US5 (P5) | 8 | 4 | Conditionals | ✅ |
-| US6 (P6) | 7 | 4 | Scope hierarchy | ✅ |
-| Polish | 6 | 3 | Edge cases, docs | ✅ |
-| **Total** | **63** | **30** | | **63/63** |
+| Phase        | Tasks  | Parallel | Description                          | Status    |
+| ------------ | ------ | -------- | ------------------------------------ | --------- |
+| Setup        | 3      | 0        | Error class, exports, test file      | ✅        |
+| Foundational | 4      | 3        | Utility functions, evaluate skeleton | ✅        |
+| US1 (P1)     | 8      | 4        | Path evaluation - MVP                | ✅        |
+| US2 (P2)     | 11     | 5        | Operators                            | ✅        |
+| US3 (P3)     | 9      | 4        | Helper functions                     | ✅        |
+| US4 (P4)     | 7      | 3        | Wildcards                            | ✅        |
+| US5 (P5)     | 8      | 4        | Conditionals                         | ✅        |
+| US6 (P6)     | 7      | 4        | Scope hierarchy                      | ✅        |
+| Polish       | 6      | 3        | Edge cases, docs                     | ✅        |
+| **Total**    | **63** | **30**   |                                      | **63/63** |
 
 ---
 

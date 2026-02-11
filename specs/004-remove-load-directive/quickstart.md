@@ -12,6 +12,7 @@ This feature removes the `@load` directive concept from Blade. Since @load was n
 ### 1. Compiler Interface Changes
 
 **Before**:
+
 ```typescript
 export interface CompileOptions {
   loader?: TemplateLoader;
@@ -27,6 +28,7 @@ export interface TemplateLoader {
 ```
 
 **After**:
+
 ```typescript
 export interface CompileOptions {
   validate?: boolean;
@@ -40,6 +42,7 @@ export interface CompileOptions {
 ### 2. Documentation Changes
 
 The following SPECIFICATION.md sections will be removed:
+
 - Section 3.6: `@load` directive syntax
 - Section 7.1: `@load` processing references
 - Section 7.3: TemplateLoader behavior

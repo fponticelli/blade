@@ -12,12 +12,14 @@ This document captures research findings and design decisions for the Expression
 **Decision**: Recursive tree-walking interpreter
 
 **Rationale**:
+
 - Direct and maintainable approach for expression evaluation
 - Maps cleanly to the discriminated union AST structure
 - Easily debuggable with clear stack traces
 - No compilation step needed (expressions are already parsed to AST)
 
 **Alternatives considered**:
+
 - Bytecode compilation: Overkill for expression evaluation; adds complexity without meaningful performance benefit for our use case
 - Stack-based interpreter: More complex state management for no benefit
 
@@ -26,14 +28,20 @@ This document captures research findings and design decisions for the Expression
 **Decision**: Resolution order is `locals → data` for regular paths, with `$.` prefix bypassing to globals directly
 
 **Rationale**:
+
 - Per specification Section 5.2: `varName` searches locals then data
 - `$.varName` accesses globals only (direct access)
 - This enables predictable variable shadowing
 - Matches JavaScript's lexical scoping mental model
 
 **Implementation approach**:
+
 ```typescript
-function resolveFirstSegment(name: string, isGlobal: boolean, scope: Scope): unknown {
+function resolveFirstSegment(
+  name: string,
+  isGlobal: boolean,
+  scope: Scope
+): unknown {
   if (isGlobal) {
     return scope.globals[name];
   }
@@ -53,11 +61,13 @@ function resolveFirstSegment(name: string, isGlobal: boolean, scope: Scope): unk
 **Decision**: All path access returns `undefined` for null/undefined intermediate values (never throws)
 
 **Rationale**:
+
 - Per specification Section 4.2: "All path access has implicit optional chaining"
 - Prevents runtime errors from missing data
 - Matches user expectation that templates gracefully handle missing fields
 
 **Implementation approach**:
+
 ```typescript
 function accessProperty(obj: unknown, key: string | number): unknown {
   if (obj === null || obj === undefined) {
@@ -75,6 +85,7 @@ function accessProperty(obj: unknown, key: string | number): unknown {
 **Decision**: Follow JavaScript semantics exactly
 
 **Rationale**:
+
 - Per specification Section 4.3: "Follow JavaScript coercion semantics"
 - Predictable for developers familiar with JavaScript
 - No custom type system to learn
@@ -94,20 +105,25 @@ function accessProperty(obj: unknown, key: string | number): unknown {
 **Decision**: Curry helpers with scope at call time (not registration time)
 
 **Rationale**:
+
 - Per specification Section 5.3: "Scope capture timing: At call time (dynamic)"
 - Allows helpers to see current scope state including modified globals
 - Matches existing `HelperFunction` signature: `(scope, setWarning) => (...args) => result`
 
 **Implementation approach**:
+
 ```typescript
 function evaluateCall(node: CallNode, context: EvaluationContext): unknown {
   const helper = context.helpers[node.callee];
   if (!helper) {
-    throw new EvaluationError(`Unknown helper function: ${node.callee}`, node.location);
+    throw new EvaluationError(
+      `Unknown helper function: ${node.callee}`,
+      node.location
+    );
   }
 
   const warnings: string[] = [];
-  const curriedFn = helper(context.scope, (msg) => warnings.push(msg));
+  const curriedFn = helper(context.scope, msg => warnings.push(msg));
   const args = node.args.map(arg => evaluate(arg, context));
 
   return curriedFn(...args);
@@ -119,11 +135,13 @@ function evaluateCall(node: CallNode, context: EvaluationContext): unknown {
 **Decision**: Nested wildcards produce a single flattened array
 
 **Rationale**:
+
 - Per specification Section 4.2: "Nested wildcards (flattened)"
 - Example: `departments[*].employees[*].salary` returns flat `[50000, 60000, 70000, 55000, 65000]`
 - Simplifies aggregation functions (sum, avg work on flat arrays)
 
 **Implementation approach**:
+
 ```typescript
 function evaluateWildcard(node: ArrayWildcardNode, context: EvaluationContext): unknown[] {
   // Process path segments, accumulating results and flattening at each wildcard
@@ -150,11 +168,13 @@ function evaluateWildcard(node: ArrayWildcardNode, context: EvaluationContext): 
 **Decision**: `&&`, `||`, and `??` use short-circuit evaluation; ternary only evaluates the taken branch
 
 **Rationale**:
+
 - Per JavaScript semantics and specification
 - Prevents unnecessary computation
 - Prevents errors from evaluating branches with invalid assumptions
 
 **Implementation**:
+
 - `&&`: Return left if falsy, otherwise evaluate and return right
 - `||`: Return left if truthy, otherwise evaluate and return right
 - `??`: Return left if not null/undefined, otherwise evaluate and return right
@@ -165,10 +185,12 @@ function evaluateWildcard(node: ArrayWildcardNode, context: EvaluationContext): 
 **Decision**: Create custom `EvaluationError` class with location information; propagate helper errors
 
 **Rationale**:
+
 - Constitution V (Developer Experience): "Error messages MUST include source locations"
 - Per spec FR-016: "System MUST propagate errors thrown by helper functions"
 
 **Implementation**:
+
 ```typescript
 class EvaluationError extends Error {
   constructor(
@@ -187,6 +209,7 @@ class EvaluationError extends Error {
 ### Current State of `evaluator/index.ts`
 
 The existing file contains:
+
 - `Scope` interface (locals, data, globals) - **matches spec, keep as-is**
 - `EvaluationContext` interface - **keep as-is**
 - `HelperRegistry` and `HelperFunction` types - **keep as-is**
@@ -196,6 +219,7 @@ The existing file contains:
 ### AST Types to Handle
 
 From `ast/types.ts`, the evaluator must handle these `ExprAst` node types:
+
 1. `LiteralNode` - Direct value return
 2. `PathNode` - Scope resolution + property traversal
 3. `UnaryNode` - `!` and `-` operators
@@ -207,6 +231,7 @@ From `ast/types.ts`, the evaluator must handle these `ExprAst` node types:
 ### PathItem Types
 
 Path segments use discriminated unions:
+
 - `KeyPathItem` - Property access by name
 - `IndexPathItem` - Array access by numeric index
 - `StarPathItem` - Wildcard expansion
@@ -214,6 +239,7 @@ Path segments use discriminated unions:
 ## Dependencies
 
 **Internal** (already exist):
+
 - `ExprAst` and related types from `../ast/types.js`
 - `Scope`, `EvaluationContext`, `HelperRegistry` from current file
 
@@ -222,6 +248,7 @@ Path segments use discriminated unions:
 ## Test Strategy
 
 Tests should cover:
+
 1. **Literal evaluation** - All literal types (string, number, boolean, null)
 2. **Path resolution** - Scope hierarchy, optional chaining, nested access
 3. **Operators** - Each operator with various type combinations

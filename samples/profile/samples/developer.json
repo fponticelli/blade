@@ -34,17 +34,58 @@
       "reputation": 15420
     },
     "socialLinks": [
-      { "platform": "GitHub", "url": "https://github.com/sarahdev", "username": "sarahdev" },
-      { "platform": "Twitter", "url": "https://twitter.com/sarahcodes", "username": "@sarahcodes" },
-      { "platform": "LinkedIn", "url": "https://linkedin.com/in/sarahchen", "username": "sarahchen" },
-      { "platform": "Dev.to", "url": "https://dev.to/sarahdev", "username": "sarahdev" }
+      {
+        "platform": "GitHub",
+        "url": "https://github.com/sarahdev",
+        "username": "sarahdev"
+      },
+      {
+        "platform": "Twitter",
+        "url": "https://twitter.com/sarahcodes",
+        "username": "@sarahcodes"
+      },
+      {
+        "platform": "LinkedIn",
+        "url": "https://linkedin.com/in/sarahchen",
+        "username": "sarahchen"
+      },
+      {
+        "platform": "Dev.to",
+        "url": "https://dev.to/sarahdev",
+        "username": "sarahdev"
+      }
     ],
     "badges": [
-      { "name": "Early Adopter", "icon": "🌟", "earnedAt": "2021-06-15T00:00:00Z", "description": "Joined during beta" },
-      { "name": "Top Contributor", "icon": "🏆", "earnedAt": "2023-12-01T00:00:00Z", "description": "Top 1% of contributors" },
-      { "name": "Verified", "icon": "✓", "earnedAt": "2022-03-20T00:00:00Z", "description": "Identity verified" },
-      { "name": "1000 Posts", "icon": "📝", "earnedAt": "2024-08-15T00:00:00Z", "description": "Posted 1000+ times" },
-      { "name": "Mentor", "icon": "🎓", "earnedAt": "2024-01-10T00:00:00Z", "description": "Helped 100+ developers" }
+      {
+        "name": "Early Adopter",
+        "icon": "🌟",
+        "earnedAt": "2021-06-15T00:00:00Z",
+        "description": "Joined during beta"
+      },
+      {
+        "name": "Top Contributor",
+        "icon": "🏆",
+        "earnedAt": "2023-12-01T00:00:00Z",
+        "description": "Top 1% of contributors"
+      },
+      {
+        "name": "Verified",
+        "icon": "✓",
+        "earnedAt": "2022-03-20T00:00:00Z",
+        "description": "Identity verified"
+      },
+      {
+        "name": "1000 Posts",
+        "icon": "📝",
+        "earnedAt": "2024-08-15T00:00:00Z",
+        "description": "Posted 1000+ times"
+      },
+      {
+        "name": "Mentor",
+        "icon": "🎓",
+        "earnedAt": "2024-01-10T00:00:00Z",
+        "description": "Helped 100+ developers"
+      }
     ],
     "skills": [
       { "name": "TypeScript", "level": 95, "endorsed": 234 },
@@ -108,11 +149,36 @@
       }
     ],
     "recentActivity": [
-      { "type": "post", "description": "Published: \"Understanding TypeScript Generics\"", "timestamp": "2024-11-25T10:30:00Z", "targetUrl": "/posts/understanding-typescript-generics" },
-      { "type": "comment", "description": "Commented on \"Best Practices for React Testing\"", "timestamp": "2024-11-24T15:45:00Z", "targetUrl": "/posts/react-testing#comment-123" },
-      { "type": "achievement", "description": "Earned \"1000 Posts\" badge", "timestamp": "2024-11-24T00:00:00Z", "targetUrl": "/badges/1000-posts" },
-      { "type": "like", "description": "Liked \"Introduction to WebAssembly\"", "timestamp": "2024-11-23T09:20:00Z", "targetUrl": "/posts/intro-webassembly" },
-      { "type": "follow", "description": "Started following @devmaster", "timestamp": "2024-11-22T14:00:00Z", "targetUrl": "/users/devmaster" }
+      {
+        "type": "post",
+        "description": "Published: \"Understanding TypeScript Generics\"",
+        "timestamp": "2024-11-25T10:30:00Z",
+        "targetUrl": "/posts/understanding-typescript-generics"
+      },
+      {
+        "type": "comment",
+        "description": "Commented on \"Best Practices for React Testing\"",
+        "timestamp": "2024-11-24T15:45:00Z",
+        "targetUrl": "/posts/react-testing#comment-123"
+      },
+      {
+        "type": "achievement",
+        "description": "Earned \"1000 Posts\" badge",
+        "timestamp": "2024-11-24T00:00:00Z",
+        "targetUrl": "/badges/1000-posts"
+      },
+      {
+        "type": "like",
+        "description": "Liked \"Introduction to WebAssembly\"",
+        "timestamp": "2024-11-23T09:20:00Z",
+        "targetUrl": "/posts/intro-webassembly"
+      },
+      {
+        "type": "follow",
+        "description": "Started following @devmaster",
+        "timestamp": "2024-11-22T14:00:00Z",
+        "targetUrl": "/users/devmaster"
+      }
     ]
   },
   "isOwnProfile": false,

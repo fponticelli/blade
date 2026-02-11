@@ -21,17 +21,18 @@ Add escape sequence support (`\@`, `\$`, `\\`) to Blade templates and expand the
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Evidence |
-|-----------|--------|----------|
-| I. Type Safety First | ✅ PASS | Helpers use `expectX` functions with type coercion; TypeScript signatures |
-| II. Source Auditability | ✅ PASS | Escape sequences don't affect source tracking; text nodes preserve locations |
-| III. Security by Default | ✅ PASS | Helpers are pure functions; no dynamic code execution; no external access |
-| IV. Component Isolation | ✅ PASS | Helpers operate on passed values only; scope access is read-only |
-| V. Developer Experience | ✅ PASS | LSP will provide autocompletion (SC-007); 100% test coverage (SC-006) |
+| Principle                | Status  | Evidence                                                                     |
+| ------------------------ | ------- | ---------------------------------------------------------------------------- |
+| I. Type Safety First     | ✅ PASS | Helpers use `expectX` functions with type coercion; TypeScript signatures    |
+| II. Source Auditability  | ✅ PASS | Escape sequences don't affect source tracking; text nodes preserve locations |
+| III. Security by Default | ✅ PASS | Helpers are pure functions; no dynamic code execution; no external access    |
+| IV. Component Isolation  | ✅ PASS | Helpers operate on passed values only; scope access is read-only             |
+| V. Developer Experience  | ✅ PASS | LSP will provide autocompletion (SC-007); 100% test coverage (SC-006)        |
 
 **Quality Standards Compliance**:
+
 - ✅ Unit tests required for all new helpers (SC-006)
 - ✅ Helper signatures documented with examples (SC-002)
 - ✅ Warnings via `setWarning`, not thrown errors (NFR-001, SC-003)
@@ -80,5 +81,5 @@ packages/blade/
 > No constitution violations to justify.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| N/A | - | - |
+| --------- | ---------- | ------------------------------------ |
+| N/A       | -          | -                                    |

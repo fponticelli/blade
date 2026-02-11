@@ -40,6 +40,7 @@ body {
 ```
 
 The `}` after CSS rule content triggers the text parser to stop, thinking it's the end of a `@if` or `@for` block. This causes:
+
 1. Incomplete text nodes
 2. "Unexpected character '}'" errors for each CSS rule closing brace
 3. Eventually, the `<style>` tag appears unclosed
@@ -48,15 +49,15 @@ The `}` after CSS rule content triggers the text parser to stop, thinking it's t
 
 The resume template uses these Blade features that must work:
 
-| Feature | Example | Location |
-|---------|---------|----------|
-| Expression interpolation in CSS | `font-family: ${fontFamily ?? 'Arial'}` | Line 4 |
-| Null coalescing operator | `${fontFamily ?? 'Arial'}` | Line 4 |
-| Nested property access | `${header.agencyDetails.phoneNumber}` | Multiple |
-| `@if` directive | `@if (includeHeader) { ... }` | Lines 152, 160-192, 197, 207 |
-| Nested conditionals | `@if` inside `@if` blocks | Throughout |
-| CSS expressions | `color: ${textColor}` | Line 27 |
-| CSS calc with expressions | `opacity: calc(var(--opacity, 92) / 100)` | Line 148 |
+| Feature                         | Example                                   | Location                     |
+| ------------------------------- | ----------------------------------------- | ---------------------------- |
+| Expression interpolation in CSS | `font-family: ${fontFamily ?? 'Arial'}`   | Line 4                       |
+| Null coalescing operator        | `${fontFamily ?? 'Arial'}`                | Line 4                       |
+| Nested property access          | `${header.agencyDetails.phoneNumber}`     | Multiple                     |
+| `@if` directive                 | `@if (includeHeader) { ... }`             | Lines 152, 160-192, 197, 207 |
+| Nested conditionals             | `@if` inside `@if` blocks                 | Throughout                   |
+| CSS expressions                 | `color: ${textColor}`                     | Line 27                      |
+| CSS calc with expressions       | `opacity: calc(var(--opacity, 92) / 100)` | Line 148                     |
 
 ## Solution Design
 
@@ -70,11 +71,11 @@ Since expressions start with `${` or `$`, standalone `{` and `}` have no special
 
 **Alternatives Considered**:
 
-| Alternative | Rejected Because |
-|-------------|------------------|
-| RAW_CONTENT_TAGS set | Over-engineered; creates tag-specific behavior when the issue is block context |
-| Escape all `}` in CSS | Breaks developer experience; CSS would be unreadable |
-| Use different expression syntax in CSS | Inconsistent with rest of Blade |
+| Alternative                            | Rejected Because                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------------ |
+| RAW_CONTENT_TAGS set                   | Over-engineered; creates tag-specific behavior when the issue is block context |
+| Escape all `}` in CSS                  | Breaks developer experience; CSS would be unreadable                           |
+| Use different expression syntax in CSS | Inconsistent with rest of Blade                                                |
 
 ### Implementation Approach
 
@@ -96,11 +97,12 @@ Since expressions start with `${` or `$`, standalone `{` and `}` have no special
 
 ## Affected Files
 
-| File | Change Type | Description |
-|------|-------------|-------------|
-| `packages/blade/src/parser/template-parser.ts` | Modify | Add blockDepth tracking for directive blocks |
+| File                                           | Change Type | Description                                  |
+| ---------------------------------------------- | ----------- | -------------------------------------------- |
+| `packages/blade/src/parser/template-parser.ts` | Modify      | Add blockDepth tracking for directive blocks |
 
 **Changes Made**:
+
 1. Added `private blockDepth = 0;` property
 2. Modified `parseText()` to check `this.blockDepth > 0` before stopping at `}`
 3. Modified `parseBlockBody()` to increment/decrement blockDepth
@@ -132,11 +134,11 @@ Since expressions start with `${` or `$`, standalone `{` and `}` have no special
 
 ## Risks
 
-| Risk | Mitigation |
-|------|------------|
-| Breaking existing templates with style tags | Add comprehensive tests before/after |
-| Expression parsing edge cases in CSS | Test CSS-specific syntax like `calc()`, `url()` |
-| Performance impact of raw content scanning | Minimal - only affects style/script tags |
+| Risk                                        | Mitigation                                      |
+| ------------------------------------------- | ----------------------------------------------- |
+| Breaking existing templates with style tags | Add comprehensive tests before/after            |
+| Expression parsing edge cases in CSS        | Test CSS-specific syntax like `calc()`, `url()` |
+| Performance impact of raw content scanning  | Minimal - only affects style/script tags        |
 
 ## Verification
 

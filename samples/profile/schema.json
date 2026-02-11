@@ -124,7 +124,10 @@
           "items": {
             "type": "object",
             "properties": {
-              "type": { "type": "string", "enum": ["post", "comment", "like", "follow", "achievement"] },
+              "type": {
+                "type": "string",
+                "enum": ["post", "comment", "like", "follow", "achievement"]
+              },
               "description": { "type": "string" },
               "timestamp": { "type": "string", "format": "date-time" },
               "targetUrl": { "type": "string" }
@@ -133,7 +136,13 @@
         }
       }
     },
-    "isOwnProfile": { "type": "boolean", "description": "Whether viewing own profile" },
-    "isFollowing": { "type": "boolean", "description": "Whether current user follows this profile" }
+    "isOwnProfile": {
+      "type": "boolean",
+      "description": "Whether viewing own profile"
+    },
+    "isFollowing": {
+      "type": "boolean",
+      "description": "Whether current user follows this profile"
+    }
   }
 }

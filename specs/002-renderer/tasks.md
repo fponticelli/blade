@@ -144,15 +144,15 @@
 
 - [ ] T047 [P] [US4] Test @match with string literal case in packages/blade/tests/renderer.test.ts
 - [ ] T048 [P] [US4] Test @match with multiple literals (when 200, 201) in packages/blade/tests/renderer.test.ts
-- [ ] T049 [P] [US4] Test @match with expression case (_.x > 10) in packages/blade/tests/renderer.test.ts
-- [ ] T050 [P] [US4] Test @match default case (*) in packages/blade/tests/renderer.test.ts
+- [ ] T049 [P] [US4] Test @match with expression case (\_.x > 10) in packages/blade/tests/renderer.test.ts
+- [ ] T050 [P] [US4] Test @match default case (\*) in packages/blade/tests/renderer.test.ts
 - [ ] T051 [P] [US4] Test @match with no match and no default (empty) in packages/blade/tests/renderer.test.ts
 
 ### Implementation for User Story 4
 
 - [ ] T052 [US4] Implement renderMatchNode() with case evaluation in packages/blade/src/renderer/index.ts
 - [ ] T053 [US4] Add literal case matching (strict equality) in packages/blade/src/renderer/index.ts
-- [ ] T054 [US4] Add expression case matching with _ binding in packages/blade/src/renderer/index.ts
+- [ ] T054 [US4] Add expression case matching with \_ binding in packages/blade/src/renderer/index.ts
 - [ ] T055 [US4] Add default case handling in packages/blade/src/renderer/index.ts
 - [ ] T056 [US4] Wire MatchNode into renderNode() switch in packages/blade/src/renderer/index.ts
 - [ ] T057 [US4] Verify all US4 acceptance scenarios pass
@@ -316,13 +316,16 @@
 ### Parallel Opportunities
 
 Within Phase 1 (Setup):
+
 - T003, T004 can run in parallel (different functions)
 
 Within each User Story:
+
 - All test tasks marked [P] can run in parallel
 - Implementation tasks are sequential within a story
 
 Across User Stories:
+
 - US1, US2, US3, US4, US5, US6 can all run in parallel after Phase 2
 - US7 should follow US1 (needs element rendering)
 - US8 should follow US3, US5 (needs loops and components)
@@ -370,6 +373,7 @@ Task: "Test null/undefined attribute omission in packages/blade/tests/renderer.t
 ### Parallel Team Strategy
 
 With multiple developers after Phase 2:
+
 - Developer A: US1 (text/elements) → US7 (source tracking)
 - Developer B: US2 (conditionals) → US6 (variables)
 - Developer C: US3 (loops) → US8 (limits)
@@ -379,20 +383,20 @@ With multiple developers after Phase 2:
 
 ## Summary
 
-| Phase | Tasks | Parallel | Description | Status |
-|-------|-------|----------|-------------|--------|
-| Setup | 6 | 2 | Error classes, utilities | |
-| Foundational | 5 | 0 | Core render infrastructure | |
-| US1 (P1) | 14 | 7 | Text/Element rendering - MVP | |
-| US2 (P2) | 8 | 4 | Conditional rendering | |
-| US3 (P3) | 13 | 6 | Loop rendering | |
-| US4 (P4) | 11 | 5 | Pattern matching | |
-| US5 (P5) | 15 | 7 | Component rendering | |
-| US6 (P6) | 9 | 4 | Variable declarations | |
-| US7 (P7) | 9 | 4 | Source tracking | |
-| US8 (P8) | 9 | 4 | Resource limits | |
-| Polish | 9 | 5 | Edge cases, docs | |
-| **Total** | **108** | **48** | | |
+| Phase        | Tasks   | Parallel | Description                  | Status |
+| ------------ | ------- | -------- | ---------------------------- | ------ |
+| Setup        | 6       | 2        | Error classes, utilities     |        |
+| Foundational | 5       | 0        | Core render infrastructure   |        |
+| US1 (P1)     | 14      | 7        | Text/Element rendering - MVP |        |
+| US2 (P2)     | 8       | 4        | Conditional rendering        |        |
+| US3 (P3)     | 13      | 6        | Loop rendering               |        |
+| US4 (P4)     | 11      | 5        | Pattern matching             |        |
+| US5 (P5)     | 15      | 7        | Component rendering          |        |
+| US6 (P6)     | 9       | 4        | Variable declarations        |        |
+| US7 (P7)     | 9       | 4        | Source tracking              |        |
+| US8 (P8)     | 9       | 4        | Resource limits              |        |
+| Polish       | 9       | 5        | Edge cases, docs             |        |
+| **Total**    | **108** | **48**   |                              |        |
 
 ---
 

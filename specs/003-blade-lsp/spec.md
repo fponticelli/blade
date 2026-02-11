@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: User description: "an LSP with syntax highlighting, autocompletion, warnings and linting for .blade files"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Syntax Highlighting for Blade Templates (Priority: P1)
 
@@ -159,7 +159,7 @@ As a template author, I want to navigate to definitions of components, helpers, 
 - What happens when workspace has circular component imports? LSP detects and warns about circular dependencies
 - What happens when editor doesn't support LSP? Syntax highlighting via TextMate grammar still works independently
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -193,7 +193,7 @@ As a template author, I want to navigate to definitions of components, helpers, 
 - **TextMateGrammar**: Syntax highlighting rules for .blade files
 - **WorkspaceIndex**: Tracks all components, helpers, and their usages across workspace
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

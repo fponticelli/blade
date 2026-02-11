@@ -23,7 +23,7 @@ export function discoverSamples(projectRoot: string): string[] {
   try {
     const files = fs.readdirSync(samplesDir);
     return files
-      .filter((f) => f.endsWith('.json'))
+      .filter(f => f.endsWith('.json'))
       .sort((a, b) => a.localeCompare(b));
   } catch {
     return [];
@@ -37,7 +37,10 @@ export function discoverSamples(projectRoot: string): string[] {
  * @param sampleName - Name of the sample file (e.g., "summer-sale.json")
  * @returns Loaded sample file with parsed data or error info
  */
-export function loadSample(projectRoot: string, sampleName: string): SampleFile {
+export function loadSample(
+  projectRoot: string,
+  sampleName: string
+): SampleFile {
   const samplePath = path.join(projectRoot, 'samples', sampleName);
 
   if (!fs.existsSync(samplePath)) {
@@ -81,7 +84,7 @@ export function loadSample(projectRoot: string, sampleName: string): SampleFile 
 export function loadAllSamples(projectRoot: string): SampleInfo[] {
   const sampleNames = discoverSamples(projectRoot);
 
-  return sampleNames.map((name) => {
+  return sampleNames.map(name => {
     const sample = loadSample(projectRoot, name);
     return {
       name: sample.name,
@@ -103,7 +106,7 @@ export function getDefaultSample(samples: SampleInfo[]): string | null {
   }
 
   // Prefer first valid sample
-  const validSample = samples.find((s) => s.isValid);
+  const validSample = samples.find(s => s.isValid);
   if (validSample) {
     return validSample.name;
   }

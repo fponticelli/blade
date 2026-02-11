@@ -21,21 +21,23 @@ Fix the resume sample (`samples/resume/index.blade`) to parse correctly in @blad
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Rationale |
-|-----------|--------|-----------|
-| **I. Type Safety First** | COMPLIANT | This fix ensures templates parse correctly, maintaining type safety from authoring through rendering |
-| **II. Source Auditability** | COMPLIANT | No changes to auditability features; resume template uses standard rd-source attributes |
-| **III. Security by Default** | COMPLIANT | No new code execution paths; only validating existing sandboxed template features |
-| **IV. Component Isolation** | COMPLIANT | Resume template doesn't use components; future component support is unaffected |
-| **V. Developer Experience** | COMPLIANT | This fix directly improves DX by ensuring sample works error-free in VSCode |
+| Principle                    | Status    | Rationale                                                                                            |
+| ---------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| **I. Type Safety First**     | COMPLIANT | This fix ensures templates parse correctly, maintaining type safety from authoring through rendering |
+| **II. Source Auditability**  | COMPLIANT | No changes to auditability features; resume template uses standard rd-source attributes              |
+| **III. Security by Default** | COMPLIANT | No new code execution paths; only validating existing sandboxed template features                    |
+| **IV. Component Isolation**  | COMPLIANT | Resume template doesn't use components; future component support is unaffected                       |
+| **V. Developer Experience**  | COMPLIANT | This fix directly improves DX by ensuring sample works error-free in VSCode                          |
 
 **Quality Standards Compliance**:
+
 - Testing: Will add/update tests for resume sample validation
 - Documentation: Sample serves as reference documentation
 
 **Development Workflow Compliance**:
+
 - All changes will pass typecheck, lint, and test
 - Feature branch already created
 
@@ -82,8 +84,8 @@ samples/
 > No constitution violations requiring justification.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| None | N/A | N/A |
+| --------- | ---------- | ------------------------------------ |
+| None      | N/A        | N/A                                  |
 
 ## Phase 0: Research Summary
 
@@ -98,11 +100,13 @@ See [research.md](./research.md) for full analysis.
 **No new data models required** - this is a parser behavior fix.
 
 **Key Changes**:
+
 1. Add raw content tag detection in `parseElement()` for `<style>` and `<script>`
 2. Create `parseRawContent()` method to scan until closing tag while extracting expressions
 3. Add comprehensive tests for style/script expression parsing
 
 See:
+
 - [data-model.md](./data-model.md) - Reference documentation
 - [quickstart.md](./quickstart.md) - Development and testing guide
 

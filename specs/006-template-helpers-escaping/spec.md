@@ -13,7 +13,7 @@
 
 ---
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Template Author Uses Literal @ and $ Characters (Priority: P1)
 
@@ -173,7 +173,7 @@ A developer needs general-purpose utility functions for common operations like t
 - What happens with invalid date strings? → Return epoch date (1970-01-01) with warning
 - How do string functions handle non-string inputs? → Convert to string first
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -284,7 +284,7 @@ A developer needs general-purpose utility functions for common operations like t
 - **Standard Library**: The collection of all predefined helper functions
 - **Warning Context**: The `setWarning` callback passed to helpers via scope for accumulating non-fatal issues
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

@@ -21,21 +21,23 @@ Configure the blade package for NPM publishing with dual ESM/CommonJS format sup
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Type Safety First | ✅ PASS | TypeScript declarations included via vite-plugin-dts |
-| II. Source Auditability | ✅ PASS | Source maps included in build |
-| III. Security by Default | ✅ PASS | No changes to runtime security model |
-| IV. Component Isolation | ✅ PASS | No changes to component model |
-| V. Developer Experience | ✅ PASS | Dual format improves DX for CJS users |
+| Principle                | Status  | Notes                                                |
+| ------------------------ | ------- | ---------------------------------------------------- |
+| I. Type Safety First     | ✅ PASS | TypeScript declarations included via vite-plugin-dts |
+| II. Source Auditability  | ✅ PASS | Source maps included in build                        |
+| III. Security by Default | ✅ PASS | No changes to runtime security model                 |
+| IV. Component Isolation  | ✅ PASS | No changes to component model                        |
+| V. Developer Experience  | ✅ PASS | Dual format improves DX for CJS users                |
 
 **Quality Standards**:
+
 - Testing: ✅ Existing tests remain; add verification scripts for ESM/CJS
 - Documentation: ✅ README exists; will verify it's included in package
 
 **Development Workflow**:
+
 - Code Review: ✅ Standard PR process
 - All checks must pass before publishing
 

@@ -14,6 +14,7 @@ This document captures research findings for implementing the Blade Language Ser
 **Decision**: vscode-languageserver + vscode-languageclient (Microsoft official stack)
 
 **Rationale**:
+
 - Official Microsoft libraries, battle-tested across major language extensions
 - Full TypeScript support with strong typing
 - Well-documented with official guides and samples
@@ -21,11 +22,13 @@ This document captures research findings for implementing the Blade Language Ser
 - Mature ecosystem ensures long-term maintenance
 
 **Alternatives Considered**:
+
 - **monaco-languageclient (TypeFox)**: Rejected - primarily for browser/web scenarios; adds complexity without benefit for VS Code
 - **Direct vscode.languages API**: Rejected - VS Code only, not reusable for other editors
 - **tower-lsp (Rust)**: Rejected - would require maintaining Rust codebase separately from TypeScript parser
 
 **Dependencies**:
+
 ```json
 {
   "vscode-languageserver": "^9.0.1",
@@ -44,6 +47,7 @@ This document captures research findings for implementing the Blade Language Ser
 1. **Use Standard Scopes**: Don't invent custom scopes - themes already style `keyword.control`, `string.quoted`, `comment`, etc.
 
 2. **Repository Pattern**: Store reusable patterns in `repository` object for DRY grammars:
+
    ```json
    {
      "repository": {
@@ -54,6 +58,7 @@ This document captures research findings for implementing the Blade Language Ser
    ```
 
 3. **Embedded Languages**: Use `begin`/`end` patterns with `include` for embedded JS/HTML:
+
    ```json
    {
      "begin": "\\$\\{",
@@ -64,6 +69,7 @@ This document captures research findings for implementing the Blade Language Ser
    ```
 
 4. **Register Embedded Languages** in package.json:
+
    ```json
    "embeddedLanguages": {
      "meta.embedded.block.javascript": "javascript"
@@ -113,12 +119,12 @@ server/
 
 **Case Studies**:
 
-| Extension | Approach | Lessons |
-|-----------|----------|---------|
-| Handlebars | TextMate + basic LSP | Separate patterns for `{{...}}` delimiters |
-| EJS | TextMate embedded JS | Simple `<% %>` delimiters, full JS highlighting |
-| Angular Templates | Full LSP service | Gold standard for directive-based templates |
-| Laravel Blade | TextMate + LSP | Most similar to our case (@if, @for directives) |
+| Extension         | Approach             | Lessons                                         |
+| ----------------- | -------------------- | ----------------------------------------------- |
+| Handlebars        | TextMate + basic LSP | Separate patterns for `{{...}}` delimiters      |
+| EJS               | TextMate embedded JS | Simple `<% %>` delimiters, full JS highlighting |
+| Angular Templates | Full LSP service     | Gold standard for directive-based templates     |
+| Laravel Blade     | TextMate + LSP       | Most similar to our case (@if, @for directives) |
 
 **Key Insight**: Combine TextMate for immediate syntax highlighting with LSP for intelligent features. TextMate is synchronous/fast; LSP handles complex analysis asynchronously.
 
@@ -152,12 +158,14 @@ packages/
 ```
 
 **Rationale**:
+
 - LSP server shares parser/AST with core library
 - Extension is thin client that spawns server
 - Separate package for extension-specific dependencies (@vscode/vscode-languageclient)
 - Clear separation allows future editor support (Neovim, Sublime, etc.)
 
 **Alternative Rejected**: Single package with extension bundled
+
 - Would pollute core library with VS Code dependencies
 - Makes browser usage of core library difficult
 
@@ -166,10 +174,12 @@ packages/
 ### Reusing Existing Parser
 
 The existing Blade parser (`packages/blade/src/parser/`) provides:
+
 - `parseTemplate(source)` → `{ value: TemplateNode[], errors: ParseError[] }`
 - `ParseError` with line, column, offset
 
 **LSP Integration**:
+
 ```typescript
 import { parseTemplate, ParseError } from '@bladets/template';
 
@@ -182,11 +192,11 @@ function errorToDiagnostic(error: ParseError): Diagnostic {
   return {
     range: {
       start: { line: error.line - 1, character: error.column - 1 },
-      end: { line: error.line - 1, character: error.column + 10 }
+      end: { line: error.line - 1, character: error.column + 10 },
     },
     severity: DiagnosticSeverity.Error,
     message: error.message,
-    source: 'blade'
+    source: 'blade',
   };
 }
 ```
@@ -194,15 +204,17 @@ function errorToDiagnostic(error: ParseError): Diagnostic {
 ### Scope Analysis for Completions
 
 The evaluator's `Scope` interface provides basis for completion context:
+
 ```typescript
 interface Scope {
-  locals: Record<string, unknown>;  // @let declarations
-  data: unknown;                    // Template data
+  locals: Record<string, unknown>; // @let declarations
+  data: unknown; // Template data
   globals: Record<string, unknown>; // $.xxx globals
 }
 ```
 
 **LSP Completion Strategy**:
+
 1. Parse document to AST
 2. Walk AST to cursor position, collecting `@let` declarations
 3. Analyze `@for` loops for iteration variables
@@ -210,7 +222,8 @@ interface Scope {
 
 ## Configuration Schema
 
-**blade.lsp.* settings**:
+**blade.lsp.\* settings**:
+
 ```json
 {
   "blade.lsp.diagnostics.enabled": true,

@@ -89,7 +89,10 @@
       "items": {
         "type": "object",
         "properties": {
-          "type": { "type": "string", "enum": ["sale", "signup", "support", "alert"] },
+          "type": {
+            "type": "string",
+            "enum": ["sale", "signup", "support", "alert"]
+          },
           "message": { "type": "string" },
           "timestamp": { "type": "string", "format": "date-time" },
           "value": { "type": "number" }
@@ -101,7 +104,10 @@
       "items": {
         "type": "object",
         "properties": {
-          "level": { "type": "string", "enum": ["info", "warning", "critical"] },
+          "level": {
+            "type": "string",
+            "enum": ["info", "warning", "critical"]
+          },
           "title": { "type": "string" },
           "message": { "type": "string" }
         }

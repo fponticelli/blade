@@ -21,17 +21,18 @@ Implement a Language Server Protocol (LSP) server for Blade templates providing 
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| **I. Type Safety First** | ✅ PASS | LSP provides type-aware completions from inferred data context |
-| **II. Source Auditability** | ✅ PASS | Go-to-definition and hover info trace data/template origins |
-| **III. Security by Default** | ✅ PASS | LSP is read-only analysis; no code execution |
-| **IV. Component Isolation** | ✅ PASS | Component scope analysis enforces isolation in completions |
-| **V. Developer Experience** | ✅ PASS | This feature directly implements Principle V: "LSP for real-time validation, autocomplete, and diagnostics" |
+| Principle                    | Status  | Notes                                                                                                       |
+| ---------------------------- | ------- | ----------------------------------------------------------------------------------------------------------- |
+| **I. Type Safety First**     | ✅ PASS | LSP provides type-aware completions from inferred data context                                              |
+| **II. Source Auditability**  | ✅ PASS | Go-to-definition and hover info trace data/template origins                                                 |
+| **III. Security by Default** | ✅ PASS | LSP is read-only analysis; no code execution                                                                |
+| **IV. Component Isolation**  | ✅ PASS | Component scope analysis enforces isolation in completions                                                  |
+| **V. Developer Experience**  | ✅ PASS | This feature directly implements Principle V: "LSP for real-time validation, autocomplete, and diagnostics" |
 
 **Quality Standards Compliance**:
+
 - ✅ Unit tests for all provider modules (completion, diagnostic, definition)
 - ✅ Integration tests for end-to-end LSP scenarios
 - ✅ No external runtime dependencies beyond LSP libraries
