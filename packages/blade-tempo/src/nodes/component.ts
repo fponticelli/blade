@@ -26,39 +26,47 @@ export function convertComponentNode(
     return [];
   }
 
-  // Evaluate props in caller's scope
-  const props: Record<string, unknown> = {};
-  for (const prop of node.props) {
-    props[prop.name] = evaluateSafe(
-      prop.value,
-      ctx.dataSignal.value,
-      ctx.scope,
-      ctx.helpers,
-      ctx.onError
-    );
-  }
+  // Create a reactive signal for the component props
+  const propsSignal = ctx.dataSignal.map(data => {
+    const props: Record<string, unknown> = {};
 
-  // Apply default values from component definition
-  for (const propDef of definition.props) {
-    if (!(propDef.name in props) && propDef.defaultValue !== undefined) {
-      if (typeof propDef.defaultValue === 'string') {
-        props[propDef.name] = propDef.defaultValue;
-      } else {
-        props[propDef.name] = evaluateSafe(
-          propDef.defaultValue,
-          ctx.dataSignal.value,
-          ctx.scope,
-          ctx.helpers,
-          ctx.onError
-        );
+    // Evaluate props in caller's scope
+    for (const prop of node.props) {
+      props[prop.name] = evaluateSafe(
+        prop.value,
+        data,
+        ctx.scope,
+        ctx.helpers,
+        ctx.onError
+      );
+    }
+
+    // Apply default values from component definition
+    for (const propDef of definition.props) {
+      if (!(propDef.name in props) && propDef.defaultValue !== undefined) {
+        if (typeof propDef.defaultValue === 'string') {
+          props[propDef.name] = propDef.defaultValue;
+        } else {
+          props[propDef.name] = evaluateSafe(
+            propDef.defaultValue,
+            data,
+            ctx.scope,
+            ctx.helpers,
+            ctx.onError
+          );
+        }
       }
     }
-  }
+
+    return props;
+  });
 
   // Create isolated component scope (only props and globals)
+  // Note: scope.data is overridden by the signal value in evaluateSafe,
+  // but we provide an empty object here for structure.
   const componentScope: Scope = {
     locals: {},
-    data: props,
+    data: {},
     globals: ctx.scope.globals,
   };
 
@@ -66,9 +74,10 @@ export function convertComponentNode(
   const slots = new Map(ctx.slots);
   slots.set('default', node.children);
 
-  // Create component context with isolated scope
+  // Create component context with isolated scope and props signal
   const componentCtx: RenderContext = {
     ...ctx,
+    dataSignal: propsSignal,
     scope: componentScope,
     slots,
   };
