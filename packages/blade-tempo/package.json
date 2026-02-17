@@ -1,6 +1,6 @@
 {
   "name": "@bladets/tempo",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "description": "Blade template integration for @tempots/dom - reactive rendering",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -37,11 +37,11 @@ describe('Component rendering', () => {
     const renderer = createTempoRenderer(template);
     const container = document.createElement('div');
     const data = prop({ user: { name: 'Alice' } });
-    
+
     // Initial render
     const cleanup = render(renderer(data), container);
     expect(container.innerHTML).toContain('Alice');
-    
+
     // Update signal
     data.value = { user: { name: 'Bob' } };
     await Promise.resolve(); // wait for reactivity

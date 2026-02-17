@@ -51,6 +51,15 @@ function getCurrentVersion(dir) {
   return pkg.version;
 }
 
+function checkNpmAuth() {
+  try {
+    execSync('npm whoami', { stdio: 'ignore' });
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 async function selectPackage() {
   console.log('\n📦 Select package to publish:\n');
   PACKAGES.forEach((pkg, i) => {
@@ -96,6 +105,16 @@ async function publishNpmPackage(pkg, versionType) {
   if (confirm.toLowerCase() !== 'y') {
     console.log('Cancelled.');
     return false;
+  }
+
+
+  // Check npm auth
+  if (!checkNpmAuth()) {
+    console.log('\n⚠️  npm session expired or not logged in.');
+    console.log('   Please log in to proceed:');
+    if (!exec('npm login')) {
+      return false;
+    }
   }
 
   // Run checks first
