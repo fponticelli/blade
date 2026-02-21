@@ -94,6 +94,54 @@ describe('Escape Sequences', () => {
     });
   });
 
+  describe('Unsafe/raw HTML interpolation', () => {
+    it('renders $!variable without HTML escaping', async () => {
+      const ast = compile('Content: $!content');
+      const result = render(ast, { content: '<b>bold</b>' });
+      expect(result.html).toBe('Content: <b>bold</b>');
+    });
+
+    it('renders $!{expression} without HTML escaping', async () => {
+      const ast = compile('Content: $!{content}');
+      const result = render(ast, { content: '<em>italic</em>' });
+      expect(result.html).toBe('Content: <em>italic</em>');
+    });
+
+    it('renders dotted path $!data.bio without escaping', async () => {
+      const ast = compile('Bio: $!data.bio');
+      const result = render(ast, { data: { bio: '<p>Hello</p>' } });
+      expect(result.html).toBe('Bio: <p>Hello</p>');
+    });
+
+    it('still escapes regular expressions alongside unsafe ones', async () => {
+      const ast = compile('Safe: $safe, Raw: $!raw');
+      const result = render(ast, {
+        safe: '<script>bad</script>',
+        raw: '<b>good</b>',
+      });
+      expect(result.html).toContain('&lt;script&gt;');
+      expect(result.html).toContain('<b>good</b>');
+    });
+
+    it('does not treat $! without identifier as unsafe', async () => {
+      const ast = compile('Cost: $!');
+      const result = render(ast, {});
+      expect(result.html).toContain('$!');
+    });
+
+    it('preserves ${!expr} as logical NOT (not unsafe)', async () => {
+      const ast = compile('${!isHidden}');
+      const result = render(ast, { isHidden: false });
+      expect(result.html).toBe('true');
+    });
+
+    it('handles $!{expression} with helper calls', async () => {
+      const ast = compile('$!{content}');
+      const result = render(ast, { content: '<div>block</div>' });
+      expect(result.html).toBe('<div>block</div>');
+    });
+  });
+
   describe('Combined with valid syntax', () => {
     it('mixes escaped and real directives', async () => {
       const ast = compile('@if(true)Hello\\@world@endif');

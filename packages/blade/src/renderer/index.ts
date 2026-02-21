@@ -479,8 +479,9 @@ function renderText(node: TextNode, ctx: RenderContext): string {
       // Expression segment
       const value = evaluate(segment.expr, createEvalContext(ctx));
       const str = valueToString(value);
-      // HTML escape expressions by default
-      parts.push(ctx.renderConfig.htmlEscape ? escapeHtml(str) : str);
+      // HTML escape expressions by default, skip for unsafe segments
+      const shouldEscape = ctx.renderConfig.htmlEscape && !segment.unsafe;
+      parts.push(shouldEscape ? escapeHtml(str) : str);
     }
   }
 

@@ -20,6 +20,79 @@ describe('e2e reactive rendering', () => {
     container.remove();
   });
 
+  // === Unsafe/raw HTML interpolation ===
+
+  it('should render $!variable as raw HTML', async () => {
+    const template = compile('<div>$!content</div>');
+    const renderer = createTempoRenderer(template);
+    const data = prop({ content: '<b>bold</b>' });
+
+    cleanup = render(renderer(data), container);
+
+    const div = container.querySelector('div')!;
+    // The unsafe content should be rendered as actual HTML, not escaped text
+    expect(div.querySelector('b')).not.toBeNull();
+    expect(div.querySelector('b')!.textContent).toBe('bold');
+  });
+
+  it('should render $!{expression} as raw HTML', async () => {
+    const template = compile('<div>$!{content}</div>');
+    const renderer = createTempoRenderer(template);
+    const data = prop({ content: '<em>italic</em>' });
+
+    cleanup = render(renderer(data), container);
+
+    const div = container.querySelector('div')!;
+    expect(div.querySelector('em')).not.toBeNull();
+    expect(div.querySelector('em')!.textContent).toBe('italic');
+  });
+
+  it('should reactively update unsafe HTML content', async () => {
+    const template = compile('<div>$!content</div>');
+    const renderer = createTempoRenderer(template);
+    const data = prop({ content: '<b>first</b>' });
+
+    cleanup = render(renderer(data), container);
+
+    expect(container.querySelector('b')!.textContent).toBe('first');
+
+    data.value = { content: '<i>second</i>' };
+    await Promise.resolve();
+
+    expect(container.querySelector('b')).toBeNull();
+    expect(container.querySelector('i')!.textContent).toBe('second');
+  });
+
+  it('should escape safe expressions but not unsafe ones', async () => {
+    const template = compile('<div>$safe $!raw</div>');
+    const renderer = createTempoRenderer(template);
+    const data = prop({
+      safe: '<script>bad</script>',
+      raw: '<b>good</b>',
+    });
+
+    cleanup = render(renderer(data), container);
+
+    const div = container.querySelector('div')!;
+    // Safe content should be escaped (no script element)
+    expect(div.querySelector('script')).toBeNull();
+    // Unsafe content should be raw HTML (b element present)
+    expect(div.querySelector('b')).not.toBeNull();
+    expect(div.querySelector('b')!.textContent).toBe('good');
+  });
+
+  it('should preserve ${!expr} as logical NOT (not unsafe)', async () => {
+    const template = compile('<div>${!isHidden}</div>');
+    const renderer = createTempoRenderer(template);
+    const data = prop({ isHidden: false });
+
+    cleanup = render(renderer(data), container);
+
+    expect(container.querySelector('div')!.textContent).toBe('true');
+  });
+
+  // === Tempo reactivity basics ===
+
   // First verify Tempo itself works reactively
   it('should verify Tempo TextNode reactivity', () => {
     const data = prop('Hello');

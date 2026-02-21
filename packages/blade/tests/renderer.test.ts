@@ -117,7 +117,8 @@ function binary(left: ExprAst, op: string, right: ExprAst): ExprAst {
 // Helper to create a text node
 function text(
   segments: Array<
-    { kind: 'literal'; text: string } | { kind: 'expr'; expr: ExprAst }
+    | { kind: 'literal'; text: string }
+    | { kind: 'expr'; expr: ExprAst; unsafe?: boolean }
   >
 ): TextNode {
   return {
@@ -125,7 +126,12 @@ function text(
     segments: segments.map(s =>
       s.kind === 'literal'
         ? { kind: 'literal' as const, text: s.text, location: mockLocation }
-        : { kind: 'expr' as const, expr: s.expr, location: mockLocation }
+        : {
+            kind: 'expr' as const,
+            expr: s.expr,
+            ...(s.unsafe ? { unsafe: true as const } : {}),
+            location: mockLocation,
+          }
     ),
     location: mockLocation,
   };
@@ -1501,6 +1507,36 @@ describe('Configuration Options', () => {
     );
 
     expect(result.html).toBe('<b>bold</b>');
+  });
+
+  it('should NOT HTML-escape unsafe expression segments', () => {
+    const template = createMockTemplate([
+      text([{ kind: 'expr', expr: path('html'), unsafe: true }]),
+    ]);
+
+    const renderer = createStringRenderer(template);
+    const result = renderer({ html: '<b>bold</b>' });
+
+    expect(result.html).toBe('<b>bold</b>');
+  });
+
+  it('should escape safe segments even when unsafe segments exist', () => {
+    const template = createMockTemplate([
+      text([
+        { kind: 'expr', expr: path('safe') },
+        { kind: 'expr', expr: path('unsafe'), unsafe: true },
+      ]),
+    ]);
+
+    const renderer = createStringRenderer(template);
+    const result = renderer({
+      safe: '<script>alert("xss")</script>',
+      unsafe: '<em>allowed</em>',
+    });
+
+    expect(result.html).toBe(
+      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;<em>allowed</em>'
+    );
   });
 });
 

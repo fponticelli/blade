@@ -370,6 +370,96 @@ describe('Compiler - Complex Expressions', () => {
   });
 });
 
+describe('Compiler - Unsafe Expressions', () => {
+  it('should parse $!foo as unsafe expression segment', async () => {
+    const root = compileAndGetRoot('$!foo');
+    const textNode = root.children[0] as TextNode;
+    expect(textNode.segments).toHaveLength(1);
+    const segment = textNode.segments[0];
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      expect(segment.unsafe).toBe(true);
+      expect(segment.expr.kind).toBe('path');
+    }
+  });
+
+  it('should parse $!data.user.bio as unsafe dotted path', async () => {
+    const root = compileAndGetRoot('$!data.user.bio');
+    const textNode = root.children[0] as TextNode;
+    expect(textNode.segments).toHaveLength(1);
+    const segment = textNode.segments[0];
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      expect(segment.unsafe).toBe(true);
+      const expr = segment.expr as PathNode;
+      expect(expr.segments).toHaveLength(3);
+    }
+  });
+
+  it('should parse $!{expression} as unsafe complex expression', async () => {
+    const root = compileAndGetRoot('$!{foo + bar}');
+    const textNode = root.children[0] as TextNode;
+    expect(textNode.segments).toHaveLength(1);
+    const segment = textNode.segments[0];
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      expect(segment.unsafe).toBe(true);
+      expect(segment.expr.kind).toBe('binary');
+    }
+  });
+
+  it('should parse $foo without unsafe flag', async () => {
+    const root = compileAndGetRoot('$foo');
+    const textNode = root.children[0] as TextNode;
+    const segment = textNode.segments[0];
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      expect(segment.unsafe).toBeUndefined();
+    }
+  });
+
+  it('should parse ${expression} without unsafe flag', async () => {
+    const root = compileAndGetRoot('${foo + bar}');
+    const textNode = root.children[0] as TextNode;
+    const segment = textNode.segments[0];
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      expect(segment.unsafe).toBeUndefined();
+    }
+  });
+
+  it('should preserve ${!expr} as logical NOT (not unsafe)', async () => {
+    const root = compileAndGetRoot('${!isHidden}');
+    const textNode = root.children[0] as TextNode;
+    const segment = textNode.segments[0];
+    expect(segment.kind).toBe('expr');
+    if (isExprSegment(segment)) {
+      expect(segment.unsafe).toBeUndefined();
+      expect(segment.expr.kind).toBe('unary');
+      expect((segment.expr as UnaryNode).operator).toBe('!');
+    }
+  });
+
+  it('should handle mixed safe and unsafe segments', async () => {
+    const root = compileAndGetRoot('Safe: $name, Raw: $!html');
+    const textNode = root.children[0] as TextNode;
+    const safeExprs = textNode.segments.filter(
+      s => s.kind === 'expr' && !s.unsafe
+    );
+    const unsafeExprs = textNode.segments.filter(
+      s => s.kind === 'expr' && s.unsafe
+    );
+    expect(safeExprs).toHaveLength(1);
+    expect(unsafeExprs).toHaveLength(1);
+  });
+
+  it('should treat $! without following alpha as literal', async () => {
+    const root = compileAndGetRoot('Cost: $!');
+    const textNode = root.children[0] as TextNode;
+    expect(textNode.segments.every(s => s.kind === 'literal')).toBe(true);
+  });
+});
+
 describe('Compiler - Expression Interpolation', () => {
   it('should parse mixed text and expressions', async () => {
     const root = compileAndGetRoot('Total: ${formatCurrency(total)}');

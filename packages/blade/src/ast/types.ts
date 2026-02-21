@@ -408,6 +408,7 @@ export interface TextNode extends BaseNode {
  * @property kind - Either "literal" for static text or "expr" for interpolated expressions
  * @property text - Static text content (only for literal segments)
  * @property expr - Expression to evaluate (only for expr segments)
+ * @property unsafe - If true, expression output will NOT be HTML-escaped (only for expr segments)
  * @property location - Source location of this segment
  */
 export type TextSegment =
@@ -419,6 +420,7 @@ export type TextSegment =
   | {
       readonly kind: 'expr';
       readonly expr: ExprAst;
+      readonly unsafe?: boolean;
       readonly location: SourceLocation;
     };
 

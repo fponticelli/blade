@@ -4,7 +4,7 @@
 import type { TextNode as BladeTextNode } from '@bladets/template/browser';
 import { escapeHtml } from '@bladets/template/browser';
 import type { Renderable, Signal } from '@tempots/dom';
-import { TextNode } from '@tempots/dom';
+import { TextNode, html, attr } from '@tempots/dom';
 import type { RenderContext } from '../types.js';
 import { evaluateSafe, valueToString } from '../evaluator.js';
 
@@ -28,7 +28,63 @@ export function convertTextNode(
     return [TextNode(text)];
   }
 
-  // Has expression segments - need reactive updates
+  // Check if any segment is unsafe (raw HTML)
+  const hasUnsafe = node.segments.some(
+    seg => seg.kind === 'expr' && seg.unsafe
+  );
+
+  // If no unsafe segments, use the existing combined-signal approach
+  if (!hasUnsafe) {
+    return convertSafeTextNode(node, ctx);
+  }
+
+  // Has unsafe segments — emit each segment as a separate Renderable
+  const renderables: Renderable[] = [];
+
+  for (const segment of node.segments) {
+    if (segment.kind === 'literal') {
+      renderables.push(TextNode(segment.text));
+    } else if (segment.unsafe) {
+      // Unsafe expression — use innerHTML on a span for raw HTML rendering
+      const htmlSignal = ctx.dataSignal.map(data => {
+        const value = evaluateSafe(
+          segment.expr,
+          data,
+          ctx.scope,
+          ctx.helpers,
+          ctx.onError
+        );
+        return valueToString(value);
+      });
+      renderables.push(html.span(attr.innerHTML(htmlSignal)));
+    } else {
+      // Safe expression — use TextNode with escaping
+      const exprSignal = ctx.dataSignal.map(data => {
+        const value = evaluateSafe(
+          segment.expr,
+          data,
+          ctx.scope,
+          ctx.helpers,
+          ctx.onError
+        );
+        const str = valueToString(value);
+        return ctx.config.htmlEscape ? escapeHtml(str) : str;
+      });
+      renderables.push(TextNode(exprSignal));
+    }
+  }
+
+  return renderables;
+}
+
+/**
+ * Converts a text node with only safe (escaped) segments.
+ * Uses a combined signal approach for efficiency.
+ */
+function convertSafeTextNode(
+  node: BladeTextNode,
+  ctx: RenderContext
+): Renderable[] {
   const parts: (string | Signal<string>)[] = [];
 
   for (const segment of node.segments) {

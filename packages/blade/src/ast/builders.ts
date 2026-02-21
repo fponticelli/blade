@@ -617,6 +617,18 @@ export const seg = {
       location: location ?? loc(),
     };
   },
+
+  /**
+   * Creates an unsafe (unescaped) expression text segment.
+   */
+  unsafeExpr(exprAst: ExprAst, location?: SourceLocation): TextSegment {
+    return {
+      kind: 'expr',
+      expr: exprAst,
+      unsafe: true,
+      location: location ?? loc(),
+    };
+  },
 };
 
 // =============================================================================
@@ -908,6 +920,7 @@ export const text = {
     node.text(opts.segments, opts.location),
   literalSegment: seg.literal,
   exprSegment: seg.expr,
+  unsafeExprSegment: seg.unsafeExpr,
 };
 export const ifNode = {
   node: (opts: {

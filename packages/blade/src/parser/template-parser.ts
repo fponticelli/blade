@@ -1139,6 +1139,138 @@ export class TemplateParser {
         continue;
       }
 
+      // Check for unsafe expression: $!identifier or $!{expression}
+      if (
+        this.peek() === '$' &&
+        this.peekNext() === '!' &&
+        this.pos + 2 < this.source.length
+      ) {
+        const charAfterBang = this.source[this.pos + 2] ?? '';
+
+        if (this.isAlpha(charAfterBang)) {
+          // $!identifier — unsafe simple expression
+          if (textBuffer) {
+            segments.push(
+              ast.text.literalSegment(
+                textBuffer,
+                this.getLocationFrom(startLoc)
+              )
+            );
+            textBuffer = '';
+          }
+
+          this.advance(); // consume $
+          this.advance(); // consume !
+
+          // Parse the path (identifier + segments) and prepend $ for expression parser
+          const pathStart = this.pos;
+
+          // Parse identifier
+          while (this.isAlphaNumeric(this.peek())) {
+            this.advance();
+          }
+
+          // Parse path segments (.foo or [0] or [*])
+          while (this.peek() === '.' || this.peek() === '[') {
+            const prevPos = this.pos;
+            if (this.peek() === '.') {
+              this.advance();
+              if (!this.isAlphaNumeric(this.peek())) break;
+              while (this.isAlphaNumeric(this.peek())) this.advance();
+            } else if (this.peek() === '[') {
+              this.advance();
+              if (this.peek() === '*') {
+                this.advance();
+              } else {
+                while (this.isDigit(this.peek())) this.advance();
+              }
+              if (this.peek() === ']') {
+                this.advance();
+              } else {
+                break;
+              }
+            }
+            if (this.pos === prevPos) break;
+          }
+
+          const exprSource = '$' + this.source.substring(pathStart, this.pos);
+          const exprParser = this.createExpressionParser(exprSource);
+          const result = exprParser.parse();
+
+          if (result.errors.length > 0) {
+            this.errors.push(...result.errors);
+          }
+
+          if (result.value) {
+            segments.push(
+              ast.text.unsafeExprSegment(
+                result.value,
+                this.getLocationFrom(startLoc)
+              )
+            );
+          }
+          continue;
+        }
+
+        if (charAfterBang === '{') {
+          // $!{expression} — unsafe complex expression
+          if (textBuffer) {
+            segments.push(
+              ast.text.literalSegment(
+                textBuffer,
+                this.getLocationFrom(startLoc)
+              )
+            );
+            textBuffer = '';
+          }
+
+          this.advance(); // consume $
+          this.advance(); // consume !
+          this.advance(); // consume {
+
+          // Find matching }
+          const exprStart = this.pos;
+          let braceCount = 1;
+          while (!this.isAtEnd() && braceCount > 0) {
+            if (this.peek() === '{') braceCount++;
+            if (this.peek() === '}') braceCount--;
+            if (braceCount > 0) this.advance();
+          }
+
+          const exprSource = this.source.substring(exprStart, this.pos);
+          this.advance(); // consume closing }
+
+          // Check for empty expression
+          if (exprSource.trim() === '') {
+            this.errors.push({
+              message: 'Empty expression',
+              line: this.line,
+              column: this.column,
+              offset: this.pos,
+            });
+            continue;
+          }
+
+          // Parse the expression
+          const exprParser = this.createExpressionParser(exprSource);
+          const result = exprParser.parse();
+
+          if (result.errors.length > 0) {
+            this.errors.push(...result.errors);
+          }
+
+          if (result.value) {
+            segments.push(
+              ast.text.unsafeExprSegment(
+                result.value,
+                this.getLocationFrom(startLoc)
+              )
+            );
+          }
+          continue;
+        }
+      }
+
       // Check for simple expression $identifier
       if (this.peek() === '$' && this.peekNext() !== '{') {
         // Save any accumulated text
