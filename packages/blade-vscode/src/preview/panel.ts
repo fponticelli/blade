@@ -8,7 +8,6 @@ import * as path from 'path';
 import type {
   ToWebviewMessage,
   ToExtensionMessage,
-  SampleInfo,
   PreviewState,
 } from './types';
 import {
@@ -18,12 +17,7 @@ import {
   getNonce,
   hashProjectPath,
 } from './utils';
-import {
-  discoverSamples,
-  loadSample,
-  loadAllSamples,
-  getDefaultSample,
-} from './samples';
+import { loadSample, loadAllSamples, getDefaultSample } from './samples';
 import { renderTemplate, validateSampleData } from './renderer';
 
 /**
@@ -395,9 +389,8 @@ export class PreviewPanelManager {
     }
 
     // Import sample creation function
-    const { createComponentSample, parsePropsForSample } = await import(
-      './samples.js'
-    );
+    const { createComponentSample, parsePropsForSample } =
+      await import('./samples.js');
 
     // Read the component file to parse props
     const componentPath = this.state.activeFile;

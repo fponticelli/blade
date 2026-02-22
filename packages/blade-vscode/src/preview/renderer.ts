@@ -55,9 +55,9 @@ export async function renderTemplate(
 
     // Merge project components into the compiled template's components
     // Create a new mutable map with all components
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mergedComponents = new Map(compileResult.root.components) as Map<
       string,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       any
     >;
     for (const [name, def] of projectComponents) {
