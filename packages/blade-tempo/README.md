@@ -86,7 +86,7 @@ Returns: `(data: Signal<T>) => Renderable`
 
 ## Peer Dependencies
 
-- `@bladets/template` ^0.2.0
+- `@bladets/template` ^0.4.0
 - `@tempots/dom` ^35.0.0
 
 ## Related Packages

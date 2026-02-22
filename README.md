@@ -62,32 +62,32 @@ data.value = { count: 42 };
 
 ## Development
 
-This is a monorepo managed with [Turborepo](https://turbo.build/).
+This is a monorepo managed with [pnpm](https://pnpm.io/) and [Turborepo](https://turbo.build/).
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Build all packages
-npm run build
+pnpm build
 
 # Run all tests
-npm test
+pnpm test
 
 # Run tests with UI
-npm run test:ui
+pnpm test:ui
 
 # Lint all packages
-npm run lint
+pnpm lint
 
 # Format all files
-npm run format
+pnpm format
 
 # Type check all packages
-npm run typecheck
+pnpm typecheck
 
 # Clean all build artifacts
-npm run clean
+pnpm clean
 ```
 
 ## Documentation

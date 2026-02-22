@@ -1,6 +1,6 @@
 {
   "name": "@bladets/tempo",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Blade template integration for @tempots/dom - reactive rendering",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -34,9 +34,9 @@
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts --fix",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint:fix && npm run lint && npm run build && npm run test",
+    "check": "pnpm run lint:fix && pnpm run lint && pnpm run build && pnpm run test",
     "clean": "rm -rf dist coverage .turbo",
-    "prepublishOnly": "npm run check"
+    "prepublishOnly": "pnpm run check"
   },
   "keywords": [
     "blade",
@@ -54,12 +54,12 @@
     "directory": "packages/blade-tempo"
   },
   "peerDependencies": {
-    "@bladets/template": "^0.2.0",
+    "@bladets/template": "^0.4.0",
     "@tempots/dom": "^35.0.0"
   },
   "devDependencies": {
-    "@bladets/template": "file:../blade",
-    "@tempots/dom": "^35.0.0",
+    "@bladets/template": "workspace:*",
+    "@tempots/dom": "^37.0.3",
     "@types/node": "^22.10.2",
     "@vitest/coverage-v8": "^2.1.8",
     "@vitest/ui": "^2.1.8",

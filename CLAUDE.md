@@ -1,6 +1,6 @@
 # blade Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2025-11-25
+Auto-generated from all feature plans. Last updated: 2026-02-22
 
 ## Active Technologies
 
@@ -34,7 +34,7 @@ tests/
 
 ## Commands
 
-npm test && npm run lint
+pnpm test && pnpm lint
 
 ## Code Style
 
@@ -42,6 +42,8 @@ TypeScript 5.x (ESM modules): Follow standard conventions
 
 ## Recent Changes
 
+- Raw HTML interpolation: Added `$!expression` and `$!{expression}` syntax for unescaped HTML output
+- Reactive component props: Component props update reactively via signals in @bladets/tempo
 - 011-resume-sample-fix: Added TypeScript 5.7.2 (ESM modules) + @bladets/template ^0.2.0, @bladets/tempo ^0.1.1, vscode-languageserver ^9.0.1
 
 - 010-blade-tempo-package: Added TypeScript 5.7.2 (ESM modules) + @tempots/dom (peer), @bladets/template (peer)

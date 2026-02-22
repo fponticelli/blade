@@ -1,6 +1,6 @@
 {
   "name": "@bladets/template",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Blade - Sharp templates for modern apps",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -44,9 +44,9 @@
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts --fix",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint:fix && npm run lint && npm run build && npm run test",
+    "check": "pnpm run lint:fix && pnpm run lint && pnpm run build && pnpm run test",
     "clean": "rm -rf dist coverage .turbo",
-    "prepublishOnly": "npm run check"
+    "prepublishOnly": "pnpm run check"
   },
   "keywords": [
     "template",

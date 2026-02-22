@@ -66,6 +66,34 @@ ${page + 1} ${sum(order.lines[*].amount) * (1 + taxRate)} ${"Total: " + total}
 </div>
 ```
 
+**Raw HTML (unescaped):**
+
+When `htmlEscape` is enabled (the default), all expression output is HTML-escaped. To insert raw HTML without escaping, use the `$!` prefix:
+
+```html
+<!-- Simple raw expression -->
+$!htmlContent
+
+<!-- Complex raw expression -->
+$!{richText + "<br/>"}
+```
+
+**Example:**
+
+```html
+<!-- Given: content = "<b>bold</b>" -->
+<div>Escaped: $content</div>       <!-- Output: Escaped: &lt;b&gt;bold&lt;/b&gt; -->
+<div>Raw: $!content</div>          <!-- Output: Raw: <b>bold</b> -->
+```
+
+**Mixed safe and raw:**
+
+```html
+<div>Safe: $safe, Raw: $!raw</div>
+```
+
+> **Security Warning:** Using `$!` bypasses HTML escaping and can introduce XSS vulnerabilities if the data comes from untrusted sources. Only use `$!` with content you control or have already sanitized.
+
 ### 3.2 Comments
 
 **Line comments:**
@@ -409,6 +437,17 @@ $order.customer.name
 ```
 
 All path access has implicit optional chaining - no need for `?.` operator.
+
+**Raw (unescaped) expressions:**
+
+The `$!` prefix outputs the result without HTML escaping:
+
+```html
+$!path.to.html          <!-- Simple raw path expression -->
+$!{expr + "<br/>"}      <!-- Complex raw expression -->
+```
+
+See [Section 3.1](#31-expression-syntax) for details and security considerations. Note that `${!expr}` is a logical NOT — the `!` must come immediately after `$` and before the path or `{` to trigger raw output.
 
 ### 4.3 Type Coercion
 
@@ -1028,6 +1067,8 @@ function evaluateExpression(
 
 ## 9. Source Tracking
 
+> **Note:** Source tracking attributes use a configurable prefix (default: `rd-`). All examples in this section use the default prefix. See [Section 14.1](#141-engine-configuration) for customization via `sourceTrackingPrefix`.
+
 ### 9.1 Path Extraction
 
 **For each element, aggregate paths from:**
@@ -1174,6 +1215,24 @@ ComponentA(data=${order.total})
 ```
 
 Final element: `rd-source="order.total"`
+
+### 9.6 Custom Prefix Example
+
+With `sourceTrackingPrefix: 'data-track-'`:
+
+```html
+<div data-track-source="subtotal;tax" data-track-source-op="format:currency;format:currency">
+  ...
+</div>
+```
+
+With `sourceTrackingPrefix: ''` (empty string):
+
+```html
+<div source="subtotal;tax" source-op="format:currency;format:currency">
+  ...
+</div>
+```
 
 ---
 
@@ -1581,6 +1640,13 @@ interface EngineConfig {
 }
 ```
 
+**`sourceTrackingPrefix`** controls the prefix for source tracking attributes (`source`, `source-op`, `source-note`):
+
+- **Default:** `"rd-"` — produces `rd-source`, `rd-source-op`, `rd-source-note`
+- **Empty string** `""` — produces `source`, `source-op`, `source-note`
+- **Custom prefix** `"data-track-"` — produces `data-track-source`, `data-track-source-op`, `data-track-source-note`
+- **Validation:** Must be empty or start with a letter/underscore, containing only alphanumeric characters, hyphens, and underscores
+
 ### 14.2 Configuration Usage
 
 ```typescript
@@ -1591,6 +1657,7 @@ const engine = new TemplateEngine({
   },
   includeComments: true,
   strict: true,
+  sourceTrackingPrefix: 'data-',  // Custom prefix for source attributes
 });
 
 const compiled = await engine.compile(source, { loader });
@@ -2236,7 +2303,84 @@ The Blade LSP provides project-aware features:
 
 ---
 
-## 21. Summary
+## 21. Reactive DOM Rendering (`@bladets/tempo`)
+
+The `@bladets/tempo` package integrates Blade templates with [@tempots/dom](https://www.npmjs.com/package/@tempots/dom) for fine-grained reactive DOM rendering. Instead of producing static HTML strings, templates render live DOM nodes that update automatically when data changes.
+
+### 21.1 Overview
+
+```typescript
+import { compile } from '@bladets/template';
+import { createTempoRenderer } from '@bladets/tempo';
+import { prop, render } from '@tempots/dom';
+
+const template = await compile('<div>Hello, ${name}!</div>');
+const renderer = createTempoRenderer(template);
+
+const data = prop({ name: 'World' });
+render(renderer(data), document.body);
+
+// DOM updates automatically when data changes
+data.value = { name: 'Tempo' };
+```
+
+### 21.2 `createTempoRenderer<T>(template, options?)`
+
+Creates a renderer function that takes a `Signal<T>` and returns a `Renderable`:
+
+```typescript
+const renderer = createTempoRenderer<MyData>(template, {
+  helpers: { formatCurrency: () => (n: number) => `$${n.toFixed(2)}` },
+  globals: { siteName: 'My App' },
+  onError: (error, location) => console.error(error),
+  includeSourceTracking: false,
+  sourceTrackingPrefix: 'rd-',
+});
+```
+
+**Return type:** `(data: Signal<T>) => Renderable`
+
+### 21.3 Reactive Component Props
+
+Component props are reactive — when the parent signal changes, prop values are re-evaluated and the component DOM updates:
+
+```typescript
+const template = await compile(`
+  <template:Greeting name!>
+    <span>Hello, $name!</span>
+  </template:Greeting>
+  <Greeting name="$user.name" />
+`);
+
+const data = prop({ user: { name: 'Alice' } });
+render(createTempoRenderer(template)(data), document.body);
+
+// Component re-renders with new prop value
+data.value = { user: { name: 'Bob' } };
+```
+
+Props create an isolated reactive scope — the component receives a derived signal of its props, with no access to the parent data context.
+
+### 21.4 Supported Features
+
+All Blade template features work in reactive mode:
+
+| Feature | Status |
+| --- | --- |
+| Text interpolation `${expr}` / `$!{expr}` | ✅ |
+| HTML elements and attributes | ✅ |
+| `@if`/`else if`/`else` | ✅ |
+| `@for` loops | ✅ |
+| `@match` pattern matching | ✅ |
+| `@@` variable declarations | ✅ |
+| Components with reactive props | ✅ |
+| Slots | ✅ |
+| Fragments | ✅ |
+| Source tracking | ✅ |
+
+---
+
+## 22. Summary
 
 This template engine provides:
 
@@ -2251,11 +2395,13 @@ This template engine provides:
 ✅ **Clear error handling** with helpful diagnostics
 ✅ **Performance optimization** through compilation and caching
 ✅ **Project-based compilation** with auto-discovery and validation
+✅ **Reactive DOM rendering** with `@bladets/tempo` and signal-based updates
+✅ **Raw HTML interpolation** via `$!` syntax with explicit opt-in
 
 **The system is now fully specified and ready for implementation.**
 
 ---
 
-**Document Version:** 1.1
-**Last Updated:** 2025
+**Document Version:** 1.2
+**Last Updated:** 2026
 **Status:** Implementation Complete

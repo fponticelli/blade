@@ -119,20 +119,20 @@ async function publishNpmPackage(pkg, versionType) {
 
   // Run checks first
   console.log('\n🔍 Running checks...');
-  if (!exec(`cd ${pkg.dir} && npm run check`)) {
+  if (!exec(`cd ${pkg.dir} && pnpm run check`)) {
     console.error('❌ Checks failed. Fix errors before publishing.');
     return false;
   }
 
   // Bump version
   console.log(`\n📝 Bumping version (${versionType})...`);
-  if (!exec(`cd ${pkg.dir} && npm version ${versionType}`)) {
+  if (!exec(`cd ${pkg.dir} && pnpm version ${versionType}`)) {
     return false;
   }
 
   // Publish
   console.log('\n📤 Publishing to npm...');
-  if (!exec(`cd ${pkg.dir} && npm publish --access public`)) {
+  if (!exec(`cd ${pkg.dir} && pnpm publish --access public`)) {
     return false;
   }
 
@@ -160,19 +160,19 @@ async function publishVSCodeExtension(pkg, versionType) {
 
   // Bump version manually (VSCode extensions don't use npm version)
   console.log(`\n📝 Bumping version (${versionType})...`);
-  if (!exec(`cd ${pkg.dir} && npm version ${versionType} --no-git-tag-version`)) {
+  if (!exec(`cd ${pkg.dir} && pnpm version ${versionType} --no-git-tag-version`)) {
     return false;
   }
 
   // Build for production
   console.log('\n🔨 Building for production...');
-  if (!exec(`cd ${pkg.dir} && npm run vscode:prepublish`)) {
+  if (!exec(`cd ${pkg.dir} && pnpm run vscode:prepublish`)) {
     return false;
   }
 
   // Package
   console.log('\n📦 Packaging extension...');
-  if (!exec(`cd ${pkg.dir} && npx vsce package --no-dependencies`)) {
+  if (!exec(`cd ${pkg.dir} && pnpm exec vsce package --no-dependencies`)) {
     return false;
   }
 
@@ -180,9 +180,9 @@ async function publishVSCodeExtension(pkg, versionType) {
   const newVersion = getCurrentVersion(pkg.dir);
   const vsixFile = `blade-templates-${newVersion}.vsix`;
   console.log('\n📤 Publishing to VS Code Marketplace...');
-  if (!exec(`cd ${pkg.dir} && npx vsce publish --packagePath ${vsixFile}`)) {
+  if (!exec(`cd ${pkg.dir} && pnpm exec vsce publish --packagePath ${vsixFile}`)) {
     console.log('\n⚠️  If publish failed, make sure you have a valid Personal Access Token.');
-    console.log('   Run: npx vsce login <publisher>');
+    console.log('   Run: pnpm exec vsce login <publisher>');
     return false;
   }
 

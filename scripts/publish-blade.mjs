@@ -131,7 +131,7 @@ async function main() {
 
   // Run checks
   console.log('\n📋 Running checks...\n');
-  if (!exec('npm run check')) {
+  if (!exec('pnpm run check')) {
     console.log('\n❌ Checks failed. Fix issues and try again.');
     // Revert version
     if (newVersion !== currentVersion) {
@@ -145,7 +145,7 @@ async function main() {
 
   // Show what will be published
   console.log('\n📦 Package contents:\n');
-  exec('npm pack --dry-run');
+  exec('pnpm pack --dry-run');
 
   const finalConfirm = await question('\nPublish to NPM? [y/N]: ');
   if (finalConfirm.toLowerCase() !== 'y') {
@@ -161,7 +161,7 @@ async function main() {
 
   // Publish
   console.log('\n🚀 Publishing...\n');
-  if (exec('npm publish --access public')) {
+  if (exec('pnpm publish --access public')) {
     console.log(`\n✅ Successfully published @bladets/template@${newVersion}`);
     console.log(`\nView at: https://www.npmjs.com/package/@bladets/template`);
   } else {
