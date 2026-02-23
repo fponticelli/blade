@@ -132,7 +132,7 @@ async function publishNpmPackage(pkg, versionType) {
 
   // Publish
   console.log('\n📤 Publishing to npm...');
-  if (!exec(`cd ${pkg.dir} && pnpm publish --access public`)) {
+  if (!exec(`cd ${pkg.dir} && pnpm publish --access public --no-git-checks`)) {
     return false;
   }
 
