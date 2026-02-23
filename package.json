@@ -34,5 +34,8 @@
       "@vscode/vsce-sign",
       "keytar"
     ]
+  },
+  "dependencies": {
+    "@changesets/cli": "^2.29.8"
   }
 }
