@@ -1040,11 +1040,420 @@ export function createStringRenderer(
  * document.body.append(...result.nodes);
  * ```
  */
-export function createDomRenderer(_template: CompiledTemplate): DomRenderer {
-  // TODO: Implement DOM renderer factory
-  return (_data: unknown, _options?: RenderOptions): DomRenderResult => {
-    throw new Error('Not implemented');
+export function createDomRenderer(template: CompiledTemplate): DomRenderer {
+  return (
+    data: unknown,
+    options?: RenderOptions & { limits?: Partial<ResourceLimits> }
+  ): DomRenderResult => {
+    const startTime = performance.now();
+
+    // Create render context (reuses same context machinery as string renderer)
+    const ctx = createRenderContext(template, data, options);
+
+    // Render the template to DOM nodes
+    const nodes = renderChildrenToDom(template.root.children, ctx);
+
+    const endTime = performance.now();
+
+    return {
+      nodes,
+      metadata: {
+        pathsAccessed: ctx.pathsAccessed,
+        helpersUsed: ctx.helpersUsed,
+        renderTime: endTime - startTime,
+        iterationCount: ctx.totalIterations,
+        recursionDepth: ctx.maxRecursionDepthReached,
+      },
+    };
   };
+}
+
+// =============================================================================
+// DOM Render Functions
+// =============================================================================
+
+/**
+ * Renders an array of template nodes to DOM nodes.
+ */
+function renderChildrenToDom(
+  nodes: readonly TemplateNode[],
+  ctx: RenderContext
+): Node[] {
+  const result: Node[] = [];
+  for (const node of nodes) {
+    result.push(...renderNodeToDom(node, ctx));
+  }
+  return result;
+}
+
+/**
+ * Renders a single template node to one or more DOM nodes.
+ */
+function renderNodeToDom(node: TemplateNode, ctx: RenderContext): Node[] {
+  switch (node.kind) {
+    case 'text':
+      return renderTextToDom(node, ctx);
+    case 'element':
+      return [renderElementToDom(node, ctx)];
+    case 'if':
+      return renderIfToDom(node, ctx);
+    case 'for':
+      return renderForToDom(node, ctx);
+    case 'match':
+      return renderMatchToDom(node, ctx);
+    case 'let':
+      renderLet(node, ctx);
+      return [];
+    case 'component':
+      return renderComponentToDom(node, ctx);
+    case 'fragment':
+      return renderChildrenToDom(node.children, ctx);
+    case 'slot':
+      return renderSlotToDom(node, ctx);
+    case 'comment':
+      return renderCommentToDom(node, ctx);
+    case 'doctype':
+      // DOCTYPE nodes are not meaningful as DOM nodes in a fragment context
+      return [];
+    default: {
+      const _exhaustive: never = node;
+      throw new Error(
+        `Unknown node kind: ${(_exhaustive as TemplateNode).kind}`
+      );
+    }
+  }
+}
+
+/**
+ * Renders a TextNode to DOM text nodes.
+ */
+function renderTextToDom(node: TextNode, ctx: RenderContext): Node[] {
+  const parts: string[] = [];
+
+  for (const segment of node.segments) {
+    if (segment.kind === 'literal') {
+      parts.push(segment.text);
+    } else {
+      const value = evaluate(segment.expr, createEvalContext(ctx));
+      parts.push(valueToString(value));
+      // DOM text nodes are inherently safe from XSS (no HTML parsing),
+      // so we do not need to HTML-escape here.
+    }
+  }
+
+  const text = parts.join('');
+  if (text === '') {
+    return [];
+  }
+  return [document.createTextNode(text)];
+}
+
+/**
+ * Renders an ElementNode to a DOM element.
+ */
+function renderElementToDom(node: ElementNode, ctx: RenderContext): Element {
+  const el = document.createElement(node.tag);
+
+  // Set attributes
+  for (const attr of node.attributes) {
+    const rendered = renderAttributeForDom(attr, ctx);
+    if (rendered !== null) {
+      el.setAttribute(rendered.name, rendered.value);
+    }
+  }
+
+  // Append children
+  const children = renderChildrenToDom(node.children, ctx);
+  for (const child of children) {
+    el.appendChild(child);
+  }
+
+  return el;
+}
+
+/**
+ * Evaluates an attribute for DOM rendering.
+ * Returns null for omitted attributes (false booleans, null/undefined values).
+ */
+function renderAttributeForDom(
+  attr: AttributeNode,
+  ctx: RenderContext
+): { name: string; value: string } | null {
+  if (attr.kind === 'static') {
+    return { name: attr.name, value: attr.value };
+  }
+
+  if (attr.kind === 'expr') {
+    const value = evaluate(attr.expr, createEvalContext(ctx));
+
+    // Boolean attribute handling
+    if (typeof value === 'boolean') {
+      return value ? { name: attr.name, value: '' } : null;
+    }
+
+    // Omit null/undefined attributes
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    return { name: attr.name, value: valueToString(value) };
+  }
+
+  // Mixed attribute (static + expressions)
+  const parts: string[] = [];
+  for (const segment of attr.segments) {
+    if (segment.kind === 'static') {
+      parts.push(segment.value);
+    } else {
+      const value = evaluate(segment.expr, createEvalContext(ctx));
+      parts.push(valueToString(value));
+    }
+  }
+  return { name: attr.name, value: parts.join('') };
+}
+
+/**
+ * Renders an IfNode to DOM nodes.
+ */
+function renderIfToDom(node: IfNode, ctx: RenderContext): Node[] {
+  for (const branch of node.branches) {
+    const condition = evaluate(branch.condition, createEvalContext(ctx));
+    if (condition) {
+      return renderChildrenToDom(branch.body, ctx);
+    }
+  }
+
+  if (node.elseBranch) {
+    return renderChildrenToDom(node.elseBranch, ctx);
+  }
+
+  return [];
+}
+
+/**
+ * Renders a ForNode to DOM nodes.
+ */
+function renderForToDom(node: ForNode, ctx: RenderContext): Node[] {
+  ctx.currentLoopNesting++;
+  if (ctx.currentLoopNesting > ctx.limits.maxLoopNesting) {
+    throw new ResourceLimitError(
+      'loopNesting',
+      ctx.currentLoopNesting,
+      ctx.limits.maxLoopNesting,
+      node.location
+    );
+  }
+
+  try {
+    const items = evaluate(node.itemsExpr, createEvalContext(ctx));
+    const results: Node[] = [];
+
+    if (node.iterationType === 'of') {
+      if (!Array.isArray(items)) {
+        return [];
+      }
+
+      let iterationCount = 0;
+      for (let i = 0; i < items.length; i++) {
+        ctx.totalIterations++;
+        iterationCount++;
+
+        if (iterationCount > ctx.limits.maxIterationsPerLoop) {
+          throw new ResourceLimitError(
+            'iterations',
+            iterationCount,
+            ctx.limits.maxIterationsPerLoop,
+            node.location
+          );
+        }
+
+        if (ctx.totalIterations > ctx.limits.maxTotalIterations) {
+          throw new ResourceLimitError(
+            'iterations',
+            ctx.totalIterations,
+            ctx.limits.maxTotalIterations,
+            node.location
+          );
+        }
+
+        const loopScope = createLoopScope(
+          ctx.scope,
+          node.itemVar,
+          items[i],
+          node.indexVar,
+          i
+        );
+
+        const childCtx = { ...ctx, scope: loopScope };
+        results.push(...renderChildrenToDom(node.body, childCtx));
+      }
+    } else {
+      if (items === null || items === undefined) {
+        return [];
+      }
+
+      const keys = Array.isArray(items)
+        ? items.map((_, i) => i)
+        : Object.keys(items as object);
+
+      let iterationCount = 0;
+      for (const key of keys) {
+        ctx.totalIterations++;
+        iterationCount++;
+
+        if (iterationCount > ctx.limits.maxIterationsPerLoop) {
+          throw new ResourceLimitError(
+            'iterations',
+            iterationCount,
+            ctx.limits.maxIterationsPerLoop,
+            node.location
+          );
+        }
+
+        if (ctx.totalIterations > ctx.limits.maxTotalIterations) {
+          throw new ResourceLimitError(
+            'iterations',
+            ctx.totalIterations,
+            ctx.limits.maxTotalIterations,
+            node.location
+          );
+        }
+
+        const loopScope = createLoopScope(ctx.scope, node.itemVar, key);
+        const childCtx = { ...ctx, scope: loopScope };
+        results.push(...renderChildrenToDom(node.body, childCtx));
+      }
+    }
+
+    return results;
+  } finally {
+    ctx.currentLoopNesting--;
+  }
+}
+
+/**
+ * Renders a MatchNode to DOM nodes.
+ */
+function renderMatchToDom(node: MatchNode, ctx: RenderContext): Node[] {
+  const value = evaluate(node.value, createEvalContext(ctx));
+
+  for (const matchCase of node.cases) {
+    if (matchCase.kind === 'literal') {
+      if (matchCase.values.includes(value as string | number | boolean)) {
+        return renderChildrenToDom(matchCase.body, ctx);
+      }
+    } else {
+      const matchScope = createLoopScope(ctx.scope, '_', value);
+      const matchCtx = { ...ctx, scope: matchScope };
+      const condition = evaluate(
+        matchCase.condition,
+        createEvalContext(matchCtx)
+      );
+      if (condition) {
+        return renderChildrenToDom(matchCase.body, matchCtx);
+      }
+    }
+  }
+
+  if (node.defaultCase) {
+    return renderChildrenToDom(node.defaultCase, ctx);
+  }
+
+  return [];
+}
+
+/**
+ * Renders a ComponentNode to DOM nodes.
+ */
+function renderComponentToDom(node: ComponentNode, ctx: RenderContext): Node[] {
+  ctx.componentDepth++;
+  if (ctx.componentDepth > ctx.limits.maxComponentDepth) {
+    throw new ResourceLimitError(
+      'componentDepth',
+      ctx.componentDepth,
+      ctx.limits.maxComponentDepth,
+      node.location
+    );
+  }
+
+  try {
+    const definition = ctx.components.get(node.name);
+    if (!definition) {
+      throw new RenderError(
+        `Unknown component: ${node.name}`,
+        node.location,
+        'UNKNOWN_COMPONENT'
+      );
+    }
+
+    // Evaluate props in caller's scope
+    const props: Record<string, unknown> = {};
+    for (const prop of node.props) {
+      props[prop.name] = evaluate(prop.value, createEvalContext(ctx));
+    }
+
+    // Apply default values from component definition
+    for (const propDef of definition.props) {
+      if (!(propDef.name in props) && propDef.defaultValue !== undefined) {
+        if (typeof propDef.defaultValue === 'string') {
+          props[propDef.name] = propDef.defaultValue;
+        } else {
+          props[propDef.name] = evaluate(
+            propDef.defaultValue,
+            createEvalContext(ctx)
+          );
+        }
+      }
+    }
+
+    const componentScope = createComponentScope(props, ctx.scope.globals);
+
+    const slots = new Map<string, readonly TemplateNode[]>();
+    slots.set('default', node.children);
+
+    const componentCtx: RenderContext = {
+      ...ctx,
+      scope: componentScope,
+      slots,
+    };
+
+    return renderChildrenToDom(definition.body, componentCtx);
+  } finally {
+    ctx.componentDepth--;
+  }
+}
+
+/**
+ * Renders a SlotNode to DOM nodes.
+ */
+function renderSlotToDom(node: SlotNode, ctx: RenderContext): Node[] {
+  const slotName = node.name ?? 'default';
+  const slotContent = ctx.slots.get(slotName);
+
+  if (slotContent && slotContent.length > 0) {
+    return renderChildrenToDom(slotContent, ctx);
+  }
+
+  if (node.fallback) {
+    return renderChildrenToDom(node.fallback, ctx);
+  }
+
+  return [];
+}
+
+/**
+ * Renders a CommentNode to a DOM comment node.
+ */
+function renderCommentToDom(node: CommentNode, ctx: RenderContext): Node[] {
+  if (!ctx.renderConfig.includeComments) {
+    return [];
+  }
+
+  if (node.style === 'html') {
+    return [document.createComment(node.text)];
+  }
+
+  return [];
 }
 
 // =============================================================================
