@@ -263,10 +263,7 @@ function validateElementNode(node: ElementNode, ctx: ValidationContext): void {
 /**
  * Validates attribute expressions.
  */
-function validateAttribute(
-  attr: AttributeNode,
-  ctx: ValidationContext
-): void {
+function validateAttribute(attr: AttributeNode, ctx: ValidationContext): void {
   if (attr.kind === 'expr') {
     validateExpr(attr.expr, ctx, attr.location);
   } else if (attr.kind === 'mixed') {

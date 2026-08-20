@@ -166,7 +166,10 @@ export function resolvePath(path: string, aliases?: PathAliases): string[] {
 }
 
 /** Resolve and de-duplicate a whole expression's paths through a component. */
-function resolvePaths(paths: readonly string[], aliases?: PathAliases): string[] {
+function resolvePaths(
+  paths: readonly string[],
+  aliases?: PathAliases
+): string[] {
   if (!aliases || aliases.size === 0) return [...paths];
   const seen = new Set<string>();
   const out: string[] = [];
@@ -211,7 +214,8 @@ function findOp(
     }
     case 'binary':
       return (
-        findOp(expr.left, category, table) ?? findOp(expr.right, category, table)
+        findOp(expr.left, category, table) ??
+        findOp(expr.right, category, table)
       );
     case 'unary':
       return findOp(expr.operand, category, table);
@@ -484,7 +488,8 @@ export function collectElementExpressions(node: ElementNode): ExprAst[] {
         case 'match':
           exprs.push(child.value);
           for (const matchCase of child.cases) {
-            if (matchCase.kind === 'expression') exprs.push(matchCase.condition);
+            if (matchCase.kind === 'expression')
+              exprs.push(matchCase.condition);
             visit(matchCase.body);
           }
           if (child.defaultCase) visit(child.defaultCase);

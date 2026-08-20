@@ -11,7 +11,6 @@ import type {
   ExprAst,
   SourceLocation,
 } from '../src/ast/types.js';
-import type { RenderOptions } from '../src/renderer/index.js';
 
 // =============================================================================
 // Test Helpers
@@ -268,7 +267,11 @@ describe('createDomRenderer', () => {
                 {
                   kind: 'text',
                   segments: [
-                    { kind: 'literal', text: 'visible', location: mockLocation },
+                    {
+                      kind: 'literal',
+                      text: 'visible',
+                      location: mockLocation,
+                    },
                   ],
                   location: mockLocation,
                 },
@@ -355,7 +358,11 @@ describe('createDomRenderer', () => {
                 {
                   kind: 'text',
                   segments: [
-                    { kind: 'expr', expr: path('item'), location: mockLocation },
+                    {
+                      kind: 'expr',
+                      expr: path('item'),
+                      location: mockLocation,
+                    },
                   ],
                   location: mockLocation,
                 },
@@ -468,9 +475,7 @@ describe('createDomRenderer', () => {
       const template = createMockTemplate([
         {
           kind: 'text',
-          segments: [
-            { kind: 'literal', text: 'test', location: mockLocation },
-          ],
+          segments: [{ kind: 'literal', text: 'test', location: mockLocation }],
           location: mockLocation,
         },
       ]);

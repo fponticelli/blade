@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateTemplate } from '../src/validation/index.js';
-import type {
-  ValidationOptions,
-  ComponentRegistry,
-} from '../src/validation/index.js';
+import type { ComponentRegistry } from '../src/validation/index.js';
 import type { HelperRegistry } from '../src/evaluator/index.js';
 
 describe('validateTemplate', () => {
@@ -118,9 +115,7 @@ describe('validateTemplate', () => {
       const source = '<div>${unknownHelper($value)}</div>';
       const result = validateTemplate(source, { helpers, strict: true });
       expect(result.valid).toBe(false);
-      const helperError = result.errors.find(
-        e => e.code === 'UNKNOWN_HELPER'
-      );
+      const helperError = result.errors.find(e => e.code === 'UNKNOWN_HELPER');
       expect(helperError).toBeDefined();
     });
 

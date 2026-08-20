@@ -43,8 +43,11 @@ describe('source tracking', () => {
   });
 
   it('reports data paths, not template coordinates', () => {
-    const el = mount('<p>$customer.name</p>', { customer: { name: 'Ada' } }, tracking)
-      .querySelector('p')!;
+    const el = mount(
+      '<p>$customer.name</p>',
+      { customer: { name: 'Ada' } },
+      tracking
+    ).querySelector('p')!;
     expect(el.getAttribute('rd-source')).toBe('customer.name');
     expect(el.getAttribute('rd-source')).not.toMatch(/^\d+:\d+/);
   });
@@ -65,10 +68,14 @@ describe('source tracking', () => {
   <span>\${formatCurrency(amount)}</span>
 </template:Money>
 <Money amount=$order.total />`;
-    const el = mount(template, { order: { total: 5 } }, {
-      ...tracking,
-      includeOperationTracking: true,
-    }).querySelector('span')!;
+    const el = mount(
+      template,
+      { order: { total: 5 } },
+      {
+        ...tracking,
+        includeOperationTracking: true,
+      }
+    ).querySelector('span')!;
     expect(el.getAttribute('rd-source')).toBe('order.total');
     expect(el.getAttribute('rd-source-op')).toBe('format:currency');
   });
@@ -83,10 +90,14 @@ describe('source tracking', () => {
   });
 
   it('honours the configured prefix', () => {
-    const el = mount('<p>$name</p>', { name: 'Ada' }, {
-      ...tracking,
-      sourceTrackingPrefix: 'data-track-',
-    }).querySelector('p')!;
+    const el = mount(
+      '<p>$name</p>',
+      { name: 'Ada' },
+      {
+        ...tracking,
+        sourceTrackingPrefix: 'data-track-',
+      }
+    ).querySelector('p')!;
     expect(el.getAttribute('data-track-source')).toBe('name');
   });
 });

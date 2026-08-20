@@ -934,13 +934,6 @@ describe('Compiler - Component Usage', () => {
 
     expect(comp.children).toHaveLength(1);
   });
-
-  it('should track component prop path mappings', async () => {
-    const root = compileAndGetRoot('<Card title=$order.title />');
-    const comp = root.children[0] as ComponentNode;
-
-    // Should map 'title' prop to ['order', 'title'] path
-  });
 });
 
 describe('Compiler - Slots', () => {

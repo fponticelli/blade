@@ -24,13 +24,17 @@ function renderToElement(
 
 describe('source tracking in the DOM renderer', () => {
   it('is off unless asked for', () => {
-    const el = renderToElement('<p>$name</p>', { name: 'Ada' }, {
-      includeSourceTracking: false,
-    });
+    const el = renderToElement(
+      '<p>$name</p>',
+      { name: 'Ada' },
+      {
+        includeSourceTracking: false,
+      }
+    );
     expect(el.hasAttribute('rd-source')).toBe(false);
   });
 
-  it('sets rd-source from the element\'s own expressions', () => {
+  it("sets rd-source from the element's own expressions", () => {
     const el = renderToElement('<div>${subtotal} ${tax}</div>', {
       subtotal: 100,
       tax: 12,
@@ -72,9 +76,13 @@ describe('source tracking in the DOM renderer', () => {
   });
 
   it('honours the configured prefix', () => {
-    const el = renderToElement('<p>$name</p>', { name: 'Ada' }, {
-      sourceTrackingPrefix: 'data-track-',
-    });
+    const el = renderToElement(
+      '<p>$name</p>',
+      { name: 'Ada' },
+      {
+        sourceTrackingPrefix: 'data-track-',
+      }
+    );
     expect(el.getAttribute('data-track-source')).toBe('name');
     expect(el.hasAttribute('rd-source')).toBe(false);
   });

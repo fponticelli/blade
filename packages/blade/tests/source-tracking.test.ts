@@ -69,9 +69,9 @@ describe('collectPaths', () => {
 
 describe('classifyExpression', () => {
   it('uses the outermost format helper', () => {
-    expect(classifyExpression(expr('formatCurrency(sum($lines[*].amount))'))).toEqual(
-      { category: 'format', detail: 'currency' }
-    );
+    expect(
+      classifyExpression(expr('formatCurrency(sum($lines[*].amount))'))
+    ).toEqual({ category: 'format', detail: 'currency' });
   });
 
   it('reports aggregate when no outer format helper wraps it', () => {
@@ -88,9 +88,9 @@ describe('classifyExpression', () => {
   });
 
   it('reports arithmetic as calculated', () => {
-    expect(classifyExpression(expr('($current - $previous) / $previous'))).toEqual(
-      { category: 'calculated' }
-    );
+    expect(
+      classifyExpression(expr('($current - $previous) / $previous'))
+    ).toEqual({ category: 'calculated' });
   });
 
   it('reports a bare path as none', () => {
@@ -114,9 +114,9 @@ describe('classifyExpression', () => {
 
 describe('describeExpression', () => {
   it('humanises nested helper calls', () => {
-    expect(describeExpression(expr('formatCurrency(sum($order.lines[*].amount))'))).toBe(
-      'format currency of sum of order.lines[*].amount'
-    );
+    expect(
+      describeExpression(expr('formatCurrency(sum($order.lines[*].amount))'))
+    ).toBe('format currency of sum of order.lines[*].amount');
   });
 
   it('renders arithmetic infix', () => {
@@ -124,9 +124,9 @@ describe('describeExpression', () => {
   });
 
   it('keeps brackets around nested operations', () => {
-    expect(describeExpression(expr('sum($lines[*].amount) * (1 + $taxRate)'))).toBe(
-      'sum of lines[*].amount * (1 + taxRate)'
-    );
+    expect(
+      describeExpression(expr('sum($lines[*].amount) * (1 + $taxRate)'))
+    ).toBe('sum of lines[*].amount * (1 + taxRate)');
   });
 
   it('brackets operations once a call takes several arguments', () => {
