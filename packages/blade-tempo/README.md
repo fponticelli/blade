@@ -63,6 +63,8 @@ const renderer = createTempoRenderer<MyData>(template, {
   includeSourceTracking: false,
   // Prefix for source tracking attributes
   sourceTrackingPrefix: 'rd-',
+  // Name the loop element rendered (items[7]) rather than the pattern (items[*])
+  resolveLoopIndices: false,
 });
 ```
 

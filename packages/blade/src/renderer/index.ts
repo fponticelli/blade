@@ -22,6 +22,7 @@ import type {
   FunctionExpr,
 } from '../ast/types.js';
 import type {
+  EvaluationContext,
   HelperRegistry,
   Scope,
   EvaluatorConfig,
@@ -225,6 +226,18 @@ export interface RenderConfig {
   includeOperationTracking: boolean;
   includeNoteGeneration: boolean;
   /**
+   * Report the loop element actually rendered - `positions[7].weight` - rather
+   * than the pattern `positions[*].weight`.
+   *
+   * The pattern identifies the template node; the concrete index identifies the
+   * value, which is what a provenance registry needs to join a rendered cell
+   * back to the datum behind it. A consumer that wants the pattern can always
+   * recover it from the index, never the other way round.
+   *
+   * Only affects `includeSourceTracking` output.
+   */
+  resolveLoopIndices: boolean;
+  /**
    * Source-op classification for helpers outside the built-in registry.
    * Custom helpers are otherwise classified by expression shape alone.
    */
@@ -246,11 +259,46 @@ export interface DomRenderResult {
 }
 
 export interface RuntimeMetadata {
+  /**
+   * Data paths this render actually read, in the notation the expressions were
+   * written in - the same notation `compiled.root.metadata.pathsAccessed` uses,
+   * so subtracting one from the other answers "which fields went untouched".
+   *
+   * This is a strict subset of the static set: an untaken `@if` arm, a
+   * short-circuited `||` and a loop over an empty array contribute nothing.
+   */
   pathsAccessed: Set<string>;
+  /** Helpers this render actually called, by the same rule. */
   helpersUsed: Set<string>;
   renderTime: number;
   iterationCount: number;
   recursionDepth: number;
+}
+
+/**
+ * Mutable counters that belong to a render rather than to one context in it.
+ *
+ * Every loop and component derives a child context with `{...ctx}`, so a number
+ * stored on the context stops travelling back up at the first copy: nested
+ * iterations would go uncounted and the deepest nesting would be forgotten on
+ * the way out. Holding them behind one shared reference is what makes
+ * `iterationCount` a total and `recursionDepth` a high-water mark.
+ */
+export interface RenderStats {
+  totalIterations: number;
+  maxComponentDepthReached: number;
+  readonly pathsAccessed: Set<string>;
+  readonly helpersUsed: Set<string>;
+}
+
+/** Fresh counters for one render. */
+export function createRenderStats(): RenderStats {
+  return {
+    totalIterations: 0,
+    maxComponentDepthReached: 0,
+    pathsAccessed: new Set(),
+    helpersUsed: new Set(),
+  };
 }
 
 // =============================================================================
@@ -288,6 +336,7 @@ export const DEFAULT_RENDER_CONFIG: RenderConfig = {
   sourceTrackingPrefix: 'rd-',
   includeOperationTracking: false,
   includeNoteGeneration: false,
+  resolveLoopIndices: false,
 };
 
 // =============================================================================
@@ -314,15 +363,13 @@ export interface RenderContext {
   // Resource limits
   limits: ResourceLimits;
 
-  // Runtime tracking (mutable during render)
+  // Depth of the path being rendered. Per-context on purpose: each loop and
+  // component copies the context, so these unwind by themselves.
   currentLoopNesting: number;
-  totalIterations: number;
   componentDepth: number;
-  maxRecursionDepthReached: number;
 
-  // Metadata collection (mutable during render)
-  pathsAccessed: Set<string>;
-  helpersUsed: Set<string>;
+  /** Counters for the render as a whole, shared by every context in it. */
+  stats: RenderStats;
 
   // Component context
   components: Map<string, ComponentDefinition>;
@@ -375,11 +422,8 @@ export function createRenderContext(
     renderConfig,
     limits: { ...DEFAULT_RESOURCE_LIMITS, ...options?.limits },
     currentLoopNesting: 0,
-    totalIterations: 0,
     componentDepth: 0,
-    maxRecursionDepthReached: 0,
-    pathsAccessed: new Set(),
-    helpersUsed: new Set(),
+    stats: createRenderStats(),
     components: new Map(template.root.components),
     slots: new Map(),
   };
@@ -478,12 +522,17 @@ function valueToString(value: unknown): string {
 
 /**
  * Creates an evaluation context from a render context for expression evaluation.
+ *
+ * The render context doubles as the tracking sink: it already owns the two sets
+ * the evaluator fills, so what an expression reads lands directly in the
+ * metadata this render will report.
  */
-function createEvalContext(ctx: RenderContext) {
+function createEvalContext(ctx: RenderContext): EvaluationContext {
   return {
     scope: ctx.scope,
     helpers: ctx.helpers,
     config: ctx.evaluatorConfig,
+    tracking: ctx.stats,
   };
 }
 
@@ -549,6 +598,65 @@ function renderAttribute(
   return `${attr.name}="${escapeHtml(parts.join(''))}"`;
 }
 
+/**
+ * Records one loop pass and enforces both iteration budgets.
+ *
+ * `perLoop` is the caller's own counter, so it bounds this loop alone; the
+ * run-wide total lives on `ctx.stats` and bounds the render, nested loops and
+ * component bodies included.
+ *
+ * @returns the per-loop count after this pass
+ */
+function countIteration(
+  ctx: RenderContext,
+  perLoop: number,
+  location: SourceLocation
+): number {
+  const next = perLoop + 1;
+  ctx.stats.totalIterations++;
+
+  if (next > ctx.limits.maxIterationsPerLoop) {
+    throw new ResourceLimitError(
+      'iterations',
+      next,
+      ctx.limits.maxIterationsPerLoop,
+      location
+    );
+  }
+  if (ctx.stats.totalIterations > ctx.limits.maxTotalIterations) {
+    throw new ResourceLimitError(
+      'iterations',
+      ctx.stats.totalIterations,
+      ctx.limits.maxTotalIterations,
+      location
+    );
+  }
+  return next;
+}
+
+/**
+ * Records entry into a component body and enforces the nesting budget.
+ *
+ * The depth reported to callers is a high-water mark, not the depth at the end:
+ * the counter unwinds on the way out, so the deepest branch would otherwise be
+ * indistinguishable from a flat template.
+ */
+function enterComponent(ctx: RenderContext, location: SourceLocation): void {
+  ctx.componentDepth++;
+  ctx.stats.maxComponentDepthReached = Math.max(
+    ctx.stats.maxComponentDepthReached,
+    ctx.componentDepth
+  );
+  if (ctx.componentDepth > ctx.limits.maxComponentDepth) {
+    throw new ResourceLimitError(
+      'componentDepth',
+      ctx.componentDepth,
+      ctx.limits.maxComponentDepth,
+      location
+    );
+  }
+}
+
 // =============================================================================
 // Source Tracking
 // =============================================================================
@@ -607,17 +715,27 @@ function componentPathAliases(
   return componentAliases(node.props, ctx.pathAliases);
 }
 
-/** Aliases in force inside a loop body, or the caller's when tracking is off. */
+/**
+ * Aliases in force inside a loop body, or the caller's when tracking is off.
+ *
+ * `index` is the position being rendered, and is reported only when
+ * `resolveLoopIndices` is on; otherwise the body is named by the pattern, which
+ * is identical for every iteration. Key iteration passes none: the variable
+ * there stands for a key, which has no element to point at.
+ */
 function loopPathAliases(
   node: ForNode,
-  ctx: RenderContext
+  ctx: RenderContext,
+  index?: number
 ): PathAliases | undefined {
-  if (!ctx.renderConfig.includeSourceTracking) return ctx.pathAliases;
+  const config = ctx.renderConfig;
+  if (!config.includeSourceTracking) return ctx.pathAliases;
   return loopAliases(
     node.itemsExpr,
     node.itemVar,
     node.iterationType,
-    ctx.pathAliases
+    ctx.pathAliases,
+    config.resolveLoopIndices ? index : undefined
   );
 }
 
@@ -720,27 +838,7 @@ function renderFor(node: ForNode, ctx: RenderContext): string {
 
       let iterationCount = 0;
       for (let i = 0; i < items.length; i++) {
-        // Check iteration limits
-        ctx.totalIterations++;
-        iterationCount++;
-
-        if (iterationCount > ctx.limits.maxIterationsPerLoop) {
-          throw new ResourceLimitError(
-            'iterations',
-            iterationCount,
-            ctx.limits.maxIterationsPerLoop,
-            node.location
-          );
-        }
-
-        if (ctx.totalIterations > ctx.limits.maxTotalIterations) {
-          throw new ResourceLimitError(
-            'iterations',
-            ctx.totalIterations,
-            ctx.limits.maxTotalIterations,
-            node.location
-          );
-        }
+        iterationCount = countIteration(ctx, iterationCount, node.location);
 
         // Create loop scope with item and optional index
         const loopScope = createLoopScope(
@@ -755,7 +853,7 @@ function renderFor(node: ForNode, ctx: RenderContext): string {
         const childCtx = {
           ...ctx,
           scope: loopScope,
-          pathAliases: loopPathAliases(node, ctx),
+          pathAliases: loopPathAliases(node, ctx, i),
         };
         results.push(renderChildren(node.body, childCtx));
       }
@@ -771,26 +869,7 @@ function renderFor(node: ForNode, ctx: RenderContext): string {
 
       let iterationCount = 0;
       for (const key of keys) {
-        ctx.totalIterations++;
-        iterationCount++;
-
-        if (iterationCount > ctx.limits.maxIterationsPerLoop) {
-          throw new ResourceLimitError(
-            'iterations',
-            iterationCount,
-            ctx.limits.maxIterationsPerLoop,
-            node.location
-          );
-        }
-
-        if (ctx.totalIterations > ctx.limits.maxTotalIterations) {
-          throw new ResourceLimitError(
-            'iterations',
-            ctx.totalIterations,
-            ctx.limits.maxTotalIterations,
-            node.location
-          );
-        }
+        iterationCount = countIteration(ctx, iterationCount, node.location);
 
         // For 'in' iteration, itemVar is the key
         const loopScope = createLoopScope(ctx.scope, node.itemVar, key);
@@ -878,15 +957,7 @@ function renderLet(node: LetNode, ctx: RenderContext): string {
  */
 function renderComponent(node: ComponentNode, ctx: RenderContext): string {
   // Check component depth limit
-  ctx.componentDepth++;
-  if (ctx.componentDepth > ctx.limits.maxComponentDepth) {
-    throw new ResourceLimitError(
-      'componentDepth',
-      ctx.componentDepth,
-      ctx.limits.maxComponentDepth,
-      node.location
-    );
-  }
+  enterComponent(ctx, node.location);
 
   try {
     // Look up component definition
@@ -1115,11 +1186,11 @@ export function createStringRenderer(
     return {
       html,
       metadata: {
-        pathsAccessed: ctx.pathsAccessed,
-        helpersUsed: ctx.helpersUsed,
+        pathsAccessed: ctx.stats.pathsAccessed,
+        helpersUsed: ctx.stats.helpersUsed,
         renderTime: endTime - startTime,
-        iterationCount: ctx.totalIterations,
-        recursionDepth: ctx.maxRecursionDepthReached,
+        iterationCount: ctx.stats.totalIterations,
+        recursionDepth: ctx.stats.maxComponentDepthReached,
       },
     };
   };
@@ -1162,11 +1233,11 @@ export function createDomRenderer(template: CompiledTemplate): DomRenderer {
     return {
       nodes,
       metadata: {
-        pathsAccessed: ctx.pathsAccessed,
-        helpersUsed: ctx.helpersUsed,
+        pathsAccessed: ctx.stats.pathsAccessed,
+        helpersUsed: ctx.stats.helpersUsed,
         renderTime: endTime - startTime,
-        iterationCount: ctx.totalIterations,
-        recursionDepth: ctx.maxRecursionDepthReached,
+        iterationCount: ctx.stats.totalIterations,
+        recursionDepth: ctx.stats.maxComponentDepthReached,
       },
     };
   };
@@ -1374,26 +1445,7 @@ function renderForToDom(node: ForNode, ctx: RenderContext): Node[] {
 
       let iterationCount = 0;
       for (let i = 0; i < items.length; i++) {
-        ctx.totalIterations++;
-        iterationCount++;
-
-        if (iterationCount > ctx.limits.maxIterationsPerLoop) {
-          throw new ResourceLimitError(
-            'iterations',
-            iterationCount,
-            ctx.limits.maxIterationsPerLoop,
-            node.location
-          );
-        }
-
-        if (ctx.totalIterations > ctx.limits.maxTotalIterations) {
-          throw new ResourceLimitError(
-            'iterations',
-            ctx.totalIterations,
-            ctx.limits.maxTotalIterations,
-            node.location
-          );
-        }
+        iterationCount = countIteration(ctx, iterationCount, node.location);
 
         const loopScope = createLoopScope(
           ctx.scope,
@@ -1406,7 +1458,7 @@ function renderForToDom(node: ForNode, ctx: RenderContext): Node[] {
         const childCtx = {
           ...ctx,
           scope: loopScope,
-          pathAliases: loopPathAliases(node, ctx),
+          pathAliases: loopPathAliases(node, ctx, i),
         };
         results.push(...renderChildrenToDom(node.body, childCtx));
       }
@@ -1421,26 +1473,7 @@ function renderForToDom(node: ForNode, ctx: RenderContext): Node[] {
 
       let iterationCount = 0;
       for (const key of keys) {
-        ctx.totalIterations++;
-        iterationCount++;
-
-        if (iterationCount > ctx.limits.maxIterationsPerLoop) {
-          throw new ResourceLimitError(
-            'iterations',
-            iterationCount,
-            ctx.limits.maxIterationsPerLoop,
-            node.location
-          );
-        }
-
-        if (ctx.totalIterations > ctx.limits.maxTotalIterations) {
-          throw new ResourceLimitError(
-            'iterations',
-            ctx.totalIterations,
-            ctx.limits.maxTotalIterations,
-            node.location
-          );
-        }
+        iterationCount = countIteration(ctx, iterationCount, node.location);
 
         const loopScope = createLoopScope(ctx.scope, node.itemVar, key);
         const childCtx = {
@@ -1493,15 +1526,7 @@ function renderMatchToDom(node: MatchNode, ctx: RenderContext): Node[] {
  * Renders a ComponentNode to DOM nodes.
  */
 function renderComponentToDom(node: ComponentNode, ctx: RenderContext): Node[] {
-  ctx.componentDepth++;
-  if (ctx.componentDepth > ctx.limits.maxComponentDepth) {
-    throw new ResourceLimitError(
-      'componentDepth',
-      ctx.componentDepth,
-      ctx.limits.maxComponentDepth,
-      node.location
-    );
-  }
+  enterComponent(ctx, node.location);
 
   try {
     const definition = ctx.components.get(node.name);

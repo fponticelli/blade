@@ -217,3 +217,117 @@ describe('component path resolution', () => {
     expect(html).toContain('rd-source="label"');
   });
 });
+
+describe('loop index resolution', () => {
+  const indices = { resolveLoopIndices: true };
+
+  it('reports the pattern unless asked for concrete indices', () => {
+    const html = render(
+      '<ul>@for(p of positions) { <li>${p.weight}</li> }</ul>',
+      { positions: [{ weight: 1 }, { weight: 2 }] }
+    );
+    expect(html).toContain('<li rd-source="positions[*].weight">1</li>');
+    expect(html).toContain('<li rd-source="positions[*].weight">2</li>');
+  });
+
+  it('emits the live index for every iteration', () => {
+    const html = render(
+      '<ul>@for(p of positions) { <li>${p.weight}</li> }</ul>',
+      { positions: [{ weight: 1 }, { weight: 2 }, { weight: 3 }] },
+      indices
+    );
+    expect(html).toContain('<li rd-source="positions[0].weight">1</li>');
+    expect(html).toContain('<li rd-source="positions[1].weight">2</li>');
+    expect(html).toContain('<li rd-source="positions[2].weight">3</li>');
+    expect(html).not.toContain('[*]');
+  });
+
+  it('uses the positional index even when the author named none', () => {
+    const html = render('<ul>@for(p of rows) { <li>${p}</li> }</ul>', {
+      rows: ['a', 'b'],
+    });
+    expect(html).toContain('rd-source="rows[*]"');
+
+    const resolved = render(
+      '<ul>@for(p of rows) { <li>${p}</li> }</ul>',
+      { rows: ['a', 'b'] },
+      indices
+    );
+    expect(resolved).toContain('<li rd-source="rows[0]">a</li>');
+    expect(resolved).toContain('<li rd-source="rows[1]">b</li>');
+  });
+
+  it('composes through nested loops', () => {
+    const template =
+      '<div>@for(line of invoice.lines) { @for(tax of line.taxes) { <span>${tax.rate}</span> } }</div>';
+    const data = {
+      invoice: {
+        lines: [
+          { taxes: [{ rate: 1 }] },
+          { taxes: [{ rate: 2 }, { rate: 3 }] },
+        ],
+      },
+    };
+    expect(render(template, data)).toContain(
+      'rd-source="invoice.lines[*].taxes[*].rate"'
+    );
+
+    const html = render(template, data, indices);
+    expect(html).toContain(
+      '<span rd-source="invoice.lines[0].taxes[0].rate">1</span>'
+    );
+    expect(html).toContain(
+      '<span rd-source="invoice.lines[1].taxes[0].rate">2</span>'
+    );
+    expect(html).toContain(
+      '<span rd-source="invoice.lines[1].taxes[1].rate">3</span>'
+    );
+  });
+
+  it('resolves indices through a component boundary', () => {
+    const template = `
+<template:Row weight!>
+  <td>\${weight}</td>
+</template:Row>
+<table>@for(p of positions) { <Row weight=\${p.weight} /> }</table>`;
+    const html = render(
+      template,
+      { positions: [{ weight: 1 }, { weight: 2 }] },
+      indices
+    );
+    expect(html).toContain('<td rd-source="positions[0].weight">1</td>');
+    expect(html).toContain('<td rd-source="positions[1].weight">2</td>');
+  });
+
+  it('leaves a computed iterable without an alias, index or not', () => {
+    const template = '<ul>@for(p of reverse(rows)) { <li>${p.n}</li> }</ul>';
+    const data = { rows: [{ n: 2 }, { n: 1 }] };
+    expect(render(template, data, indices)).toContain('<li rd-source="p.n">');
+  });
+
+  it('leaves key iteration alone - the variable is a key, not an element', () => {
+    const html = render(
+      '<ul>@for(k in totals) { <li>${k}</li> }</ul>',
+      { totals: { a: 1, b: 2 } },
+      indices
+    );
+    expect(html).toContain('<li rd-source="totals">a</li>');
+    expect(html).toContain('<li rd-source="totals">b</li>');
+  });
+
+  it('still never overwrites an author-written source attribute', () => {
+    const html = render(
+      '<ul>@for(p, i of rows) { <li rd-source="rows[${i}].n">${p.n}</li> }</ul>',
+      { rows: [{ n: 7 }] },
+      indices
+    );
+    expect(html).toContain('<li rd-source="rows[0].n">7</li>');
+  });
+
+  it('does nothing when source tracking is off', () => {
+    const html = createStringRenderer(
+      compile('<ul>@for(p of rows) { <li>${p.n}</li> }</ul>')
+    )({ rows: [{ n: 1 }] }, { config: { resolveLoopIndices: true } }).html;
+    expect(html).toBe('<ul><li>1</li></ul>');
+  });
+});

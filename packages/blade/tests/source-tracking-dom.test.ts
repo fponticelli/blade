@@ -75,6 +75,29 @@ describe('source tracking in the DOM renderer', () => {
     );
   });
 
+  it('names the loop element when index resolution is on', () => {
+    const el = renderToElement(
+      '<ul>@for(p of positions) { <li>${p.weight}</li> }</ul>',
+      { positions: [{ weight: 1 }, { weight: 2 }] },
+      { resolveLoopIndices: true }
+    );
+    const items = [...el.querySelectorAll('li')].map(li =>
+      li.getAttribute('rd-source')
+    );
+    expect(items).toEqual(['positions[0].weight', 'positions[1].weight']);
+  });
+
+  it('names the loop pattern otherwise', () => {
+    const el = renderToElement(
+      '<ul>@for(p of positions) { <li>${p.weight}</li> }</ul>',
+      { positions: [{ weight: 1 }, { weight: 2 }] }
+    );
+    const items = [...el.querySelectorAll('li')].map(li =>
+      li.getAttribute('rd-source')
+    );
+    expect(items).toEqual(['positions[*].weight', 'positions[*].weight']);
+  });
+
   it('honours the configured prefix', () => {
     const el = renderToElement(
       '<p>$name</p>',

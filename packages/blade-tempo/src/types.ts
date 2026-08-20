@@ -58,6 +58,20 @@ export interface TempoRenderOptions {
   includeNoteGeneration?: boolean;
 
   /**
+   * Report the loop element actually rendered - `positions[7].weight` - rather
+   * than the pattern `positions[*].weight`.
+   *
+   * The pattern identifies the template node; the concrete index identifies the
+   * value, which is what a provenance registry needs to join a rendered cell
+   * back to the datum behind it. A consumer that wants the pattern can always
+   * recover it from the index, never the other way round.
+   *
+   * Only affects `includeSourceTracking` output.
+   * @default false
+   */
+  resolveLoopIndices?: boolean;
+
+  /**
    * Source-op classification for helpers outside the built-in registry.
    */
   helperSourceOps?: SourceOpTable;
@@ -139,6 +153,9 @@ export interface RenderConfig {
   /** Include `rd-source-note` alongside `rd-source` */
   includeNoteGeneration: boolean;
 
+  /** Name the loop element rendered (`items[7]`) rather than the pattern */
+  resolveLoopIndices: boolean;
+
   /** Source-op classification for helpers outside the built-in registry */
   helperSourceOps?: SourceOpTable;
 
@@ -154,6 +171,7 @@ export const DEFAULT_RENDER_CONFIG: RenderConfig = {
   sourceTrackingPrefix: 'rd-',
   includeOperationTracking: false,
   includeNoteGeneration: false,
+  resolveLoopIndices: false,
   htmlEscape: true,
 };
 

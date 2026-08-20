@@ -226,12 +226,26 @@ const result = render(data, {
   config: {
     htmlEscape: true, // Auto-escape expressions (default: true)
     includeComments: false, // Strip HTML comments (default: false)
+    includeSourceTracking: false, // Emit rd-source attributes (default: false)
+    resolveLoopIndices: false, // items[7] rather than items[*] (default: false)
   },
 });
 
 console.log(result.html);
 console.log(result.metadata.renderTime);
+
+// What this render actually read, as opposed to what the template could read
+// (`compiled.root.metadata`). An untaken `@if` arm contributes nothing, so the
+// difference between the two sets is what this render never evaluated.
+console.log([...result.metadata.pathsAccessed]); // ['order.total', 'order.tax']
+console.log([...result.metadata.helpersUsed]); // ['formatCurrency']
 ```
+
+Paths are recorded exactly as the expression wrote them - the same notation the
+compiler records statically, which is what makes the two sets comparable. Inside
+a loop or component that means the local name: `@for(r of rows) { ${r.n} }`
+contributes `rows` and `r.n`, not `rows[*].n`. For provenance in the caller's
+terms, read the `rd-source` attributes instead (`includeSourceTracking`).
 
 ### `createDomRenderer(compiled)`
 

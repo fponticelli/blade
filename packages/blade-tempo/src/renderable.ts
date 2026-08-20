@@ -156,6 +156,8 @@ export function createTempoRenderer<T = any>(
     includeNoteGeneration:
       options?.includeNoteGeneration ??
       DEFAULT_RENDER_CONFIG.includeNoteGeneration,
+    resolveLoopIndices:
+      options?.resolveLoopIndices ?? DEFAULT_RENDER_CONFIG.resolveLoopIndices,
     helperSourceOps: options?.helperSourceOps,
     htmlEscape: DEFAULT_RENDER_CONFIG.htmlEscape,
   };

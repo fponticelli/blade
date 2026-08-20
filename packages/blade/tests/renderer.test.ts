@@ -312,10 +312,11 @@ describe('Render Context', () => {
       expect(context.scope.locals).toEqual({});
       expect(context.scope.globals).toEqual({});
       expect(context.currentLoopNesting).toBe(0);
-      expect(context.totalIterations).toBe(0);
       expect(context.componentDepth).toBe(0);
-      expect(context.pathsAccessed).toBeInstanceOf(Set);
-      expect(context.helpersUsed).toBeInstanceOf(Set);
+      expect(context.stats.totalIterations).toBe(0);
+      expect(context.stats.maxComponentDepthReached).toBe(0);
+      expect(context.stats.pathsAccessed).toBeInstanceOf(Set);
+      expect(context.stats.helpersUsed).toBeInstanceOf(Set);
     });
 
     it('should apply custom globals', () => {

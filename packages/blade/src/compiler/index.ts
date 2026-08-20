@@ -5,10 +5,10 @@ import type {
   CompiledTemplate,
   TemplateNode,
   ComponentDefinition,
-  PathItem,
 } from '../ast/types.js';
 import * as ast from '../ast/builders.js';
 import { parseTemplate } from '../parser/index.js';
+import { serializePath } from '../source-tracking/index.js';
 
 export interface CompileOptions {
   validate?: boolean;
@@ -50,14 +50,9 @@ function collectMetadata(
             metadata.globalsUsed.add(globalName);
           }
         }
-        const pathStr = expr.segments
-          .map((seg: PathItem) => {
-            if (seg.kind === 'key') return seg.key;
-            if (seg.kind === 'index') return `[${seg.index}]`;
-            if (seg.kind === 'star') return '[*]';
-            return '';
-          })
-          .join('.');
+        // Same serializer the renderer uses, so the static set and the runtime
+        // set share one notation and can be subtracted from one another.
+        const pathStr = serializePath(expr.segments, expr.isGlobal);
         if (pathStr) {
           metadata.pathsAccessed.add(pathStr);
         }

@@ -596,6 +596,21 @@ export function componentAliases(
  * Aliases for a loop body: the item variable stands for one element of the
  * iterated array, so `item.name` is reported as `items[*].name`.
  *
+ * Pass `index` to name the element being rendered instead of the pattern -
+ * `items[7].name`. The two answer different questions. `[*]` identifies the
+ * template node, which is what a click-to-select editor wants; the concrete
+ * index identifies the value, which is what a provenance registry needs to
+ * join a rendered cell back to the datum that produced it. Concrete collapses
+ * to pattern with `path.replace(/\[\d+\]/g, '[*]')`; the reverse is impossible,
+ * so the caller that wants both should ask for the index.
+ *
+ * Indices compose without further work: the inner loop resolves its own
+ * iterable through these aliases first, so `invoice.lines[2].taxes[0].rate`
+ * falls out of each level substituting only its own index.
+ *
+ * `in` iteration binds the variable to a *key*, not to an element, so it takes
+ * no index either way.
+ *
  * Only a plain path iterable can be named this way; anything computed has no
  * stable address in the source data, and the loop variable is left alone.
  */
@@ -603,16 +618,20 @@ export function loopAliases(
   itemsExpr: ExprAst,
   itemVar: string,
   iterationType: 'of' | 'in',
-  callerAliases?: PathAliases
+  callerAliases?: PathAliases,
+  index?: number
 ): PathAliases | undefined {
   if (itemsExpr.kind !== 'path') return callerAliases;
 
   const base = serializePath(itemsExpr.segments, itemsExpr.isGlobal);
   const resolved = resolvePath(base, callerAliases);
   const aliases = new Map<string, readonly string[]>(callerAliases);
+  const element = index === undefined ? '[*]' : `[${index}]`;
   aliases.set(
     itemVar,
-    iterationType === 'of' ? resolved.map(path => `${path}[*]`) : resolved
+    iterationType === 'of'
+      ? resolved.map(path => `${path}${element}`)
+      : resolved
   );
   return aliases;
 }

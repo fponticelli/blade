@@ -75,15 +75,17 @@ When `htmlEscape` is enabled (the default), all expression output is HTML-escape
 $!htmlContent
 
 <!-- Complex raw expression -->
-$!{richText + "<br/>"}
+$!{richText + "<br />"}
 ```
 
 **Example:**
 
 ```html
 <!-- Given: content = "<b>bold</b>" -->
-<div>Escaped: $content</div>       <!-- Output: Escaped: &lt;b&gt;bold&lt;/b&gt; -->
-<div>Raw: $!content</div>          <!-- Output: Raw: <b>bold</b> -->
+<div>Escaped: $content</div>
+<!-- Output: Escaped: &lt;b&gt;bold&lt;/b&gt; -->
+<div>Raw: $!content</div>
+<!-- Output: Raw: <b>bold</b> -->
 ```
 
 **Mixed safe and raw:**
@@ -443,8 +445,10 @@ All path access has implicit optional chaining - no need for `?.` operator.
 The `$!` prefix outputs the result without HTML escaping:
 
 ```html
-$!path.to.html          <!-- Simple raw path expression -->
-$!{expr + "<br/>"}      <!-- Complex raw expression -->
+$!path.to.html
+<!-- Simple raw path expression -->
+$!{expr + "<br />"}
+<!-- Complex raw expression -->
 ```
 
 See [Section 3.1](#31-expression-syntax) for details and security considerations. Note that `${!expr}` is a logical NOT — the `!` must come immediately after `$` and before the path or `{` to trigger raw output.
@@ -988,13 +992,38 @@ interface RenderResult {
 }
 
 interface RuntimeMetadata {
-  pathsAccessed: Set<string>; // Actually accessed during render
-  helpersUsed: Set<string>;
+  pathsAccessed: Set<string>; // Actually read during this render
+  helpersUsed: Set<string>; // Actually called during this render
   renderTime: number; // Milliseconds
-  iterationCount: number; // Total loop iterations
-  recursionDepth: number; // Max recursion reached
+  iterationCount: number; // Total loop iterations, all nesting levels
+  recursionDepth: number; // Deepest component nesting reached
 }
 ```
+
+`pathsAccessed` and `helpersUsed` are the **runtime** counterparts of
+`compiled.root.metadata`, which records what the template _could_ read.
+
+**Paths are recorded exactly as the expression wrote them**, which is the same
+notation the compiler records statically. Inside a loop or a component that
+means the local name: `@for(r of rows) { ${r.n} }` contributes `rows` and
+`r.n`, not `rows[*].n`. This is deliberate. The two sets share one vocabulary,
+so `static \ runtime` is exactly the set of expressions this render never
+evaluated - resolving one side through `pathAliases` and not the other would
+make them incomparable, and comparing them is the point. Consumers that want
+provenance in the caller's terms should read the `rd-source` attributes
+(Section 9), which is what that wire format is for.
+
+The runtime set is always a subset. An untaken `@if` arm, the right-hand side
+of a short-circuited `||` and a loop over an empty array all contribute
+nothing, because collection happens in the evaluator, where only the branches
+that ran are visible. Trailing segments that index into a computed result
+(`foo()[0].bar`) are excluded on both sides, matching Section 9.1.
+
+`iterationCount` and `recursionDepth` cover the whole render, not the outermost
+frame: iterations inside nested loops and inside components are counted, and
+`recursionDepth` is a high-water mark rather than the depth at the end. Because
+`iterationCount` is a true total, `maxIterationsPerLoop` still bounds one loop
+while `maxTotalIterations` bounds the render as a whole.
 
 ### 8.2 Rendering Process
 
@@ -1165,7 +1194,7 @@ now:            { /* ... */ sourceOp: { category: 'system', detail: 'clock' } }
 round:          { /* ... */ sourceOp: { category: 'calculated' } }
 ```
 
-Helpers that select, test or reshape a value without changing what it *is*
+Helpers that select, test or reshape a value without changing what it _is_
 (`upper`, `first`, `isEmpty`, …) leave `sourceOp` unset and fall through to the
 structural rules. Helpers outside the built-in registry can be classified with
 the `helperSourceOps` render option.
@@ -1179,7 +1208,7 @@ the `helperSourceOps` render option.
 5. If arithmetic operators (`+ - * / %`) appear → `"calculated"`
 6. Otherwise → `"none"`
 
-Comparison and logical operators are not arithmetic here. They steer *which*
+Comparison and logical operators are not arithmetic here. They steer _which_
 value is shown; they do not derive the value itself.
 
 **Example:**
@@ -1216,15 +1245,16 @@ Notes resolve paths through the same aliases as `rd-source`, so a note never
 names a component prop or loop variable that the source attribute reports as a
 caller path. A note that disagrees with the paths beside it is worse than none.
 
-An element with several expressions gets **one** note, joined with ` + `. Notes
-are never joined with `;`: consumers do not split this attribute, and a
-semicolon would read as a separator that is not one.
+An element with several expressions gets **one** note, joined with the
+three-character separator `" + "` - a plus with a space either side. Notes are
+never joined with `;`: consumers do not split this attribute, and a semicolon
+would read as a separator that is not one.
 
 **Manual override:** write `rd-source-note` (and `rd-source`) on the element
 yourself. Generation skips any element that already carries an authored
 `rd-source`.
 
-### 9.5 Component Path Resolution
+### 9.5 Component and Loop Path Resolution
 
 **Caller paths tracked through components:**
 
@@ -1265,6 +1295,41 @@ reported as `invoice.lines[*].amount`. Only a plain path iterable can be named
 this way; anything computed has no stable address in the source data and the
 loop variable is left alone.
 
+**Pattern or element (`resolveLoopIndices`).** By default every iteration emits
+the same string - the pattern. With `resolveLoopIndices: true` each iteration
+emits the element it actually rendered:
+
+```html
+<td rd-source="mtd_positions[0].weight">1.40%</td>
+<td rd-source="mtd_positions[1].weight">1.31%</td>
+<td rd-source="mtd_positions[2].weight">1.04%</td>
+```
+
+The two answer different questions. The pattern identifies the _template node_,
+which is what a click-to-select editor needs. The concrete index identifies the
+_value_, which is what a provenance registry needs to join a rendered cell back
+to the datum - and beyond it, to a spreadsheet cell.
+
+The setting is off by default because the pattern is the smaller, more
+cacheable output, but it is the safer choice when in doubt: a consumer holding
+concrete indices can always collapse them,
+
+```js
+const toPattern = path => path.replace(/\[\d+\]/g, '[*]');
+```
+
+while a consumer holding `[*]` cannot recover the index - the row number was
+discarded before the markup was written.
+
+Indices are used whether or not the author named one, so `@for(p of items)` is
+tracked as precisely as `@for(p, i of items)`. Nested loops compose, because
+each level resolves its own iterable through the aliases already in force:
+`invoice.lines[2].taxes[0].rate`. `in` iteration is unaffected - the variable
+there is a key, not an element.
+
+Hand-written `rd-source` still wins over all of this. An author who writes
+`rd-source="mtd_positions[${i}].weight"` gets exactly that.
+
 **Nested components:**
 Paths tracked through all levels:
 
@@ -1281,7 +1346,10 @@ Final element: `rd-source="order.total"`
 With `sourceTrackingPrefix: 'data-track-'`:
 
 ```html
-<div data-track-source="subtotal;tax" data-track-source-op="format:currency;format:currency">
+<div
+  data-track-source="subtotal;tax"
+  data-track-source-op="format:currency;format:currency"
+>
   ...
 </div>
 ```
@@ -1289,9 +1357,7 @@ With `sourceTrackingPrefix: 'data-track-'`:
 With `sourceTrackingPrefix: ''` (empty string):
 
 ```html
-<div source="subtotal;tax" source-op="format:currency;format:currency">
-  ...
-</div>
+<div source="subtotal;tax" source-op="format:currency;format:currency">...</div>
 ```
 
 ---
@@ -1694,6 +1760,7 @@ interface EngineConfig {
   sourceTrackingPrefix: string; // Default: "rd-"
   includeOperationTracking: boolean; // Default: true
   includeNoteGeneration: boolean; // Default: false
+  resolveLoopIndices: boolean; // Default: false
 
   // Performance
   enableOptimizations: boolean; // Default: true
@@ -1707,6 +1774,9 @@ interface EngineConfig {
 - **Custom prefix** `"data-track-"` — produces `data-track-source`, `data-track-source-op`, `data-track-source-note`
 - **Validation:** Must be empty or start with a letter/underscore, containing only alphanumeric characters, hyphens, and underscores
 
+**`resolveLoopIndices`** controls whether a loop body is named by the element it
+rendered or by the pattern it matches. See [Section 9.5](#95-component-and-loop-path-resolution).
+
 ### 14.2 Configuration Usage
 
 ```typescript
@@ -1717,7 +1787,7 @@ const engine = new TemplateEngine({
   },
   includeComments: true,
   strict: true,
-  sourceTrackingPrefix: 'data-',  // Custom prefix for source attributes
+  sourceTrackingPrefix: 'data-', // Custom prefix for source attributes
 });
 
 const compiled = await engine.compile(source, { loader });
@@ -2395,6 +2465,7 @@ const renderer = createTempoRenderer<MyData>(template, {
   onError: (error, location) => console.error(error),
   includeSourceTracking: false,
   sourceTrackingPrefix: 'rd-',
+  resolveLoopIndices: false,
 });
 ```
 
@@ -2425,18 +2496,18 @@ Props create an isolated reactive scope — the component receives a derived sig
 
 All Blade template features work in reactive mode:
 
-| Feature | Status |
-| --- | --- |
-| Text interpolation `${expr}` / `$!{expr}` | ✅ |
-| HTML elements and attributes | ✅ |
-| `@if`/`else if`/`else` | ✅ |
-| `@for` loops | ✅ |
-| `@match` pattern matching | ✅ |
-| `@@` variable declarations | ✅ |
-| Components with reactive props | ✅ |
-| Slots | ✅ |
-| Fragments | ✅ |
-| Source tracking | ✅ |
+| Feature                                   | Status |
+| ----------------------------------------- | ------ |
+| Text interpolation `${expr}` / `$!{expr}` | ✅     |
+| HTML elements and attributes              | ✅     |
+| `@if`/`else if`/`else`                    | ✅     |
+| `@for` loops                              | ✅     |
+| `@match` pattern matching                 | ✅     |
+| `@@` variable declarations                | ✅     |
+| Components with reactive props            | ✅     |
+| Slots                                     | ✅     |
+| Fragments                                 | ✅     |
+| Source tracking                           | ✅     |
 
 ---
 

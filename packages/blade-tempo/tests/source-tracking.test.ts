@@ -89,6 +89,18 @@ describe('source tracking', () => {
     expect(el.getAttribute('rd-source')).toBe('items[*].name');
   });
 
+  it('names the loop element when index resolution is on', () => {
+    const items = mount(
+      '<ul>@for(item of items) { <li>${item.name}</li> }</ul>',
+      { items: [{ name: 'a' }, { name: 'b' }] },
+      { ...tracking, resolveLoopIndices: true }
+    ).querySelectorAll('li');
+    expect([...items].map(li => li.getAttribute('rd-source'))).toEqual([
+      'items[0].name',
+      'items[1].name',
+    ]);
+  });
+
   it('honours the configured prefix', () => {
     const el = mount(
       '<p>$name</p>',

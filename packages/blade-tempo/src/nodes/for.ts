@@ -81,7 +81,10 @@ export function convertForNode(
             node.itemsExpr,
             node.itemVar,
             node.iterationType,
-            ctx.pathAliases
+            ctx.pathAliases,
+            // ForEach is positional, so this slot always renders the element at
+            // `position.index`; the alias is rebuilt per slot, not per render.
+            ctx.config.resolveLoopIndices ? position.index : undefined
           )
         : ctx.pathAliases,
     };

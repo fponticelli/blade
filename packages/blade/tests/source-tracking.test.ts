@@ -10,6 +10,7 @@ import {
   resolvePath,
   serializePath,
   buildSourceExpression,
+  loopAliases,
 } from '../src/source-tracking/index.js';
 import type { ArrayWildcardNode, PathNode } from '../src/ast/types.js';
 
@@ -190,5 +191,50 @@ describe('wire format', () => {
       'format:currency'
     );
     expect(formatSourceOp({ category: 'aggregate' })).toBe('aggregate');
+  });
+});
+
+describe('loopAliases', () => {
+  it('binds the item variable to the array pattern by default', () => {
+    const aliases = loopAliases(expr('invoice.lines'), 'line', 'of');
+    expect(aliases?.get('line')).toEqual(['invoice.lines[*]']);
+  });
+
+  it('binds the item variable to a concrete index when one is given', () => {
+    const aliases = loopAliases(
+      expr('invoice.lines'),
+      'line',
+      'of',
+      undefined,
+      7
+    );
+    expect(aliases?.get('line')).toEqual(['invoice.lines[7]']);
+  });
+
+  it('accepts index 0 - a falsy index is still an index', () => {
+    const aliases = loopAliases(expr('rows'), 'r', 'of', undefined, 0);
+    expect(aliases?.get('r')).toEqual(['rows[0]']);
+  });
+
+  it('composes an index onto an already-indexed caller alias', () => {
+    const outer = loopAliases(
+      expr('invoice.lines'),
+      'line',
+      'of',
+      undefined,
+      2
+    );
+    const inner = loopAliases(expr('line.taxes'), 'tax', 'of', outer, 1);
+    expect(inner?.get('tax')).toEqual(['invoice.lines[2].taxes[1]']);
+  });
+
+  it('ignores the index for key iteration - the variable is a key', () => {
+    const aliases = loopAliases(expr('totals'), 'k', 'in', undefined, 3);
+    expect(aliases?.get('k')).toEqual(['totals']);
+  });
+
+  it('leaves a computed iterable unaliased', () => {
+    const aliases = loopAliases(expr('reverse(rows)'), 'r', 'of', undefined, 1);
+    expect(aliases).toBeUndefined();
   });
 });

@@ -14,6 +14,30 @@ import type {
   MemberAccessNode,
   SourceLocation,
 } from '../ast/types.js';
+import { serializePath } from '../source-tracking/index.js';
+
+// =============================================================================
+// Path Serialization Cache
+// =============================================================================
+
+/**
+ * Serialized form of each path node, computed once.
+ *
+ * A node's segments never change, so its string never does either - but the
+ * node is re-evaluated on every pass of every loop, and rebuilding the string
+ * there would make metadata collection cost proportional to iterations rather
+ * than to template size. Keyed weakly, so the cache dies with the template.
+ */
+const serializedPaths = new WeakMap<PathNode | ArrayWildcardNode, string>();
+
+function pathKey(node: PathNode | ArrayWildcardNode): string {
+  const cached = serializedPaths.get(node);
+  if (cached !== undefined) return cached;
+  const path = node.kind === 'path' ? node : node.path;
+  const serialized = serializePath(path.segments, path.isGlobal);
+  serializedPaths.set(node, serialized);
+  return serialized;
+}
 
 // =============================================================================
 // Error Handling
@@ -40,10 +64,27 @@ export interface Scope {
   globals: Record<string, unknown>;
 }
 
+/**
+ * Sinks for what an evaluation actually read.
+ *
+ * Collection happens here rather than over the AST because only the evaluator
+ * knows which branches ran: a short-circuited `||`, an untaken `@if` arm and a
+ * loop over an empty array all read nothing, and a static walk cannot tell.
+ * Paths are recorded in the notation the expression was written in - the same
+ * notation the compiler records statically - so the two sets are comparable and
+ * "declared but never read this render" is a set difference.
+ */
+export interface EvaluationTracking {
+  readonly pathsAccessed: Set<string>;
+  readonly helpersUsed: Set<string>;
+}
+
 export interface EvaluationContext {
   scope: Scope;
   helpers: HelperRegistry;
   config: EvaluatorConfig;
+  /** Optional; evaluation behaves identically without it. */
+  tracking?: EvaluationTracking;
 }
 
 export interface HelperRegistry {
@@ -128,6 +169,8 @@ function evaluatePath(node: PathNode, context: EvaluationContext): unknown {
   if (segments.length === 0) {
     return undefined;
   }
+
+  context.tracking?.pathsAccessed.add(pathKey(node));
 
   // First segment must be a key
   const firstSegment = segments[0]!;
@@ -257,6 +300,8 @@ function evaluateCall(node: CallNode, context: EvaluationContext): unknown {
     );
   }
 
+  context.tracking?.helpersUsed.add(node.callee);
+
   // Curry the helper with scope
   const warnings: string[] = [];
   const curriedFn = helper(context.scope, msg => warnings.push(msg));
@@ -281,6 +326,8 @@ function evaluateWildcard(
   if (segments.length === 0) {
     return [];
   }
+
+  context.tracking?.pathsAccessed.add(pathKey(node));
 
   // First segment must be a key
   const firstSegment = segments[0]!;
