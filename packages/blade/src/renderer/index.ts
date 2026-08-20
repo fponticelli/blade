@@ -37,6 +37,15 @@ import { compile } from '../compiler/index.js';
 /**
  * Error codes for render errors.
  */
+import {
+  buildElementSourceTracking,
+  componentAliases,
+  loopAliases,
+  type ElementSourceTracking,
+  type PathAliases,
+  type SourceOpTable,
+} from '../source-tracking/index.js';
+
 export type RenderErrorCode =
   | 'LOOP_NESTING_EXCEEDED'
   | 'ITERATION_LIMIT_EXCEEDED'
@@ -215,6 +224,11 @@ export interface RenderConfig {
   sourceTrackingPrefix: string;
   includeOperationTracking: boolean;
   includeNoteGeneration: boolean;
+  /**
+   * Source-op classification for helpers outside the built-in registry.
+   * Custom helpers are otherwise classified by expression shape alone.
+   */
+  helperSourceOps?: SourceOpTable;
 }
 
 // =============================================================================
@@ -312,6 +326,13 @@ export interface RenderContext {
 
   // Component context
   components: Map<string, ComponentDefinition>;
+
+  /**
+   * Names visible in the current scope that stand for caller data paths -
+   * component props and loop variables. Used to report provenance in the
+   * caller's terms rather than in local names.
+   */
+  pathAliases?: PathAliases;
   slots: Map<string, readonly TemplateNode[]>;
 }
 
@@ -528,6 +549,79 @@ function renderAttribute(
   return `${attr.name}="${escapeHtml(parts.join(''))}"`;
 }
 
+
+// =============================================================================
+// Source Tracking
+// =============================================================================
+
+/**
+ * Source tracking values for an element under the current render config, or
+ * null when tracking is off or the element has nothing of its own to report.
+ */
+function buildSourceTracking(
+  node: ElementNode,
+  ctx: RenderContext
+): ElementSourceTracking | null {
+  const config = ctx.renderConfig;
+  if (!config.includeSourceTracking) return null;
+
+  return buildElementSourceTracking(node, {
+    prefix: config.sourceTrackingPrefix,
+    includeOp: config.includeOperationTracking,
+    includeNote: config.includeNoteGeneration,
+    aliases: ctx.pathAliases,
+    opTable: config.helperSourceOps,
+  });
+}
+
+/** Renders the source tracking attributes as `name="value"` strings. */
+function sourceTrackingAttributes(
+  node: ElementNode,
+  ctx: RenderContext
+): string[] {
+  const tracking = buildSourceTracking(node, ctx);
+  if (!tracking) return [];
+
+  const prefix = ctx.renderConfig.sourceTrackingPrefix;
+  const attrs = [
+    `${getSourceAttributeName(prefix, 'source')}="${escapeHtml(tracking.source)}"`,
+  ];
+  if (tracking.op !== null) {
+    attrs.push(
+      `${getSourceAttributeName(prefix, 'source-op')}="${escapeHtml(tracking.op)}"`
+    );
+  }
+  if (tracking.note !== null) {
+    attrs.push(
+      `${getSourceAttributeName(prefix, 'source-note')}="${escapeHtml(tracking.note)}"`
+    );
+  }
+  return attrs;
+}
+
+/** Aliases in force inside a component body, or undefined when tracking is off. */
+function componentPathAliases(
+  node: ComponentNode,
+  ctx: RenderContext
+): PathAliases | undefined {
+  if (!ctx.renderConfig.includeSourceTracking) return undefined;
+  return componentAliases(node.props, ctx.pathAliases);
+}
+
+/** Aliases in force inside a loop body, or the caller's when tracking is off. */
+function loopPathAliases(
+  node: ForNode,
+  ctx: RenderContext
+): PathAliases | undefined {
+  if (!ctx.renderConfig.includeSourceTracking) return ctx.pathAliases;
+  return loopAliases(
+    node.itemsExpr,
+    node.itemVar,
+    node.iterationType,
+    ctx.pathAliases
+  );
+}
+
 /**
  * Set of void/self-closing HTML elements.
  */
@@ -562,6 +656,8 @@ function renderElement(node: ElementNode, ctx: RenderContext): string {
       attrs.push(rendered);
     }
   }
+
+  attrs.push(...sourceTrackingAttributes(node, ctx));
 
   // Build opening tag
   const attrStr = attrs.length > 0 ? ' ' + attrs.join(' ') : '';
@@ -657,7 +753,11 @@ function renderFor(node: ForNode, ctx: RenderContext): string {
         );
 
         // Render body with loop scope
-        const childCtx = { ...ctx, scope: loopScope };
+        const childCtx = {
+          ...ctx,
+          scope: loopScope,
+          pathAliases: loopPathAliases(node, ctx),
+        };
         results.push(renderChildren(node.body, childCtx));
       }
     } else {
@@ -695,7 +795,11 @@ function renderFor(node: ForNode, ctx: RenderContext): string {
 
         // For 'in' iteration, itemVar is the key
         const loopScope = createLoopScope(ctx.scope, node.itemVar, key);
-        const childCtx = { ...ctx, scope: loopScope };
+        const childCtx = {
+          ...ctx,
+          scope: loopScope,
+          pathAliases: loopPathAliases(node, ctx),
+        };
         results.push(renderChildren(node.body, childCtx));
       }
     }
@@ -828,6 +932,7 @@ function renderComponent(node: ComponentNode, ctx: RenderContext): string {
       ...ctx,
       scope: componentScope,
       slots,
+      pathAliases: componentPathAliases(node, ctx),
     };
 
     // Render component body
@@ -1162,6 +1267,21 @@ function renderElementToDom(node: ElementNode, ctx: RenderContext): Element {
     }
   }
 
+  const tracking = buildSourceTracking(node, ctx);
+  if (tracking) {
+    const prefix = ctx.renderConfig.sourceTrackingPrefix;
+    el.setAttribute(getSourceAttributeName(prefix, 'source'), tracking.source);
+    if (tracking.op !== null) {
+      el.setAttribute(getSourceAttributeName(prefix, 'source-op'), tracking.op);
+    }
+    if (tracking.note !== null) {
+      el.setAttribute(
+        getSourceAttributeName(prefix, 'source-note'),
+        tracking.note
+      );
+    }
+  }
+
   // Append children
   const children = renderChildrenToDom(node.children, ctx);
   for (const child of children) {
@@ -1284,7 +1404,11 @@ function renderForToDom(node: ForNode, ctx: RenderContext): Node[] {
           i
         );
 
-        const childCtx = { ...ctx, scope: loopScope };
+        const childCtx = {
+          ...ctx,
+          scope: loopScope,
+          pathAliases: loopPathAliases(node, ctx),
+        };
         results.push(...renderChildrenToDom(node.body, childCtx));
       }
     } else {
@@ -1320,7 +1444,11 @@ function renderForToDom(node: ForNode, ctx: RenderContext): Node[] {
         }
 
         const loopScope = createLoopScope(ctx.scope, node.itemVar, key);
-        const childCtx = { ...ctx, scope: loopScope };
+        const childCtx = {
+          ...ctx,
+          scope: loopScope,
+          pathAliases: loopPathAliases(node, ctx),
+        };
         results.push(...renderChildrenToDom(node.body, childCtx));
       }
     }
@@ -1415,6 +1543,7 @@ function renderComponentToDom(node: ComponentNode, ctx: RenderContext): Node[] {
       ...ctx,
       scope: componentScope,
       slots,
+      pathAliases: componentPathAliases(node, ctx),
     };
 
     return renderChildrenToDom(definition.body, componentCtx);

@@ -1069,8 +1069,9 @@ function evaluateExpression(
 
 > **Note:** Source tracking attributes use a configurable prefix (default: `rd-`). All examples in this section use the default prefix. See [Section 14.1](#141-engine-configuration) for customization via `sourceTrackingPrefix`.
 
-> **Status:** Specified, not yet implemented. The renderer accepts and validates
-> `sourceTrackingPrefix`, but does not yet collect paths or emit the attributes.
+> **Status:** Implemented in the string, DOM and Tempo renderers. Off by
+> default; enable with `includeSourceTracking`, and add `includeOperationTracking`
+> / `includeNoteGeneration` for `rd-source-op` and `rd-source-note`.
 
 ### 9.0 Wire Format Contract
 
@@ -1106,9 +1107,18 @@ Consumer rules Blade must respect when generating:
 
 **For each element, aggregate paths from:**
 
-- Text segment expressions
 - Attribute expressions
-- Local control flow (if conditions, loop expressions)
+- Text segment expressions
+- Local control flow (if conditions, loop and match subjects, let values)
+
+**Ownership boundary.** Collection walks the element's own attributes and then
+its content in document order, descending through control flow but stopping at
+nested elements, components and slots. Those render their own opening tags and
+carry their own provenance. Without the boundary every ancestor would re-claim
+every descendant's paths and the outermost element would list the whole payload.
+
+An element the author has already annotated by hand is left exactly as written -
+generation never overwrites an authored `rd-source`.
 
 **Example:**
 
@@ -1145,29 +1155,32 @@ const rdSource = pathsPerExpr.map(paths => paths.join(',')).join(';');
 
 **Operation classification:**
 
-```typescript
-interface HelperMetadata {
-  op: 'format' | 'aggregate' | 'calculated' | 'system' | 'none';
-  label?: string; // e.g., "currency", "percent"
-}
+Helpers that change the provenance story carry a `sourceOp` in the helper
+metadata registry:
 
-const helperRegistry = {
-  formatCurrency: { op: 'format', label: 'currency' },
-  formatPercent: { op: 'format', label: 'percent' },
-  sum: { op: 'aggregate' },
-  avg: { op: 'aggregate' },
-  now: { op: 'system', label: 'clock' },
-  // ... etc
-};
+```typescript
+formatCurrency: { /* ... */ sourceOp: { category: 'format', detail: 'currency' } }
+sum:            { /* ... */ sourceOp: { category: 'aggregate' } }
+now:            { /* ... */ sourceOp: { category: 'system', detail: 'clock' } }
+round:          { /* ... */ sourceOp: { category: 'calculated' } }
 ```
 
-**Classification rules per expression:**
+Helpers that select, test or reshape a value without changing what it *is*
+(`upper`, `first`, `isEmpty`, …) leave `sourceOp` unset and fall through to the
+structural rules. Helpers outside the built-in registry can be classified with
+the `helperSourceOps` render option.
 
-1. If outermost call is format helper → `"format:label"`
-2. If any aggregate helper → `"aggregate"`
-3. If system helper → `"system:label"`
-4. If arithmetic operators or calculated helper → `"calculated"`
-5. Otherwise → `"none"`
+**Classification rules per expression, in order:**
+
+1. If the outermost call is a format helper → `"format:label"`
+2. If any aggregate helper appears → `"aggregate"`
+3. If any system helper appears → `"system:label"`
+4. If any format or calculated helper appears → that op
+5. If arithmetic operators (`+ - * / %`) appear → `"calculated"`
+6. Otherwise → `"none"`
+
+Comparison and logical operators are not arithmetic here. They steer *which*
+value is shown; they do not derive the value itself.
 
 **Example:**
 
@@ -1194,24 +1207,22 @@ ${(current - previous) / previous}
 
 ### 9.4 rd-source-note Attribute
 
-**Automatic generation:**
+**Automatic generation** (`includeNoteGeneration`): each expression is rendered
+back as prose - `formatCurrency(sum(order.lines[*].amount))` becomes
+`format currency of sum of order.lines[*].amount`. Nested operations keep their
+brackets so the note reads back as the expression it describes.
 
-```typescript
-function generateNote(expr: ExprAst): string {
-  // Generate human-readable description
-  // Example: "format currency of sum of order.lines[*].amount"
-}
-```
+Notes resolve paths through the same aliases as `rd-source`, so a note never
+names a component prop or loop variable that the source attribute reports as a
+caller path. A note that disagrees with the paths beside it is worse than none.
 
-**Manual override:**
+An element with several expressions gets **one** note, joined with ` + `. Notes
+are never joined with `;`: consumers do not split this attribute, and a
+semicolon would read as a separator that is not one.
 
-```html
-<!-- Syntax TBD - could use attribute or special comment -->
-<span @note="Value after applying tax"> ${total * (1 + taxRate)} </span>
-
-<!-- Renders: -->
-<span rd-source-note="Value after applying tax"> ... </span>
-```
+**Manual override:** write `rd-source-note` (and `rd-source`) on the element
+yourself. Generation skips any element that already carries an authored
+`rd-source`.
 
 ### 9.5 Component Path Resolution
 
@@ -1234,9 +1245,25 @@ function generateNote(expr: ExprAst): string {
 
 **Implementation:**
 
-- When passing props, track mapping: `subtotal` → `order.subtotal`
-- During component render, resolve prop names to caller paths
-- Aggregate all caller paths in `rd-source`
+Aliases are computed at render time, not at parse time. On each component call
+every prop name is mapped to the caller paths that fed it - collected from the
+whole prop expression, so `total=${subtotal + tax}` maps `total` to both - and
+resolved through the caller's own aliases first, so provenance composes through
+any depth of nesting.
+
+Inside the component, the leading segment of each path is substituted and any
+trailing segments carried across: with `cust` bound to `order.customer`,
+`cust.name` is reported as `order.customer.name`.
+
+A prop that is not fed by data (`label="new"`) has no alias, and the local name
+is reported unchanged. A local name is weaker provenance than a caller path,
+but it is still provenance, and dropping it would leave a hole in the trail.
+
+**Loop variables** are aliased the same way. `@for(line of invoice.lines)`
+binds `line` to `invoice.lines[*]`, so `line.amount` inside the body is
+reported as `invoice.lines[*].amount`. Only a plain path iterable can be named
+this way; anything computed has no stable address in the source data and the
+loop variable is left alone.
 
 **Nested components:**
 Paths tracked through all levels:

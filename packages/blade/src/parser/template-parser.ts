@@ -11,7 +11,6 @@ import type {
   ExprAst,
   AttributeNode,
   SourceLocation,
-  PathItem,
   MatchCase,
   StaticAttributeValue,
   ExprAttributeValue,
@@ -313,7 +312,6 @@ export class TemplateParser {
       value: ExprAst;
       location: SourceLocation;
     }> = [];
-    const propPathMapping = new Map<string, readonly string[]>();
     this.skipWhitespace();
 
     while (!this.isAtEnd() && this.peek() !== '>' && this.peek() !== '/') {
@@ -321,18 +319,6 @@ export class TemplateParser {
       const prop = this.parseComponentProp();
       if (prop) {
         props.push(prop);
-        // Extract path mapping if the value is a path expression
-        if (prop.value.kind === 'path' && !prop.value.isGlobal) {
-          const pathSegments = prop.value.segments
-            .filter(
-              (seg: PathItem): seg is { kind: 'key'; key: string } =>
-                seg.kind === 'key'
-            )
-            .map(seg => seg.key);
-          if (pathSegments.length > 0) {
-            propPathMapping.set(prop.name, pathSegments);
-          }
-        }
       } else if (this.pos === prevPos) {
         // If parseComponentProp returned null and didn't advance, break to avoid infinite loop
         break;
@@ -349,7 +335,6 @@ export class TemplateParser {
         name: tagName,
         props,
         children: [],
-        propPathMapping,
         location: this.getLocationFrom(startLoc),
       });
     }
@@ -395,7 +380,6 @@ export class TemplateParser {
       name: tagName,
       props,
       children,
-      propPathMapping,
       location: this.getLocationFrom(startLoc),
     });
   }

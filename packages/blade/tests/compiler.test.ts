@@ -939,7 +939,6 @@ describe('Compiler - Component Usage', () => {
     const root = compileAndGetRoot('<Card title=$order.title />');
     const comp = root.children[0] as ComponentNode;
 
-    expect(comp.propPathMapping).toBeDefined();
     // Should map 'title' prop to ['order', 'title'] path
   });
 });

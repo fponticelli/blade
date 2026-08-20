@@ -513,7 +513,6 @@ export const node = {
       location?: SourceLocation;
     }>;
     children?: TemplateNode[];
-    propPathMapping?: ReadonlyMap<string, readonly string[]>;
     location?: SourceLocation;
   }): ComponentNode {
     return {
@@ -526,7 +525,6 @@ export const node = {
           location: p.location ?? loc(),
         })) ?? [],
       children: opts.children ?? [],
-      propPathMapping: opts.propPathMapping ?? new Map(),
       location: opts.location ?? loc(),
     };
   },

@@ -150,6 +150,13 @@ export function createTempoRenderer<T = any>(
     sourceTrackingPrefix:
       options?.sourceTrackingPrefix ??
       DEFAULT_RENDER_CONFIG.sourceTrackingPrefix,
+    includeOperationTracking:
+      options?.includeOperationTracking ??
+      DEFAULT_RENDER_CONFIG.includeOperationTracking,
+    includeNoteGeneration:
+      options?.includeNoteGeneration ??
+      DEFAULT_RENDER_CONFIG.includeNoteGeneration,
+    helperSourceOps: options?.helperSourceOps,
     htmlEscape: DEFAULT_RENDER_CONFIG.htmlEscape,
   };
 

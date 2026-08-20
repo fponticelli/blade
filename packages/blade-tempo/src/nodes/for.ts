@@ -2,6 +2,7 @@
 // Converts Blade ForNode to Tempo ForEach iteration
 
 import type { ForNode } from '@bladets/template/browser';
+import { loopAliases } from '@bladets/template/browser';
 import type { Renderable, Signal, ElementPosition } from '@tempots/dom';
 import { ForEach, computedOf } from '@tempots/dom';
 import type { RenderContext } from '../types.js';
@@ -75,6 +76,14 @@ export function convertForNode(
     const itemCtx: RenderContext = {
       ...ctx,
       dataSignal: loopDataSignal as Signal<unknown>,
+      pathAliases: ctx.config.includeSourceTracking
+        ? loopAliases(
+            node.itemsExpr,
+            node.itemVar,
+            node.iterationType,
+            ctx.pathAliases
+          )
+        : ctx.pathAliases,
     };
 
     return convertChildren(node.body, itemCtx);

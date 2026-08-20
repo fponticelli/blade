@@ -6,7 +6,9 @@ import type {
   HelperRegistry,
   TemplateNode,
   ComponentDefinition,
+  PathAliases,
   Scope,
+  SourceOpTable,
 } from '@bladets/template/browser';
 import type { Renderable, Signal } from '@tempots/dom';
 
@@ -42,6 +44,23 @@ export interface TempoRenderOptions {
    * @default 'rd-'
    */
   sourceTrackingPrefix?: string;
+
+  /**
+   * Emit `rd-source-op`, classifying what was done to each source.
+   * @default false
+   */
+  includeOperationTracking?: boolean;
+
+  /**
+   * Emit `rd-source-note`, a human-readable account of each value.
+   * @default false
+   */
+  includeNoteGeneration?: boolean;
+
+  /**
+   * Source-op classification for helpers outside the built-in registry.
+   */
+  helperSourceOps?: SourceOpTable;
 
   /**
    * Callback invoked when a runtime expression error occurs.
@@ -93,6 +112,13 @@ export interface RenderContext {
   /** Slot content from parent component */
   slots: Map<string, readonly TemplateNode[]>;
 
+  /**
+   * Names visible in the current scope that stand for caller data paths -
+   * component props and loop variables - so source tracking reports
+   * provenance in the caller's terms rather than in local names.
+   */
+  pathAliases?: PathAliases;
+
   /** Error handler callback */
   onError: ErrorHandler;
 }
@@ -107,6 +133,15 @@ export interface RenderConfig {
   /** Prefix for source tracking attributes */
   sourceTrackingPrefix: string;
 
+  /** Include `rd-source-op` alongside `rd-source` */
+  includeOperationTracking: boolean;
+
+  /** Include `rd-source-note` alongside `rd-source` */
+  includeNoteGeneration: boolean;
+
+  /** Source-op classification for helpers outside the built-in registry */
+  helperSourceOps?: SourceOpTable;
+
   /** Whether to escape HTML in expressions */
   htmlEscape: boolean;
 }
@@ -117,6 +152,8 @@ export interface RenderConfig {
 export const DEFAULT_RENDER_CONFIG: RenderConfig = {
   includeSourceTracking: false,
   sourceTrackingPrefix: 'rd-',
+  includeOperationTracking: false,
+  includeNoteGeneration: false,
   htmlEscape: true,
 };
 
@@ -145,4 +182,5 @@ export type {
   TemplateNode,
   Scope,
 } from '@bladets/template/browser';
+export type { PathAliases, SourceOpTable } from '@bladets/template/browser';
 export type { Renderable, Signal, Prop } from '@tempots/dom';

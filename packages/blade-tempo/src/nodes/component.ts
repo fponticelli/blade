@@ -2,6 +2,7 @@
 // Converts Blade ComponentNode to nested Renderable with isolated scope
 
 import type { ComponentNode, Scope } from '@bladets/template/browser';
+import { componentAliases } from '@bladets/template/browser';
 import type { Renderable } from '@tempots/dom';
 import type { RenderContext } from '../types.js';
 import { convertChildren } from '../renderable.js';
@@ -80,6 +81,9 @@ export function convertComponentNode(
     dataSignal: propsSignal,
     scope: componentScope,
     slots,
+    pathAliases: ctx.config.includeSourceTracking
+      ? componentAliases(node.props, ctx.pathAliases)
+      : undefined,
   };
 
   // Render component body

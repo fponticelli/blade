@@ -2,10 +2,14 @@
 // Converts Blade ElementNode to Tempo html.* elements
 
 import type { ElementNode, AttributeNode } from '@bladets/template/browser';
-import { escapeHtml } from '@bladets/template/browser';
+import {
+  buildElementSourceTracking,
+  escapeHtml,
+  sourceAttributeName,
+} from '@bladets/template/browser';
 import type { Renderable, Signal } from '@tempots/dom';
 import { html, Attr, El } from '@tempots/dom';
-import type { RenderContext, RenderConfig } from '../types.js';
+import type { RenderContext } from '../types.js';
 import { convertChildren } from '../renderable.js';
 import { evaluateSafe, valueToString } from '../evaluator.js';
 
@@ -29,7 +33,7 @@ export function convertElementNode(
 
   // Add source tracking attributes if enabled
   if (ctx.config.includeSourceTracking) {
-    const sourceAttrs = createSourceTrackingAttributes(node, ctx.config);
+    const sourceAttrs = createSourceTrackingAttributes(node, ctx);
     attributes.push(...sourceAttrs);
   }
 
@@ -143,18 +147,35 @@ function convertAttribute(
 
 /**
  * Creates source tracking attributes for an element.
+ *
+ * These carry data provenance - which parts of the payload produced what is on
+ * screen - in the wire format shared with consumers such as ReDoc3. They are
+ * not template coordinates; an audit trail that points back at the template
+ * says nothing about where a number came from.
  */
 function createSourceTrackingAttributes(
   node: ElementNode,
-  config: RenderConfig
+  ctx: RenderContext
 ): Renderable[] {
-  const prefix = config.sourceTrackingPrefix;
-  const loc = node.location;
+  const config = ctx.config;
+  const tracking = buildElementSourceTracking(node, {
+    prefix: config.sourceTrackingPrefix,
+    includeOp: config.includeOperationTracking,
+    includeNote: config.includeNoteGeneration,
+    aliases: ctx.pathAliases,
+    opTable: config.helperSourceOps,
+  });
+  if (!tracking) return [];
 
-  return [
-    Attr(
-      `${prefix}source`,
-      `${loc.start.line}:${loc.start.column}-${loc.end.line}:${loc.end.column}`
-    ),
+  const prefix = config.sourceTrackingPrefix;
+  const attrs: Renderable[] = [
+    Attr(sourceAttributeName(prefix, 'source'), tracking.source),
   ];
+  if (tracking.op !== null) {
+    attrs.push(Attr(sourceAttributeName(prefix, 'source-op'), tracking.op));
+  }
+  if (tracking.note !== null) {
+    attrs.push(Attr(sourceAttributeName(prefix, 'source-note'), tracking.note));
+  }
+  return attrs;
 }

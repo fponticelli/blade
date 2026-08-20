@@ -413,7 +413,6 @@ describe('createDomRenderer', () => {
               { name: 'name', value: literal('World'), location: mockLocation },
             ],
             children: [],
-            propPathMapping: new Map(),
             location: mockLocation,
           },
         ],

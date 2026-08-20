@@ -786,7 +786,6 @@ export interface FunctionExpr {
  * @property name - Component name (capitalized, e.g., "PriceBreakdown")
  * @property props - Props passed to component
  * @property children - Slot content
- * @property propPathMapping - Maps prop names to original caller paths for source tracking
  *
  * @example
  * <PriceBreakdown subtotal=$order.subtotal tax={0.08} />
@@ -796,7 +795,6 @@ export interface ComponentNode extends BaseNode {
   readonly name: string;
   readonly props: readonly ComponentProp[];
   readonly children: readonly TemplateNode[];
-  readonly propPathMapping: ReadonlyMap<string, readonly string[]>;
 }
 
 /**

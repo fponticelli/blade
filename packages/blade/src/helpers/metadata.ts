@@ -1,8 +1,10 @@
 /**
  * Helper Function Metadata
  *
- * Provides metadata for LSP integration and documentation.
+ * Provides metadata for LSP integration, documentation, and source tracking.
  */
+
+import type { SourceOp } from '../source-tracking/index.js';
 
 export type HelperCategory =
   | 'array'
@@ -20,6 +22,17 @@ export interface HelperMetadata {
   category: HelperCategory;
   polymorphic?: boolean;
   sinceVersion?: string;
+  /**
+   * How this helper is reported in `rd-source-op`.
+   *
+   * Only helpers that change the provenance story carry one: presenting a
+   * value (`format`), collapsing many values into one (`aggregate`), reading
+   * something outside the data (`system`), or deriving a new number
+   * (`calculated`). Helpers that select, test, or reshape without changing
+   * what the value *is* leave this unset and fall through to the structural
+   * rules in `classifyExpression`.
+   */
+  sourceOp?: SourceOp;
 }
 
 /**
@@ -36,6 +49,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
       'formatCurrency(1234.56, "EUR") → "€1,234.56"',
     ],
     category: 'format',
+    sourceOp: { category: 'format', detail: 'currency' },
   },
   formatNumber: {
     name: 'formatNumber',
@@ -43,6 +57,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Formats a number with locale-aware formatting',
     examples: ['formatNumber(1234.567, 2) → "1,234.57"'],
     category: 'format',
+    sourceOp: { category: 'format', detail: 'number' },
   },
   formatPercent: {
     name: 'formatPercent',
@@ -50,6 +65,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Formats a number as a percentage',
     examples: ['formatPercent(0.1234, 1) → "12.3%"'],
     category: 'format',
+    sourceOp: { category: 'format', detail: 'percent' },
   },
   formatDate: {
     name: 'formatDate',
@@ -60,6 +76,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
       'formatDate(date, "long") → "Wednesday, November 26, 2025"',
     ],
     category: 'format',
+    sourceOp: { category: 'format', detail: 'date' },
   },
 
   // Aggregation helpers (existing)
@@ -69,6 +86,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns the sum of all values',
     examples: ['sum(1, 2, 3) → 6', 'sum([1, 2, 3]) → 6'],
     category: 'number',
+    sourceOp: { category: 'aggregate' },
   },
   avg: {
     name: 'avg',
@@ -76,6 +94,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns the average of all values',
     examples: ['avg(1, 2, 3) → 2', 'avg([1, 2, 3]) → 2'],
     category: 'number',
+    sourceOp: { category: 'aggregate' },
   },
   min: {
     name: 'min',
@@ -83,6 +102,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns the minimum value',
     examples: ['min(3, 1, 2) → 1'],
     category: 'number',
+    sourceOp: { category: 'aggregate' },
   },
   max: {
     name: 'max',
@@ -90,6 +110,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns the maximum value',
     examples: ['max(3, 1, 2) → 3'],
     category: 'number',
+    sourceOp: { category: 'aggregate' },
   },
   count: {
     name: 'count',
@@ -97,6 +118,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns the count of values',
     examples: ['count(1, 2, 3) → 3', 'count([1, 2, 3]) → 3'],
     category: 'number',
+    sourceOp: { category: 'aggregate' },
   },
 
   // String helpers (existing)
@@ -144,6 +166,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Rounds to specified decimal places',
     examples: ['round(3.567, 1) → 3.6'],
     category: 'number',
+    sourceOp: { category: 'calculated' },
   },
   floor: {
     name: 'floor',
@@ -151,6 +174,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Rounds down to nearest integer',
     examples: ['floor(3.7) → 3'],
     category: 'number',
+    sourceOp: { category: 'calculated' },
   },
   ceil: {
     name: 'ceil',
@@ -158,6 +182,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Rounds up to nearest integer',
     examples: ['ceil(3.2) → 4'],
     category: 'number',
+    sourceOp: { category: 'calculated' },
   },
   abs: {
     name: 'abs',
@@ -165,6 +190,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns the absolute value',
     examples: ['abs(-5) → 5'],
     category: 'number',
+    sourceOp: { category: 'calculated' },
   },
 
   // Date helpers (existing)
@@ -174,6 +200,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns the current date/time',
     examples: ['now() → current Date'],
     category: 'date',
+    sourceOp: { category: 'system', detail: 'clock' },
   },
   addDays: {
     name: 'addDays',
@@ -488,6 +515,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns the difference in days between dates',
     examples: ['diffDays(date1, date2) → 7'],
     category: 'date',
+    sourceOp: { category: 'calculated' },
   },
   isBefore: {
     name: 'isBefore',
@@ -518,6 +546,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns -1, 0, or 1 based on sign',
     examples: ['sign(-5) → -1', 'sign(0) → 0', 'sign(5) → 1'],
     category: 'number',
+    sourceOp: { category: 'calculated' },
   },
   sqrt: {
     name: 'sqrt',
@@ -525,6 +554,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns the square root',
     examples: ['sqrt(16) → 4'],
     category: 'number',
+    sourceOp: { category: 'calculated' },
   },
   pow: {
     name: 'pow',
@@ -532,6 +562,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns base raised to exponent',
     examples: ['pow(2, 8) → 256'],
     category: 'number',
+    sourceOp: { category: 'calculated' },
   },
   clamp: {
     name: 'clamp',
@@ -539,6 +570,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Constrains number to range [min, max]',
     examples: ['clamp(150, 0, 100) → 100'],
     category: 'number',
+    sourceOp: { category: 'calculated' },
   },
   trunc: {
     name: 'trunc',
@@ -546,6 +578,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Truncates decimal part',
     examples: ['trunc(3.9) → 3', 'trunc(-3.9) → -3'],
     category: 'number',
+    sourceOp: { category: 'calculated' },
   },
   random: {
     name: 'random',
@@ -553,6 +586,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns a random number between 0 and 1',
     examples: ['random() → 0.xxxxx'],
     category: 'number',
+    sourceOp: { category: 'system', detail: 'random' },
   },
   randomInt: {
     name: 'randomInt',
@@ -560,6 +594,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Returns a random integer in range [min, max]',
     examples: ['randomInt(1, 10) → 1-10'],
     category: 'number',
+    sourceOp: { category: 'system', detail: 'random' },
   },
   isNaN: {
     name: 'isNaN',

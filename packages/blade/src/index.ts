@@ -22,6 +22,9 @@ export * from './validation/index.js';
 // Helpers
 export * from './helpers/index.js';
 
+// Source tracking
+export * from './source-tracking/index.js';
+
 // LSP (Language Server Protocol)
 export * as lsp from './lsp/index.js';
 
