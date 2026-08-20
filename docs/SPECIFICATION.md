@@ -1069,6 +1069,39 @@ function evaluateExpression(
 
 > **Note:** Source tracking attributes use a configurable prefix (default: `rd-`). All examples in this section use the default prefix. See [Section 14.1](#141-engine-configuration) for customization via `sourceTrackingPrefix`.
 
+> **Status:** Specified, not yet implemented. The renderer accepts and validates
+> `sourceTrackingPrefix`, but does not yet collect paths or emit the attributes.
+
+### 9.0 Wire Format Contract
+
+The attributes below are a **shared convention** with
+[ReDoc3](https://github.com/fponticelli/resight-reports/tree/main/packages/redoc3),
+which consumes them to build a provenance registry over paginated PDF output.
+The two projects are independent — neither depends on the other — so the format
+must be changed in lockstep on both sides or not at all.
+
+```
+rd-source      = expression ( ";" expression )*
+expression     = path ( "," path )*
+
+rd-source-op   = op ( ";" op )*
+op             = category [ ":" detail ]
+category       = "none" | "calculated" | "system" | "format" | "aggregate"
+
+rd-source-note = free text
+```
+
+Consumer rules Blade must respect when generating:
+
+- Emit **one op per expression**, in the same order as the expressions in
+  `rd-source`. A single op is legal and is broadcast to every expression.
+- Never emit an empty expression; a consumer drops it and the surrounding ops
+  are paired by raw position, so a stray `;` is harmless but pointless.
+- `rd-source-note` is **one note for the whole element**. Never join per-expression
+  notes with `;` — prose contains semicolons and consumers do not split this value.
+- Categories outside the list above are rejected by consumers with a warning and
+  downgraded to `none`.
+
 ### 9.1 Path Extraction
 
 **For each element, aggregate paths from:**
