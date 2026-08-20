@@ -47,10 +47,10 @@ export async function renderTemplate(
     );
     console.log('[Preview] Component count:', projectComponents.size);
 
-    // Compile the template with project root for component resolution
+    // Compile the template. The compiler no longer resolves project
+    // components itself, so they are merged in below.
     const compileResult = await blade.compile(sourceToCompile, {
       validate: true,
-      projectRoot,
     });
 
     // Merge project components into the compiled template's components
