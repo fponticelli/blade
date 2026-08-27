@@ -22,7 +22,9 @@ import { describe, it, expect } from 'vitest';
 import { checkApiReports, packageSpec } from '../../../scripts/api-surface.mjs';
 
 describe('@bladets/template public API surface', () => {
+  // Runs the TypeScript checker over every entry point, so it is far slower than a
+  // unit test and needs a timeout to match on a CI runner.
   it('matches the checked-in api/*.api.md reports', () => {
     expect(checkApiReports([packageSpec('@bladets/template')])).toEqual([]);
-  });
+  }, 30_000);
 });

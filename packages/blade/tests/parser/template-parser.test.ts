@@ -337,6 +337,10 @@ describe('TemplateParser - totality', () => {
     });
   }
 
+  // Exhaustive: every 7th prefix of every sample template. ~1s here and several
+  // times that on a CI runner, so it carries an explicit timeout rather than the
+  // 5s default, which is tuned for unit tests. 60s is still a hard ceiling that
+  // catches a genuine hang.
   it('never throws on any truncation of a sample template', () => {
     for (const source of sampleSources()) {
       for (let end = 0; end <= source.length; end += 7) {
@@ -347,8 +351,9 @@ describe('TemplateParser - totality', () => {
         ).not.toThrow();
       }
     }
-  });
+  }, 60_000);
 
+  // Same reasoning as the truncation sweep above.
   it('never throws on random mutations of a sample template', () => {
     const alphabet = [
       '<',
@@ -389,7 +394,7 @@ describe('TemplateParser - totality', () => {
         JSON.stringify(mutated)
       ).not.toThrow();
     }
-  });
+  }, 60_000);
 });
 
 // =============================================================================
