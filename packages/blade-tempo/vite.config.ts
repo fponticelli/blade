@@ -10,6 +10,10 @@ export default defineConfig({
     }),
   ],
   test: {
+    // 5s is vitest's default and assumes a developer's machine. A shared CI
+    // runner is several times slower. 15s is still a hard ceiling that catches
+    // a genuine hang; the few genuinely long sweeps set their own.
+    testTimeout: 15_000,
     globals: true,
     environment: 'jsdom',
     include: ['tests/**/*.test.ts'],

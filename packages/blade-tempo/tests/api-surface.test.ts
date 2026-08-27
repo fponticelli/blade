@@ -18,7 +18,9 @@ import { describe, it, expect } from 'vitest';
 import { checkApiReports, packageSpec } from '../../../scripts/api-surface.mjs';
 
 describe('@bladets/tempo public API surface', () => {
+  // Runs the TypeScript checker over every entry point, so it is far slower
+  // than a unit test. A CI runner needs more than the 5s default.
   it('matches the checked-in api/*.api.md reports', () => {
     expect(checkApiReports([packageSpec('@bladets/tempo')])).toEqual([]);
-  });
+  }, 30_000);
 });
