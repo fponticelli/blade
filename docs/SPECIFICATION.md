@@ -68,15 +68,24 @@ ${page + 1} ${sum(order.lines[*].amount) * (1 + taxRate)} ${"Total: " + total}
 
 **Raw HTML (unescaped):**
 
-When `htmlEscape` is enabled (the default), all expression output is HTML-escaped. To insert raw HTML without escaping, use the `$!` prefix:
+`$!` is a **trust assertion**, not a formatting switch. It says: _this value is
+already HTML, produced or sanitized by something I trust, and the engine must
+write it through unchanged._ Everything else is escaped for the sink it is
+written into, and `$!` is the one way to say that escaping would be wrong.
 
 ```html
-<!-- Simple raw expression -->
-$!htmlContent
+<!-- The value is markup the host sanitized -->
+$!sanitizedRichText
 
 <!-- Complex raw expression -->
-$!{richText + "<br />"}
+$!{sanitizedRichText + "<br />"}
 ```
+
+It is **never** the way to get structured data into a page. `${toJson(x)}` in a
+`<script>` is already emitted as JSON that a JavaScript parser accepts and that
+cannot close the element - see the escaping table in Section 12 - so a template
+never has to reach for `$!` to embed data. `$!{toJson(x)}` writes the JSON
+verbatim, `</script>` and all, and is a breakout.
 
 **Example:**
 
@@ -94,7 +103,12 @@ $!{richText + "<br />"}
 <div>Safe: $safe, Raw: $!raw</div>
 ```
 
-> **Security Warning:** Using `$!` bypasses HTML escaping and can introduce XSS vulnerabilities if the data comes from untrusted sources. Only use `$!` with content you control or have already sanitized.
+> **Security Warning:** `$!` writes its value into the document with no
+> escaping, in every sink. It is a promise about the value, and the engine has
+> no way to check it: raw data from a payload reaching `$!` is a cross-site
+> scripting hole. Use it only for markup you produced or sanitized yourself, and
+> never to embed JSON - `${toJson(x)}` in a `<script>` is correct and safe on
+> its own.
 
 ### 3.2 Comments
 
@@ -156,6 +170,37 @@ $!{richText + "<br />"}
 <div>$key: $value</div>
 }
 ```
+
+**Loop keys.** A `@for` header may end with `key <expression>`, naming what each
+pass _is_ rather than where it sits:
+
+```html
+@for(row of rows key row.id) {
+<input value="$row.name" />
+}
+```
+
+The key is evaluated with the item variable bound and nothing else the loop
+introduced - reading the index variable in it is a compile error (`KEY_USES_INDEX`),
+because an identity that depends on the position is not an identity. Keys must be
+unique within one pass over the list; a repeat is reported at runtime.
+
+A key changes nothing about the document. A render that produces its output once
+
+- to a string or to DOM nodes - builds every pass from scratch and has no earlier
+  row to match this one against, so it ignores the key entirely. A render that
+  updates in place uses it to _move_ a row's existing nodes instead of rewriting
+  whatever row now sits in that slot, which is the difference between sorting a
+  table and moving the reader's cursor into a different row. In a keyed loop the
+  index variable therefore changes as rows move.
+
+`key` is a keyword only in that position: at the top level of the header,
+delimited by whitespace, with an expression already read before it. `@for(x of
+key)` still iterates a field called `key`.
+
+The compiler warns (`UNKEYED_LOOP`) when a keyless loop's body contains a form
+control or a component - the cases where a row holds state the browser or the
+component keeps for it, and where reuse by position is therefore observable.
 
 **Match statements:**
 
@@ -328,6 +373,35 @@ discounted(total, 10); }
 - Slot content cannot access component's props
 - Like "windows" that render parent content in component layout
 
+Slot content is the caller's markup, so the renderer carries the caller's whole
+context with it - scope, globals and the path aliases source tracking reports
+provenance in. A `<slot>`'s own **fallback** is part of the component and is
+rendered in the component's context instead, where its props are in scope.
+
+A `<slot:name>` fill is a node kind of its own, not an element: it names a hole
+rather than describing markup. Fills are only meaningful as the direct children
+of a component call, and a fill naming a slot the component does not declare is
+a compile error - a misspelled name used to disappear without a trace, the slot
+rendering its fallback while the caller's content went nowhere.
+
+Because a `<slot/>` inside a component call resolves against the **caller's**
+slot map, a slot forwarded through a nested component terminates at the
+outermost fill:
+
+```html
+<template:Wrap
+  ><b><slot /></b
+></template:Wrap>
+<template:Outer
+  ><Wrap><slot /></Wrap
+></template:Outer>
+<Outer>x</Outer>
+<!-- <b>x</b> -->
+```
+
+`maxSlotDepth` bounds any residual cycle, so a pathological template raises a
+located `ResourceLimitError` rather than exhausting the stack.
+
 ### 3.8 Fragments
 
 **Purpose:** Preserve whitespace and group elements
@@ -355,6 +429,106 @@ discounted(total, 10); }
 - Content inside directives has whitespace trimmed by default
 - Fragments `<>...</>` preserve all whitespace inside
 - Fragments can be used anywhere, including outside directives
+
+### 3.9 HTML Content Model
+
+Blade follows the HTML content model, and the parser is its single authority:
+what the parser accepts is what the renderer emits.
+
+**Void elements** (`area`, `base`, `br`, `col`, `embed`, `hr`, `img`, `input`,
+`link`, `meta`, `param`, `source`, `track`, `wbr`) are closed by their start
+tag. They never take children, with or without a trailing slash:
+
+```html
+<head>
+  <meta charset="utf-8" />
+  <title>Still a sibling of the meta</title>
+</head>
+```
+
+An explicit end tag for a void element (`</br>`) is a parse error.
+
+**Implied end tags.** A start tag that HTML says closes an open element does
+close it, without an error:
+
+| Open element | Closed by a start tag for                      |
+| ------------ | ---------------------------------------------- |
+| `li`         | `li`                                           |
+| `dt`, `dd`   | `dt`, `dd`                                     |
+| `p`          | any block-level element, including another `p` |
+| `option`     | `option`, `optgroup`                           |
+| `tr`         | `tr`, `tbody`, `tfoot`, `thead`                |
+| `td`, `th`   | `td`, `th`, `tr`, and the row groups           |
+| `rt`, `rp`   | `rt`, `rp`                                     |
+
+```html
+<ul>
+  <li>first</li>
+  <li>second</li>
+</ul>
+```
+
+**Raw text elements.** `<script>` and `<style>` hold raw text: no markup is
+parsed inside them, so a CSS rule's `}` does not close an enclosing directive
+block and `if (a < b)` is not a `<b>` element. Blade interpolation still
+applies, which is what makes templated CSS possible:
+
+```html
+<style>
+  body {
+    color: ${theme.text};
+  }
+</style>
+```
+
+**Tag name matching.** HTML tag names are ASCII case-insensitive, so `</STYLE>`
+closes `<style>`. Component names are case-sensitive: `<Card>` is not closed by
+`</card>`.
+
+Any other element left unclosed is a parse error naming the element, and an end
+tag that closes nothing is a parse error where it stands. Neither stops the
+parse: a diagnostic is always accompanied by an AST.
+
+### 3.10 Event Bindings
+
+`on:<event>` binds a handler to an element:
+
+```html
+<button on:click="${submit}">Save</button>
+<input on:input="${update}" />
+<x-widget on:my-event="${handle}" />
+```
+
+The value must be one of the expression forms - `${expr}`, `{expr}` or `$path` -
+and must evaluate to something callable: a function reached through the data or
+the globals, or a `@let` arrow function. The handler is called with the event as
+its only argument.
+
+**This is not an attribute.** An attribute carries text, and no text is a
+function - which is exactly why interpolating into a legacy `onclick=` is
+refused (`UNENCODABLE_ATTRIBUTE`): its value is JavaScript source that this
+engine never parses, so any escaping it applied would be a guess about a
+language it is not reading. An `on:` binding never becomes source. Nothing is
+written to the element, and `on:click` does not appear in the rendered markup.
+
+**Which renderers can hold one.** A string render produces characters, and no
+sequence of characters is a closure, so it drops the binding and records a
+warning. Compiling with `target: 'string'` turns that into a compile error
+(`EVENT_IN_STRING_TARGET`) - a template meant for a string renderer says so, and
+finds out at build time rather than from a button that does nothing. The
+default target is `'dom'`, which covers the DOM renderer and the reactive one.
+
+The handler is read from the template's scope each time the event fires, so a
+handler that depends on the data changes with the data - without the element
+being rebuilt, and without a listener being torn down and replaced.
+
+**Diagnostics:**
+
+| Code                      | Cause                                          |
+| ------------------------- | ---------------------------------------------- |
+| `EVENT_NOT_AN_EXPRESSION` | `on:click="submit()"` - a quoted value is text |
+| `EVENT_WITHOUT_NAME`      | `on:=${x}` - the binding names no event        |
+| `EVENT_IN_STRING_TARGET`  | any `on:` binding under `target: 'string'`     |
 
 ---
 
@@ -451,9 +625,49 @@ $!{expr + "<br />"}
 <!-- Complex raw expression -->
 ```
 
-See [Section 3.1](#31-expression-syntax) for details and security considerations. Note that `${!expr}` is a logical NOT — the `!` must come immediately after `$` and before the path or `{` to trigger raw output.
+`$!` asserts that the value is already trusted HTML; see
+[Section 3.1](#31-expression-syntax) for details and security considerations.
+Note that `${!expr}` is a logical NOT — the `!` must come immediately after `$` and before the path or `{` to trigger raw output.
 
-### 4.3 Type Coercion
+### 4.3 String Literals and Escape Sequences
+
+String literals are written with double or single quotes, and may span multiple
+lines. A backslash starts an escape sequence:
+
+| Escape      | Produces                                          |
+| ----------- | ------------------------------------------------- |
+| `\n`        | line feed (U+000A)                                |
+| `\r`        | carriage return (U+000D)                          |
+| `\t`        | tab (U+0009)                                      |
+| `\b`        | backspace (U+0008)                                |
+| `\f`        | form feed (U+000C)                                |
+| `\v`        | vertical tab (U+000B)                             |
+| `\0`        | null (U+0000)                                     |
+| `\\`        | a single backslash                                |
+| `\"` / `\'` | a quote                                           |
+| `\@` / `\$` | a literal `@` / `$` (the template metacharacters) |
+| `\xHH`      | the code unit given by exactly two hex digits     |
+| `\uHHHH`    | the code unit given by exactly four hex digits    |
+| `\u{H...}`  | the code point given by one to six hex digits     |
+
+```html
+${"line one\nline two"} ${"tab\tseparated"} ${"she said \"hi\""} ${"é"} → "é"
+${"\u{1F600}"} → "😀"
+```
+
+Any other escape - `\q`, a malformed `\u12`, a trailing backslash - is a parse
+error. The offending text is preserved verbatim in the resulting string so the
+mistake is visible rather than silently changing the output.
+
+The same escapes apply wherever Blade reads a quoted value - a quoted attribute
+value, a component prop, a `@match` case value, a `@props` default - including
+string keys in a path subscript:
+
+```html
+$data["key with \"quotes\""] $data["ключ"]
+```
+
+### 4.4 Type Coercion
 
 **String concatenation:**
 
@@ -485,7 +699,7 @@ Arrays are joined with comma-space (`, `) when rendered as strings.
 
 **General rule:** Always coerce to something renderable. Follow JavaScript coercion semantics.
 
-### 4.4 Function Calls
+### 4.5 Function Calls
 
 **Syntax:**
 
@@ -618,6 +832,13 @@ scope's x }
 <!-- Error: not in scope -->
 ```
 
+**Every block, not just some.** A declaration is scoped to the run of sibling
+nodes it appears in, whichever construct owns them: an `@if` branch or its
+`@else`, either form of `@match` case and the default case, a `@for` body, an
+element's children, a fragment, and slot content. The renderer creates the
+block scope in one place - the function that renders a run of siblings - so a
+node kind added later cannot forget to.
+
 ---
 
 ## 6. Internal Representation (IR)
@@ -728,6 +949,7 @@ type TemplateNode =
   | ForNode
   | MatchNode
   | LetNode
+  | PropsNode
   | ComponentNode
   | FragmentNode
   | SlotNode
@@ -751,7 +973,21 @@ interface ElementNode extends BaseNode {
 
 type AttributeNode =
   | { kind: 'static'; name: string; value: string; location: SourceLocation }
-  | { kind: 'expr'; name: string; expr: ExprAst; location: SourceLocation };
+  | { kind: 'expr'; name: string; expr: ExprAst; location: SourceLocation }
+  | {
+      kind: 'mixed';
+      name: string;
+      segments: (StaticAttributeValue | ExprAttributeValue)[];
+      location: SourceLocation;
+    }
+  // `on:click=${submit}` - behaviour, not text; see 3.10.
+  | {
+      kind: 'event';
+      name: string;
+      event: string;
+      expr: ExprAst;
+      location: SourceLocation;
+    };
 
 interface IfNode extends BaseNode {
   kind: 'if';
@@ -771,6 +1007,7 @@ interface ForNode extends BaseNode {
   itemVar: string;
   indexVar?: string; // for (item, index of ...)
   iterationType: 'of' | 'in'; // of=values, in=indices/keys
+  key?: ExprAst; // What each pass *is*, from `key <expr>`; see 3.3
   body: TemplateNode[];
 }
 
@@ -798,6 +1035,19 @@ interface Declaration {
   name: string;
   isGlobal: boolean; // true if name starts with $.
   value: ExprAst | FunctionExpr;
+  location: SourceLocation;
+}
+
+// @props(label, disabled = false, onClick?) - see section 20.3
+interface PropsNode extends BaseNode {
+  kind: 'props';
+  props: PropDeclaration[];
+}
+
+interface PropDeclaration {
+  name: string;
+  required: boolean; // false when optional or given a default
+  defaultValue: ExprAst | undefined;
   location: SourceLocation;
 }
 
@@ -868,6 +1118,7 @@ interface RootNode extends BaseNode {
   kind: 'root';
   children: TemplateNode[];
   components: Map<string, ComponentDefinition>; // Name → Definition
+  props: PropDeclaration[]; // Declared with @props()
   metadata: TemplateMetadata;
 }
 
@@ -949,23 +1200,28 @@ async function compile(
 
 ```typescript
 interface CompileOptions {
-  // Validation
-  validate?: boolean; // Default: false
-  strict?: boolean; // Warnings as errors
-  dataSchema?: JSONSchema; // For path validation
+  // Validation. Semantic checks run on EVERY compile; these say what they are
+  // checked against, and how harshly.
+  strict?: boolean; // Soft findings become errors, and compile() throws
+  schema?: JsonSchema; // For top-level path validation
+  helpers?: HelperRegistry; // Calls to anything outside it are reported
+  components?: ComponentRegistry; // Components the host will supply
 
-  // Output options
-  includeSourceMap?: boolean; // Default: false
-  includeMetadata?: boolean; // Default: true
+  // What the template is being compiled for. 'string' refuses `on:` event
+  // bindings at build time, because a string cannot carry a function.
+  target?: 'dom' | 'string'; // Default: 'dom'
 
-  // Resource limits
-  maxExpressionDepth?: number; // Default: 10
-  maxFunctionDepth?: number; // Default: 10
-
-  // Configuration
-  globalPrefix?: string; // Default: "$"
+  // Limits
+  maxExpressionDepth?: number; // Default: 64  (parse-time nesting)
+  maxNodeDepth?: number; // Default: 500 (parse-time nesting)
+  maxExpressionNodes?: number; // Default: 1000 (AST nodes in one expression)
 }
 ```
+
+There is no `validate` flag: which checks ran used to depend on which caller you
+were, and a check that only some callers get is a check nobody can rely on.
+Metadata is always collected - it is what makes "declared but never read"
+answerable - and there is no source map; see 13.3.
 
 ---
 
@@ -1027,31 +1283,78 @@ while `maxTotalIterations` bounds the render as a whole.
 
 ### 8.2 Rendering Process
 
+There is **one** traversal of the AST, parameterised by an output sink. The AST
+walk, the scope rules, the loop, component and slot semantics, the choice of
+escaper for each position and the resource accounting are written once; a
+`RenderTarget` decides only how a finished piece of output is represented.
+
+```typescript
+interface RenderTarget<T> {
+  element(spec: ElementSpec, children: () => void): void;
+  /** Author-written text, already in this sink's own representation. */
+  literalText(source: string, context: EscapeContext): void;
+  /** An evaluated value, as plain text. */
+  text(value: string, context: EscapeContext): void;
+  /** An evaluated value written as markup - the `$!` form. */
+  rawHtml(html: string): void;
+  comment(text: string): void;
+  doctype(value: string): void;
+  finish(): T;
+}
+
+function renderTo<T>(
+  template: ValidTemplate,
+  data: unknown,
+  options: RenderOptions | undefined,
+  createTarget: (
+    budget: OutputBudget,
+    position: RenderPosition
+  ) => RenderTarget<T>
+): { output: T; metadata: RuntimeMetadata };
+```
+
+`StringTarget` produces HTML text and `DomTarget` produces DOM nodes; a host
+that wants a third representation writes a target rather than a third renderer.
+
+The traversal never escapes. It says what a value _is_ - author-written HTML
+source, an evaluated value, evaluated markup - and which sink it is going into,
+and the target applies the escaper that is correct for the pair. That is why the
+seam exists: `createTextNode` parses nothing, so escaping on the way into it
+double-encodes the page, while writing the same value into an HTML string
+requires it.
+
 **For each node:**
 
-1. **TextNode**: Evaluate expressions, concatenate segments
+1. **TextNode**: Evaluate expressions; each segment is emitted as literal
+   source, as a value, or as raw markup
 2. **ElementNode**:
-   - Render opening tag with attributes
+   - Build the attribute list, applying the URL, `style` and event-handler
+     policies
    - Add source tracking attributes (`rd-source`, etc.)
-   - Recursively render children
-   - Render closing tag
+   - Emit the element, recursively rendering children inside it
 3. **IfNode**: Evaluate conditions, render matching branch
 4. **ForNode**:
    - Evaluate items expression
-   - Check iteration limits
-   - Create scoped context for each iteration
+   - Check iteration limits and the wall-clock budget
+   - Create a scope for each iteration
    - Render body for each item
 5. **MatchNode**: Evaluate value, find first matching case, render body
-6. **LetNode**: Evaluate declarations, add to current scope
+6. **LetNode**: Evaluate the value and bind it for the rest of the block
 7. **ComponentNode**:
-   - Evaluate prop expressions
+   - Evaluate prop expressions in the caller's scope
    - Create isolated scope with props
-   - Check required props (skip render if any null/undefined)
+   - Partition the call's children into named slot fills and a default slot,
+     each carrying the caller's context
    - Render component body
-   - Aggregate path tracking from caller context
-8. **FragmentNode**: Render children with whitespace preservation
-9. **SlotNode**: Render slot content from caller, or fallback
-10. **CommentNode**: Optionally render based on config
+8. **FragmentNode**: Render children
+9. **SlotNode**: Render the caller's content in the caller's context, or the
+   fallback in the component's
+10. **SlotFillNode**: Consumed by the component call that owns it
+11. **CommentNode**: Optionally render based on config
+
+Anything thrown below a node - an `EvaluationError`, a `TypeError` from a host
+helper - is re-thrown as a `RenderError` with code `RENDER_FAILED`, carrying the
+location of the node being rendered and the original error as `cause`.
 
 ### 8.3 Expression Evaluation
 
@@ -1369,48 +1672,173 @@ With `sourceTrackingPrefix: ''` (empty string):
 **Configurable limits (with defaults):**
 
 ```typescript
-interface ResourceLimits {
+interface ResourceLimits extends EvaluatorConfig {
   // Loop limits
   maxLoopNesting: number; // Default: 5
   maxIterationsPerLoop: number; // Default: 1000
   maxTotalIterations: number; // Default: 10000
 
-  // Expression limits
-  maxFunctionCallDepth: number; // Default: 10
-  maxExpressionNodes: number; // Default: 1000 (AST node count)
-
-  // Recursion limits
-  maxRecursionDepth: number; // Default: 50
+  // Nesting limits
   maxComponentDepth: number; // Default: 10
+  maxSlotDepth: number; // Default: 16
 
-  // No limits on:
-  // - Template size
-  // - Execution time
+  // Output limits
+  maxOutputChars: number; // Default: 33554432 (32 Mi UTF-16 code units)
+  maxRenderMillis: number; // Default: 10000
+
+  // Inherited from EvaluatorConfig, so the renderer hands this object
+  // straight to `evaluate` and the two layers cannot disagree:
+  maxFunctionDepth: number; // Default: 10
+  maxRecursionDepth: number; // Default: 50
+  maxHelperStringLength: number; // Default: 1000000
 }
 ```
 
+`maxExpressionNodes` is deliberately absent: expression _size_ is a property of
+the template rather than of the data, so it is a `CompileOptions` field enforced
+by the compiler.
+
+`maxOutputChars` and `maxRenderMillis` are enforced at the output sink, which is
+the one place every character of every render passes through. Without them a
+render that stayed inside every other limit could still produce tens of
+megabytes, which is a remote memory-exhaustion vector on any host that renders
+user-supplied data.
+
+For an **incremental** renderer these two bound the build pass - the traversal
+that produces the initial tree - and not the updates that follow it. A ceiling
+is a promise about one render, and a mounted tree is not a render in progress:
+charging a later update against the budget the build spent would fail a page
+that had already mounted successfully, ten seconds after the fact, when the
+wall-clock deadline set at mount expired. Every other ceiling in the table above
+is enforced on updates as well, because each bounds a single pass. Bounding what
+a live tree may accumulate over its lifetime is a different question, and would
+need a limit of its own.
+
+**Parse-time limits (`ParseOptions`, also accepted by `compile()`):**
+
+```typescript
+interface ParseOptions {
+  maxExpressionDepth?: number; // Default: 64  (nesting of one expression)
+  maxNodeDepth?: number; // Default: 500 (nesting of template nodes)
+}
+```
+
+Both are nesting depths, not sizes: there is no limit on the length of a
+template, of a text node, or of a flat operator chain. Exceeding either is a
+parse error, not a thrown exception.
+
 **Enforcement:**
 
-- Limits checked at runtime
-- Exceeded limits throw errors (stop rendering)
-- All limits are overrideable via configuration
+Each limit names one layer, and that layer enforces it:
+
+| Limit                   | Enforced by | Bounds                                                                    |
+| ----------------------- | ----------- | ------------------------------------------------------------------------- |
+| `maxLoopNesting`        | renderer    | Nesting of `@for` bodies                                                  |
+| `maxIterationsPerLoop`  | renderer    | Passes of one loop                                                        |
+| `maxTotalIterations`    | renderer    | Loop passes in one render                                                 |
+| `maxComponentDepth`     | renderer    | Nesting of component instances                                            |
+| `maxSlotDepth`          | renderer    | Chained `<slot>` expansions along one path                                |
+| `maxOutputChars`        | sink        | Characters one render may produce                                         |
+| `maxRenderMillis`       | sink        | Wall-clock time one render may take                                       |
+| `maxFunctionDepth`      | evaluator   | Nested **helper** calls along one evaluation path: `outer(inner(x))` is 2 |
+| `maxRecursionDepth`     | evaluator   | Nested **user-defined function** calls - one frame per recursive call     |
+| `maxHelperStringLength` | helpers     | Characters one helper call may produce (`repeat`, `padStart`, ...)        |
+| `maxExpressionNodes`    | compiler    | AST nodes in one expression (a `CompileOptions` field)                    |
+
+- Exceeded limits throw errors (stop rendering). Runtime breaches raise an
+  `EvaluationError` with code `RESOURCE_LIMIT`, or a `ResourceLimitError` -
+  a `RenderError` - for the renderer's and the sink's own limits. Both carry the
+  source location of the construct that breached them.
+- All limits are overrideable via configuration.
+- The **depth** of an expression tree is bounded at parse time by
+  `maxExpressionDepth`, not at render time: what the evaluator bounds is what
+  the data made the template do.
 
 ### 10.2 Security Model
 
+Template data is untrusted input. In CMS and multi-tenant deployments the
+template is untrusted too, so the model below is what the evaluator enforces
+structurally rather than what a well-behaved template happens not to do.
+
 **Function execution:**
 
-- Only functions in provided `HelperRegistry` can be called
-- No dynamic function creation in templates
-- User-defined functions (`@@ { let fn = ... }`) can only call:
-  - Other user-defined functions
-  - Registered helpers
-  - Built-in operators
+A callee name resolves in one order - locals, then globals, then the
+`HelperRegistry` - so a template's own functions and the standard library share
+one namespace, with the template's names winning.
+
+- A registry is an allowlist: only its **own, enumerable, function-valued**
+  entries are callable. Inherited members are not, so a registry supplied as a
+  class instance exposes none of its methods and `${constructor(1)}` is an
+  `UNKNOWN_HELPER` error rather than a `TypeError`.
+- The default registry is empty. A host that registers nothing has a template
+  that can call nothing.
+- User-defined functions (`@@ { let fn = (a) => ... }`) are values of the
+  engine's own callable type. They can call other user-defined functions,
+  registered helpers and built-in operators.
+- **Data never supplies a callable.** A function reached through the data
+  context, or a host function bound into scope, is not callable from a template:
+  calling one is a `NOT_CALLABLE` error.
+- A name bound in scope shadows a helper of the same name. If the bound value is
+  not callable, the call is a `NOT_CALLABLE` error - it does not silently fall
+  through to the helper.
+- No dynamic function creation in templates.
 
 **Data access:**
 
-- No restrictions on path access
-- Templates can read any property in data context
-- No write access (templates are read-only)
+- Only **own** properties are readable. Inherited properties - including every
+  `Object.prototype` member - resolve to `undefined`.
+- The names `__proto__`, `constructor` and `prototype` never resolve, anywhere:
+  not as a path segment, not as a bare identifier, not as a helper name.
+- Values in data are read as objects, arrays or strings. Functions are opaque:
+  no property of a function is readable, which is what makes
+  `${x.constructor.constructor}` unreachable rather than merely blocklisted.
+- Intrinsics: `length` on arrays and strings, and numeric indices on arrays.
+  Nothing else - array and string methods are not reachable.
+- A forbidden path and a missing path are indistinguishable to a template: both
+  render as empty.
+- No write access (templates are read-only).
+
+**Output encoding:**
+
+Escaping is a property of the sink, not of the value, and one escaper applied
+everywhere is wrong in four directions at once. The renderer chooses the escaper
+from the position and the value's origin:
+
+| Position                                     | Author-written text | Evaluated value                                           |
+| -------------------------------------------- | ------------------- | --------------------------------------------------------- |
+| Character data                               | verbatim            | HTML escaped                                              |
+| `<script>` body                              | verbatim            | JavaScript string escape                                  |
+| `<script>` body, `toJson(...)`               | verbatim            | JSON, with `<`, `>`, `&`, U+2028/9 escaped                |
+| `<style>` body                               | verbatim            | CSS value escape                                          |
+| Quoted attribute value                       | delimiter only      | HTML escaped                                              |
+| URL attribute (`href`, `src`, `action`, ...) | delimiter only      | scheme-validated, then HTML escaped                       |
+| `style` attribute                            | verbatim            | CSS value escape (opt out with `allowStyleInterpolation`) |
+| `on*` attribute                              | verbatim            | refused - compile error                                   |
+
+- Author-written literal text is already HTML source: `title="Tom &amp; Jerry"`
+  means one ampersand, and escaping it again would show the reader the entity.
+  Evaluated values are plain text and are escaped to mean themselves. A mixed
+  attribute is escaped **segment by segment, by origin**; the concatenation is
+  never escaped as a whole.
+- URL attributes are **validated, not escaped**: `javascript:alert(1)` contains
+  no HTML-special character, so escaping cannot touch it. Allowed schemes are
+  `http`, `https`, `mailto`, `tel`, `ftp`, `data:` restricted to raster image
+  types, and every relative form. Anything else is replaced with
+  `about:invalid#blocked` and recorded as a warning. Validation runs on the
+  assembled value, because `href="javascript:${x}"` puts the scheme in the
+  static half.
+- Inside `<script>` and `<style>` browsers never decode character references, so
+  HTML escaping there corrupts the data rather than protecting it. The
+  JavaScript escaper turns `<`, `>` and `&` into unicode escapes, so an
+  interpolated value cannot close the element.
+- `$!` writes markup as-is, in every sink. It is an explicit **trust assertion**
+  about pre-sanitized HTML - the author declaring that escaping this particular
+  value would be wrong - and not a general escape hatch. In particular it is
+  never needed to get structured data into a `<script>`: `${toJson(x)}` is
+  emitted as JSON that `JSON.parse` decodes back to the original value and that
+  cannot close the element, so the safe form is also the working one.
+- Functions and symbols have no text form: interpolating one writes nothing and
+  records a warning, rather than pasting a function's source into the page.
 
 **Sandboxing:**
 
@@ -1418,7 +1846,7 @@ interface ResourceLimits {
 - No access to:
   - `eval()` or similar
   - Constructor functions
-  - Prototype manipulation
+  - Prototype traversal or manipulation
   - Import/require
 
 **Best practices:**
@@ -1433,6 +1861,11 @@ interface ResourceLimits {
 ## 11. Error Handling
 
 ### 11.1 Parse-Time Errors
+
+Parsing is total: it never throws. Every malformed input produces a partial AST
+plus a list of `ParseError`s, each carrying a line, a column and an offset that
+index the template as the author wrote it. A caller decides what is fatal by
+inspecting the diagnostics; a caller that ignores them still gets a tree.
 
 **Fatal errors (compilation fails):**
 
@@ -1504,16 +1937,18 @@ interface HelperRegistry {
   [name: string]: HelperFunction;
 }
 
-type HelperFunction = (scope: Scope) => (...args: any[]) => any;
-
-interface HelperFunctionWithMetadata {
-  fn: HelperFunction;
-  metadata?: {
-    op?: 'format' | 'aggregate' | 'calculated' | 'system';
-    label?: string;
-  };
-}
+type HelperFunction = (
+  scope: Scope,
+  setWarning: (message: string) => void,
+  limits?: HelperLimits
+) => (...args: unknown[]) => unknown;
 ```
+
+What a helper _is_ - its category, signature, source-tracking operation and
+deprecation - is described separately, by the `HelperMetadata` table in
+`helpers/metadata.ts`. There is no wrapper type pairing a function with its
+metadata: a registry maps a name to a `HelperFunction` and nothing else, so the
+allowlist behind it stays "own enumerable function-valued entries".
 
 ### 12.2 Standard Library Functions
 
@@ -1632,14 +2067,13 @@ interface ValidationResult {
 **Validation during compilation:**
 
 ```typescript
-const compiled = await compile(source, {
-  validate: true,
+const result = compile(source, {
   strict: false,
-  dataSchema: mySchema,
+  schema: mySchema,
   helpers: myHelpers,
 });
 
-// compiled.diagnostics contains errors and warnings
+// result.ok ? result.template.diagnostics : result.diagnostics
 ```
 
 **Both approaches supported** for different use cases:
@@ -1671,6 +2105,11 @@ const compiled = await compile(source, {
   - Undefined references
   - Unused variables
 
+Diagnostics are published from the parse, never from the edit. A document's
+text, AST, errors and scope are always the same version - a provider can never
+observe a scope built for one version against the text of another - and the
+debounced parse is the only thing that publishes.
+
 **Edit-time warnings:**
 
 - Undeclared variable access
@@ -1679,34 +2118,21 @@ const compiled = await compile(source, {
 - Unreachable code
 - Performance concerns (deep nesting, large loops)
 
-### 13.3 Source Maps
+### 13.3 Mapping Output Back to Source
 
-**Purpose:** Map rendered HTML back to template source
+There is no source map. Two mechanisms already answer the questions one would
+be for, and both are exact rather than approximate:
 
-```typescript
-interface SourceMap {
-  version: number;
-  sources: string[];
-  names: string[];
-  mappings: string; // VLQ-encoded mappings
-}
-```
+- **Source tracking** (Section 9) annotates rendered elements with the data
+  paths behind them, which is what a provenance consumer wants - the datum, not
+  the character offset.
+- **Every node and expression carries a `SourceLocation`**, so a diagnostic, an
+  `EvaluationError` and a `RenderError` all name the line and column that
+  produced them.
 
-**Generated during compilation** (if enabled):
-
-```typescript
-const compiled = await compile(source, {
-  includeSourceMap: true,
-});
-
-// compiled.sourceMap available
-```
-
-**Use cases:**
-
-- Debugging rendered output
-- Error reporting with template context
-- Development tools
+The `includeSourceMap` option and the `SourceMap` type it produced were removed:
+nothing generated the mappings, so the field was always absent and every
+consumer of it was reading `undefined`.
 
 ### 13.4 Development Workflow
 
@@ -2053,7 +2479,8 @@ call = identifier "(" [ expr { "," expr } ] ")" ;
 directive = if_directive
           | for_directive
           | match_directive
-          | let_directive ;
+          | let_directive
+          | props_directive ;
 
 if_directive = "@if" "(" expr ")" block
                { "else" "if" "(" expr ")" block }
@@ -2072,11 +2499,14 @@ expr_match = "_" expr ;  (* expression using _ as matched value *)
 
 default_case = "*" block ;
 
-let_directive = "@@" "{"
-                { let_declaration }
-                "}" ;
+let_directive = "@let" [ "$." ] identifier "=" ( expr | function_expr ) ( ";" | newline )
+              | "@@" "{" { let_declaration } "}" ;
 
-let_declaration = "let" identifier "=" ( expr | function_expr ) ";" ;
+let_declaration = "let" [ "$." ] identifier "=" ( expr | function_expr ) ";" ;
+
+props_directive = "@props" "(" [ prop_declaration { "," prop_declaration } [ "," ] ] ")" ;
+
+prop_declaration = identifier [ "?" ] [ "=" expr ] ;
 
 function_expr = "(" [ identifier { "," identifier } ] ")" "=>" expr ;
 
@@ -2096,7 +2526,11 @@ prop_def = identifier [ "!" | "=" ( "{" expr "}" | string ) ] ;
 
 (* Other constructs *)
 
-element = "<" tag_name { attribute } ( "/>" | ">" { templateItem } "</" tag_name ">" ) ;
+element = void_element
+        | "<" tag_name { attribute } ( "/>" | ">" { templateItem } "</" tag_name ">" ) ;
+
+(* Void elements take no children and no end tag; see section 3.9 *)
+void_element = "<" void_tag_name { attribute } ( "/>" | ">" ) ;
 
 attribute = identifier ( "=" ( string | expression | "{" expr "}" ) )? ;
 
@@ -2319,6 +2753,19 @@ Components can declare their inputs with the `@props` directive:
 - `prop = value` - Optional with default value
 - `prop?` - Optional (defaults to undefined)
 
+`@props` is a directive like `@if` or `@for`: it is parsed by the template
+parser, into the template AST, in the template's own coordinate system. It
+becomes a `props` node, and the declarations are collected on the compiled root:
+
+```typescript
+const compiled = compile(source);
+compiled.root.props; // readonly PropDeclaration[]
+```
+
+A default value is a full expression, so it may contain commas, parentheses and
+strings: `@props(items = default(x, []), sep = ",")`. A template may declare
+`@props` once; a second directive is an error. The node renders nothing.
+
 ### 20.4 Compiling Projects
 
 **Full project compilation:**
@@ -2338,14 +2785,51 @@ if (result.success) {
 
 **Single file with project context:**
 
-```typescript
-import { compile } from 'blade';
+`compile()` is browser-safe and touches no filesystem, so it knows only the
+components a template defines inline and the ones the caller declares. Pass the
+project's components in:
 
-const compiled = await compile(source, {
-  projectRoot: './my-project',
+```typescript
+import { compile } from '@bladets/template';
+import { project } from '@bladets/template';
+
+const sources = await project.readProjectSources('./my-project');
+const result = compile(source, {
+  components: Object.fromEntries(
+    Array.from(sources.components, ([name, component]) => [
+      name,
+      { props: project.parseComponentProps(component.source ?? '').props },
+    ])
+  ),
 });
-// Components from project are available for validation
 ```
+
+`project.compileProject('./my-project')` does the discovery, the registration
+and the cross-file prop checking in one call.
+
+Every function in `project` is asynchronous, and every one of them reads the
+filesystem through an injectable `FileSystem`: pass `io` to compile a project
+that lives somewhere other than a disk - an editor's unsaved buffers, or a test:
+
+```typescript
+const io = project.createMemoryFileSystem({
+  'index.blade': '<Card title="Hi"/>',
+  'card.blade': '@props(title)\n<h2>$title</h2>',
+});
+const result = await project.compileProject('/project', { io });
+```
+
+Discovery never descends into `node_modules`, `.git`, `dist`, `out`, `build`,
+`coverage`, `.turbo`, `.next`, `.cache` or `vendor`; pass `exclude` to add more
+and `maxDepth` to bound it further. The `entry` option must name a file inside
+the project root - a path that resolves outside it is refused with a
+`PathEscapeError`.
+
+`compileProject` validates the whole reachable graph, not only the entry file:
+every discovered component is compiled, and a diagnostic about one carries the
+`file` it belongs to. A component that calls itself, or a cycle between two,
+is reported as a `CIRCULAR_COMPONENT` warning - recursion is legal here, and
+terminates on the data.
 
 ### 20.5 Project Schema
 
@@ -2423,13 +2907,47 @@ The Blade LSP provides project-aware features:
 
 - Missing required props detection
 - Unknown component warnings
-- Schema validation for sample files
+- Schema validation for sample files - every `samples/*.json` is validated
+  against `schema.json` by a compliant JSON Schema validator, so `$ref`,
+  `$defs`, `allOf`, `oneOf`, `required`, `additionalProperties`, `integer` and
+  `format` all mean what the specification says they mean
 
 **Hover:**
 
 - Type information from schema
 - Example values from samples
 - Loop variable type inference (`$item` in `@for(item of items)`)
+
+**Which project a file belongs to:**
+
+A project is a directory containing the entry file (`index.blade`). A file's
+project is the _nearest ancestor directory_ that has one, bounded by the
+workspace folder; a subdirectory with its own `index.blade` is a separate
+project and is not part of its parent's. That is one rule, used by the language
+server, by `compileProject` and by the preview - the server used to call
+`dirname(file)` the project root, which is true only of the entry file itself,
+so every component file silently got no schema, no samples and no component
+completions.
+
+A project's metadata is loaded once and cached. It is dropped when any file
+under the root changes (`schema.json`, `samples/*.json`, `*.blade`), so editing
+a schema takes effect without reloading the window.
+
+**Settings** (`blade.lsp.*`, and `blade.trace.server`):
+
+| Setting                                            | Effect                                                                                                                                                         |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `diagnostics.enabled`                              | Publish diagnostics at all                                                                                                                                     |
+| `diagnostics.unusedVariables`                      | Severity for a `@props`, `@let` or loop variable nothing reads                                                                                                 |
+| `diagnostics.deprecatedHelpers`                    | Severity for a call to a helper `completion.helpersDefinitionPath` marks deprecated                                                                            |
+| `diagnostics.potentiallyUndefined`                 | Severity for a name that is neither declared, a helper, nor a schema property. Only reported when the project has a schema                                     |
+| `diagnostics.deepNesting`, `.deepNestingThreshold` | Severity and depth at which nested `@if`/`@for`/`@match` is reported, once per chain                                                                           |
+| `completion.dataSchemaPath`                        | A schema file that replaces the project's `schema.json`. Relative paths resolve against the project root                                                       |
+| `completion.helpersDefinitionPath`                 | A JSON array (or `{ "helpers": [...] }`) of `{ name, signature, description?, deprecated?, deprecatedMessage? }`, used for completion and the deprecation rule |
+| `completion.snippets`                              | Whether directive completions insert a snippet body                                                                                                            |
+| `performance.debounceMs`                           | How long after a keystroke the background parse runs. A request never waits for it: a document is parsed on demand if an edit is still pending                 |
+| `performance.maxFileSize`                          | Files above this are not parsed; the server says so and disables language features for them                                                                    |
+| `blade.trace.server`                               | `off`, `messages` or `verbose`. Nothing is formatted for a level that is off                                                                                   |
 
 ---
 

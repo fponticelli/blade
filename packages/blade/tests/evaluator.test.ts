@@ -16,6 +16,7 @@ import type {
   TernaryNode,
   CallNode,
   ArrayWildcardNode,
+  PathItem,
   SourceLocation,
 } from '../src/ast/types.js';
 
@@ -31,6 +32,7 @@ const dummyLocation: SourceLocation = {
 const defaultConfig: EvaluatorConfig = {
   maxFunctionDepth: 10,
   maxRecursionDepth: 50,
+  maxHelperStringLength: 1_000_000,
 };
 
 function createContext(
@@ -107,8 +109,10 @@ function call(callee: string, args: ExprAst[]): CallNode {
 }
 
 function wildcard(segments: string[]): ArrayWildcardNode {
-  const pathSegments = segments.flatMap(s =>
-    s === '*' ? [{ kind: 'star' as const }] : [{ kind: 'key' as const, key: s }]
+  // Each segment yields exactly one PathItem, so `map` says what is meant and
+  // the annotated return type keeps the union from collapsing to one branch.
+  const pathSegments = segments.map(
+    (s): PathItem => (s === '*' ? { kind: 'star' } : { kind: 'key', key: s })
   );
   return {
     kind: 'wildcard',

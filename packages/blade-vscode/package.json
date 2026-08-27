@@ -28,7 +28,8 @@
     "live preview"
   ],
   "activationEvents": [
-    "onLanguage:blade"
+    "onLanguage:blade",
+    "onWebviewPanel:bladePreview"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -110,6 +111,17 @@
           "default": "warning",
           "description": "Severity for deprecated helper warnings"
         },
+        "blade.lsp.diagnostics.potentiallyUndefined": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "hint",
+            "off"
+          ],
+          "default": "hint",
+          "description": "Severity for reads of a name the schema and samples do not mention"
+        },
         "blade.lsp.diagnostics.deepNesting": {
           "type": "string",
           "enum": [
@@ -140,6 +152,18 @@
           "default": true,
           "description": "Enable snippet completions for directives"
         },
+        "blade.lsp.performance.debounceMs": {
+          "type": "number",
+          "default": 200,
+          "minimum": 0,
+          "description": "Milliseconds to wait after a keystroke before re-parsing a document"
+        },
+        "blade.lsp.performance.maxFileSize": {
+          "type": "number",
+          "default": 1048576,
+          "minimum": 1024,
+          "description": "Largest file the language server will parse, in bytes. Larger files report a single diagnostic instead."
+        },
         "blade.trace.server": {
           "type": "string",
           "enum": [
@@ -154,26 +178,35 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify && esbuild ./node_modules/@bladets/template/src/lsp/server.ts --bundle --outfile=out/server/server.js --format=cjs --platform=node --minify",
-    "build": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap && esbuild ./node_modules/@bladets/template/src/lsp/server.ts --bundle --outfile=out/server/server.js --format=cjs --platform=node --sourcemap",
-    "watch": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+    "esbuild:extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "esbuild:server": "esbuild ./node_modules/@bladets/lsp-server/dist/server.js --bundle --outfile=out/server/server.js --format=cjs --platform=node",
+    "vscode:prepublish": "pnpm run esbuild:extension --minify && pnpm run esbuild:server --minify",
+    "build": "pnpm run esbuild:extension --sourcemap && pnpm run esbuild:server --sourcemap",
+    "watch": "pnpm run esbuild:extension --sourcemap --watch=forever & pnpm run esbuild:server --sourcemap --watch=forever & wait",
     "package": "vsce package --no-dependencies",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint src tests --ext ts --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
-    "vsix:install": "code --install-extension blade-templates-0.1.0.vsix",
-    "vscode": "pnpm run build && pnpm run package && pnpm run vsix:install"
+    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "vsix:install": "code --install-extension blade-templates-$npm_package_version.vsix",
+    "vscode": "pnpm run build && pnpm run package && pnpm run vsix:install",
+    "clean": "rm -rf out coverage .turbo"
   },
   "devDependencies": {
     "@types/node": "^22.19.11",
     "@types/vscode": "^1.85.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/ui": "^4.0.18",
     "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.27.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@bladets/lsp-server": "workspace:*",
     "@bladets/template": "workspace:*",
-    "vscode-languageclient": "^9.0.1",
-    "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.12"
+    "vscode-languageclient": "^9.0.1"
   }
 }

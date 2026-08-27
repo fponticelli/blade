@@ -5,8 +5,11 @@
  * for LSP hover hints with example values.
  */
 
-import { readdir, readFile } from 'fs/promises';
 import { join, basename, extname } from 'path';
+import type { Diagnostic } from '../ast/types.js';
+import { createDiagnostic } from '../validation/index.js';
+import { nodeFileSystem } from './fs.js';
+import type { FileSystem } from './fs.js';
 
 /**
  * Loaded sample data
@@ -45,51 +48,91 @@ export interface SampleValue {
 const SAMPLES_DIR = 'samples';
 const JSON_EXTENSION = '.json';
 
+/** A sample load attempt: what was loaded, and what could not be. */
+export interface LoadedSamples {
+  /** Null when the project ships no readable samples. */
+  readonly samples: ProjectSamples | null;
+  /**
+   * One per sample file that could not be parsed. A malformed sample used to
+   * be skipped in silence, so a payload with a trailing comma simply stopped
+   * appearing in hovers with nothing said about it.
+   */
+  readonly diagnostics: readonly Diagnostic[];
+}
+
 /**
  * Loads sample files from a project's samples/ directory.
  *
  * @param projectRoot - Path to the project root directory
+ * @param io - Filesystem to read through
  * @returns Loaded samples or null if samples/ doesn't exist
  */
 export async function loadProjectSamples(
-  projectRoot: string
+  projectRoot: string,
+  io: FileSystem = nodeFileSystem
 ): Promise<ProjectSamples | null> {
+  return (await loadProjectSamplesResult(projectRoot, io)).samples;
+}
+
+/**
+ * Loads sample files, reporting the ones that could not be read.
+ *
+ * @param projectRoot - Path to the project root directory
+ * @param io - Filesystem to read through
+ * @returns The samples and any diagnostics about them
+ */
+export async function loadProjectSamplesResult(
+  projectRoot: string,
+  io: FileSystem = nodeFileSystem
+): Promise<LoadedSamples> {
   const samplesPath = join(projectRoot, SAMPLES_DIR);
+  const diagnostics: Diagnostic[] = [];
 
+  let entries;
   try {
-    const entries = await readdir(samplesPath, { withFileTypes: true });
-    const samples: SampleFile[] = [];
-
-    for (const entry of entries) {
-      if (!entry.isFile() || extname(entry.name) !== JSON_EXTENSION) {
-        continue;
-      }
-
-      const filePath = join(samplesPath, entry.name);
-      const name = basename(entry.name, JSON_EXTENSION);
-
-      try {
-        const content = await readFile(filePath, 'utf-8');
-        const data = JSON.parse(content);
-        samples.push({ name, filePath, data });
-      } catch {
-        // Invalid JSON - skip this file
-        continue;
-      }
-    }
-
-    if (samples.length === 0) {
-      return null;
-    }
-
-    // Extract values for all paths
-    const values = extractSampleValues(samples);
-
-    return { samples, values };
+    entries = await io.readDirectory(samplesPath);
   } catch {
-    // samples/ directory doesn't exist
-    return null;
+    // No samples/ directory. A project need not ship example data.
+    return { samples: null, diagnostics };
   }
+
+  const samples: SampleFile[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile || extname(entry.name) !== JSON_EXTENSION) {
+      continue;
+    }
+
+    const filePath = join(samplesPath, entry.name);
+    const name = basename(entry.name, JSON_EXTENSION);
+
+    try {
+      const content = await io.readFile(filePath);
+      samples.push({ name, filePath, data: JSON.parse(content) });
+    } catch (error) {
+      diagnostics.push(
+        createDiagnostic(
+          'warning',
+          `Sample '${entry.name}' could not be read: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          {
+            start: { line: 1, column: 1, offset: 0 },
+            end: { line: 1, column: 1, offset: 0 },
+          },
+          'INVALID_SAMPLE'
+        )
+      );
+    }
+  }
+
+  if (samples.length === 0) {
+    return { samples: null, diagnostics };
+  }
+
+  return {
+    samples: { samples, values: extractSampleValues(samples) },
+    diagnostics,
+  };
 }
 
 /**

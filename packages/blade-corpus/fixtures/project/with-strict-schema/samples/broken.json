@@ -1,0 +1,9 @@
+{
+  "order": {
+    "id": "A-2",
+    "quantity": 2.5
+  },
+  "customer": {},
+  "tags": { "not": "an array" },
+  "extra": true
+}

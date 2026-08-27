@@ -95,7 +95,8 @@ export type ExprAst =
   | CallNode
   | ArrayWildcardNode
   | ArrayNode
-  | MemberAccessNode;
+  | MemberAccessNode
+  | FunctionExpr;
 
 /**
  * Type discriminator for literal values.
@@ -375,9 +376,11 @@ export type TemplateNode =
   | ForNode
   | MatchNode
   | LetNode
+  | PropsNode
   | ComponentNode
   | FragmentNode
   | SlotNode
+  | SlotFillNode
   | CommentNode
   | DoctypeNode;
 
@@ -537,22 +540,59 @@ export interface MixedAttributeNode {
 }
 
 /**
+ * An event binding: `on:click=${handler}`.
+ *
+ * Not an attribute, despite its spelling. An attribute carries text, and no
+ * text means "this function": that is precisely why `onclick="${x}"` is
+ * refused - it would have to serialise a value into JavaScript source this
+ * engine never parses, and every escaper it could apply would be a guess about
+ * a language it is not reading. An `on:` binding never becomes source. Its
+ * expression evaluates to a callable, and a sink that can hold a listener binds
+ * it to the element.
+ *
+ * Which is also why it is a separate node kind rather than a name convention
+ * checked at three different depths: the compiler, the validator and the
+ * traversal all need to agree that this thing never reaches an attribute
+ * position, and a discriminated union is how they are made to.
+ *
+ * @property kind - Always "event"
+ * @property name - The binding exactly as written, e.g. `on:click`
+ * @property event - The event to listen for, e.g. `click`
+ * @property expr - Expression evaluating to the handler
+ *
+ * @example
+ * on:click=${submit} → {
+ *   kind: "event", name: "on:click", event: "click", expr: PathNode(submit)
+ * }
+ */
+export interface EventAttributeNode {
+  readonly kind: 'event';
+  readonly name: string;
+  readonly event: string;
+  readonly expr: ExprAst;
+  readonly location: SourceLocation;
+}
+
+/**
  * HTML attribute discriminated union.
  *
  * Attributes can be:
  * - Static: constant string value
  * - Expression: fully dynamic value
  * - Mixed: combination of static strings and expressions
+ * - Event: an `on:` binding, which is behaviour rather than text
  *
  * @example
  * - class="active" → StaticAttributeNode
  * - disabled=${!isValid} → ExprAttributeNode
  * - class="status-${order.status}" → MixedAttributeNode
+ * - on:click=${submit} → EventAttributeNode
  */
 export type AttributeNode =
   | StaticAttributeNode
   | ExprAttributeNode
-  | MixedAttributeNode;
+  | MixedAttributeNode
+  | EventAttributeNode;
 
 /**
  * Conditional rendering node.
@@ -604,11 +644,17 @@ export interface IfBranch {
  * @property itemVar - Variable name for current item/value
  * @property indexVar - Optional variable name for index/key
  * @property iterationType - "of" for values, "in" for indices/keys
+ * @property key - Optional expression naming what each pass *is*
  * @property body - Template nodes to render for each iteration
  *
  * @example
  * @for(item, index of items) {
  *   <li>${index + 1}. $item.name</li>
+ * }
+ *
+ * @example
+ * @for(row of rows key row.id) {
+ *   <input value=$row.name/>
  * }
  */
 export interface ForNode extends BaseNode {
@@ -617,6 +663,19 @@ export interface ForNode extends BaseNode {
   readonly itemVar: string;
   readonly indexVar?: string;
   readonly iterationType: 'of' | 'in';
+  /**
+   * What a pass *is*, as opposed to where it sits: `key row.id`.
+   *
+   * Evaluated with the item variable bound and nothing else, because an
+   * identity that depends on the position is not an identity - which is why a
+   * key that reads the index variable is a compile error.
+   *
+   * Ignored by a render that produces its output once: an eager sink builds
+   * every pass from scratch and has no earlier node to match this one against.
+   * A reactive sink uses it to move a row's existing DOM instead of rewriting
+   * the row that happens to sit in the same slot.
+   */
+  readonly key?: ExprAst;
   readonly body: readonly TemplateNode[];
 }
 
@@ -751,7 +810,7 @@ export interface LetNode extends BaseNode {
   readonly kind: 'let';
   readonly name: string;
   readonly isGlobal: boolean;
-  readonly value: ExprAst | FunctionExpr;
+  readonly value: ExprAst;
   readonly location: SourceLocation;
 }
 
@@ -761,6 +820,12 @@ export interface LetNode extends BaseNode {
  * User-defined functions are single-expression only (no statement blocks).
  * They support closures and recursion with depth limits.
  *
+ * A member of {@link ExprAst} like any other expression: it evaluates to a
+ * value - a callable one. Keeping it outside the union was what let the parser
+ * smuggle one in with `as unknown as ExprAst`, which in turn cost the compiler
+ * its exhaustiveness check and left `@let` arrow functions parsed, stored and
+ * never callable.
+ *
  * @property kind - Always "function"
  * @property params - Parameter names
  * @property body - Single expression (function body)
@@ -769,7 +834,7 @@ export interface LetNode extends BaseNode {
  * @example
  * (amount, percent) => amount * (1 - percent / 100)
  */
-export interface FunctionExpr {
+export interface FunctionExpr extends BaseNode {
   readonly kind: 'function';
   readonly params: readonly string[];
   readonly body: ExprAst;
@@ -836,7 +901,6 @@ export interface ComponentProp {
  *
  * @property kind - Always "fragment"
  * @property children - Template nodes inside fragment
- * @property preserveWhitespace - Always true (fragments preserve whitespace)
  *
  * @example
  * <>
@@ -847,7 +911,6 @@ export interface ComponentProp {
 export interface FragmentNode extends BaseNode {
   readonly kind: 'fragment';
   readonly children: readonly TemplateNode[];
-  readonly preserveWhitespace: true;
 }
 
 /**
@@ -868,6 +931,32 @@ export interface SlotNode extends BaseNode {
   readonly kind: 'slot';
   readonly name?: string;
   readonly fallback?: readonly TemplateNode[];
+}
+
+/**
+ * Content a component call supplies for one of the component's named slots.
+ *
+ * `<slot:header>...</slot:header>` inside a `<Card>` is a fill, not an element:
+ * it names a hole in `Card`'s body rather than describing markup of its own. It
+ * had to become its own node kind for that distinction to exist at all - parsed
+ * as an ordinary element, the fill matched no slot, the slot rendered its
+ * fallback, and the `<slot:header>` tag itself was written into the page as an
+ * unknown element.
+ *
+ * Fills are only meaningful as the direct children of a component call;
+ * anywhere else they are reported by the validator.
+ *
+ * @property kind - Always "slot-fill"
+ * @property name - Name of the slot being filled
+ * @property children - Content to render in the caller's own scope
+ *
+ * @example
+ * <Card><slot:header><h2>Title</h2></slot:header>body</Card>
+ */
+export interface SlotFillNode extends BaseNode {
+  readonly kind: 'slot-fill';
+  readonly name: string;
+  readonly children: readonly TemplateNode[];
 }
 
 /**
@@ -910,7 +999,7 @@ export interface DoctypeNode extends BaseNode {
  * Components are defined inline with <template:Name> syntax.
  *
  * @property name - Component name (must be capitalized)
- * @property props - Component prop definitions with defaults and required flags
+ * @property props - Declared props, in source order
  * @property body - Template nodes inside component definition
  * @property location - Source location of the definition
  *
@@ -921,30 +1010,8 @@ export interface DoctypeNode extends BaseNode {
  */
 export interface ComponentDefinition {
   readonly name: string;
-  readonly props: readonly PropDefinition[];
+  readonly props: readonly PropDeclaration[];
   readonly body: readonly TemplateNode[];
-  readonly location: SourceLocation;
-}
-
-/**
- * Component prop definition.
- *
- * Defines a single prop with optional default value and required flag.
- *
- * @property name - Prop name
- * @property required - True if prop ends with ! (e.g., subtotal!)
- * @property defaultValue - Optional default value expression or string
- * @property location - Source location of this prop definition
- *
- * @example
- * - subtotal! → { name: "subtotal", required: true }
- * - tax={0.1} → { name: "tax", required: false, defaultValue: LiteralNode(0.1) }
- * - currency="USD" → { name: "currency", required: false, defaultValue: "USD" }
- */
-export interface PropDefinition {
-  readonly name: string;
-  readonly required: boolean;
-  readonly defaultValue?: ExprAst | string;
   readonly location: SourceLocation;
 }
 
@@ -957,12 +1024,14 @@ export interface PropDefinition {
  * @property kind - Always "root"
  * @property children - Top-level template nodes
  * @property components - Map of component name to definition (from <template:> tags)
+ * @property props - Props the template declares with `@props()`, in source order
  * @property metadata - Compile-time metadata for static analysis
  */
 export interface RootNode {
   readonly kind: 'root';
   readonly children: readonly TemplateNode[];
   readonly components: ReadonlyMap<string, ComponentDefinition>;
+  readonly props: readonly PropDeclaration[];
   readonly metadata: TemplateMetadata;
   readonly location: SourceLocation;
 }
@@ -986,38 +1055,68 @@ export interface TemplateMetadata {
 }
 
 /**
- * Compiled template result.
+ * A template that compiled with no error diagnostics.
  *
- * Output of the compilation pipeline, ready for rendering.
- * Can be cached and reused with different data.
+ * This is the only thing a renderer factory accepts. "Parsed cleanly" and
+ * "failed to parse" used to be the same type - `{ root, diagnostics }` either
+ * way - so whether a broken template rendered partial output or threw depended
+ * on which of the three renderers you happened to call. Only one of them
+ * looked at `diagnostics`.
  *
+ * @property kind - Always "valid"
  * @property root - Root AST node
- * @property sourceMap - Optional source map for debugging (VLQ-encoded)
- * @property diagnostics - Compilation errors and warnings
+ * @property diagnostics - Warnings only; a valid template has no errors
  */
-export interface CompiledTemplate {
+export interface ValidTemplate {
+  readonly kind: 'valid';
   readonly root: RootNode;
-  readonly sourceMap?: SourceMap;
   readonly diagnostics: readonly Diagnostic[];
 }
 
 /**
- * Source map for mapping rendered output back to template source.
+ * A template that produced at least one error diagnostic.
  *
- * Follows the Source Map v3 specification format.
- * Generated when compileOptions.includeSourceMap is true.
+ * Its partial tree is exposed for tooling - the LSP still wants to offer
+ * completions inside a document that does not parse - but it is a distinct
+ * type, so a renderer structurally cannot take it.
  *
- * @property version - Source map version (always 3)
- * @property sources - Array of source file names
- * @property names - Array of identifier names
- * @property mappings - VLQ-encoded mapping data
+ * @property kind - Always "partial"
+ * @property root - Best-effort partial tree; do not render it
+ * @property diagnostics - At least one entry is level "error"
  */
-export interface SourceMap {
-  readonly version: number;
-  readonly sources: readonly string[];
-  readonly names: readonly string[];
-  readonly mappings: string;
+export interface PartialTemplate {
+  readonly kind: 'partial';
+  readonly root: RootNode;
+  readonly diagnostics: readonly Diagnostic[];
 }
+
+/**
+ * The result of {@link compile}.
+ *
+ * Discriminated on `ok`: a caller cannot reach a template without deciding
+ * what to do about failure.
+ *
+ * @example
+ * ```typescript
+ * const result = compile(source);
+ * if (!result.ok) return report(result.diagnostics);
+ * const render = createStringRenderer(result.template);
+ * ```
+ */
+export type CompileResult =
+  | { readonly ok: true; readonly template: ValidTemplate }
+  | {
+      readonly ok: false;
+      readonly partial: PartialTemplate;
+      /** The same array as `partial.diagnostics`. */
+      readonly diagnostics: readonly Diagnostic[];
+    };
+
+/**
+ * @deprecated Use {@link ValidTemplate}. Kept only while `renderer/index.ts`
+ * still spells the renderable template this way.
+ */
+export type CompiledTemplate = ValidTemplate;
 
 /**
  * Compilation or validation diagnostic.
@@ -1042,6 +1141,14 @@ export interface Diagnostic {
   readonly message: string;
   readonly location: SourceLocation;
   readonly code?: string;
+  /**
+   * The file the location indexes, when it is not the one being compiled.
+   *
+   * A project compile validates every component it discovered, not only the
+   * entry file, so a diagnostic has to say which file line 12 belongs to.
+   * Absent means "the source that was compiled".
+   */
+  readonly file?: string;
 }
 
 // =============================================================================
@@ -1070,27 +1177,36 @@ export interface PropDeclaration {
 }
 
 /**
- * The @props() directive AST node.
+ * The `@props()` directive node.
  *
- * Parsed from the beginning of a .blade file to declare component inputs.
+ * `@props` is a directive like `@if` or `@for`, parsed by the one template
+ * parser and represented in the one AST. It used to be an out-of-band
+ * preprocessor - a second parser that sliced the directive off the front of the
+ * source and handed the remainder to the real parser, leaving every caller to
+ * rebase the resulting offsets by hand. Most callers did not, and the ones that
+ * did rebased the line but not the column, so diagnostics and source-tracking
+ * coordinates landed in the wrong place; `compile()` never ran it at all, so
+ * every template that declared props failed with "Unknown directive: @props".
  *
- * @property type - Always 'PropsDirective'
- * @property props - Array of declared props
- * @property location - Source location of the directive
+ * The declarations are also surfaced together on {@link RootNode.props}, which
+ * is what a component loader wants.
+ *
+ * @property kind - Always "props"
+ * @property props - Declared props, in source order
  *
  * @example
- * @props($label, $disabled = false) → {
- *   type: 'PropsDirective',
+ * @props(label, disabled = false, onClick?) → {
+ *   kind: 'props',
  *   props: [
  *     { name: 'label', required: true },
- *     { name: 'disabled', required: false, defaultValue: LiteralNode(false) }
+ *     { name: 'disabled', required: false, defaultValue: LiteralNode(false) },
+ *     { name: 'onClick', required: false, defaultValue: undefined }
  *   ]
  * }
  */
-export interface PropsDirective {
-  readonly type: 'PropsDirective';
+export interface PropsNode extends BaseNode {
+  readonly kind: 'props';
   readonly props: readonly PropDeclaration[];
-  readonly location: SourceLocation;
 }
 
 /**
@@ -1153,9 +1269,16 @@ export interface ProjectContext {
 }
 
 /**
- * Subset of JSON Schema needed for completion extraction.
+ * The subset of JSON Schema this package understands.
  *
- * Used for LSP property completions from schema.json.
+ * One type, not three. There used to be `JsonSchema` here, `JsonSchemaProperty`
+ * in `project/schema.ts` and `JSONSchema` in `validation/index.ts` - different
+ * shapes under clashing names, and the last of them carried an
+ * `[key: string]: unknown` index signature that made every typo structurally
+ * valid.
+ *
+ * This is deliberately not a validator: it describes what the LSP and the
+ * template validator read out of a `schema.json`.
  */
 export interface JsonSchema {
   readonly type?: string | readonly string[];
@@ -1165,25 +1288,23 @@ export interface JsonSchema {
   readonly description?: string;
   readonly default?: unknown;
   readonly enum?: readonly unknown[];
-}
-
-/**
- * Extracted property info from JSON Schema.
- *
- * Flattened representation for LSP completions.
- *
- * @property path - Dot-separated path from root (e.g., 'user.name')
- * @property type - JSON Schema type(s)
- * @property required - Whether required in parent object
- * @property description - Description from schema
- * @property enumValues - Enum values if constrained
- */
-export interface SchemaPropertyInfo {
-  readonly path: string;
-  readonly type: string | readonly string[];
-  readonly required: boolean;
-  readonly description?: string;
-  readonly enumValues?: readonly unknown[];
+  /** Which dialect the document declares; selects the validator. */
+  readonly $schema?: string;
+  /** Local reference, e.g. `#/$defs/User`. */
+  readonly $ref?: string;
+  /** Where `$ref` targets live, in either spelling. */
+  readonly $defs?: Readonly<Record<string, JsonSchema>>;
+  readonly definitions?: Readonly<Record<string, JsonSchema>>;
+  /** Conjunction: every branch applies. */
+  readonly allOf?: readonly JsonSchema[];
+  /** Alternatives: exactly one branch applies. */
+  readonly oneOf?: readonly JsonSchema[];
+  /** Alternatives: at least one branch applies. */
+  readonly anyOf?: readonly JsonSchema[];
+  /** `false` refuses properties the schema does not name. */
+  readonly additionalProperties?: boolean | JsonSchema;
+  readonly title?: string;
+  readonly format?: string;
 }
 
 /**
@@ -1201,21 +1322,25 @@ export interface ProjectResult {
   readonly warnings: readonly Diagnostic[];
   readonly errors: readonly Diagnostic[];
   readonly success: boolean;
+  /**
+   * The entry template with every discovered component merged in - ready to
+   * hand to a renderer factory - or null when the project did not compile.
+   *
+   * `ast` is the entry file's tree and nothing more: its `components` map holds
+   * only what the file declared inline with `<template:Name>`, so rendering it
+   * fails on the first `<Comment/>` that lives in a sibling file. Every caller
+   * that wanted to render a project therefore rebuilt this merge by hand -
+   * the VS Code preview still carries its own copy - and each copy is a chance
+   * to disagree about what a project *is*. It is computed once, here, by the
+   * code that already discovered the components.
+   */
+  readonly template: ValidTemplate | null;
 }
 
-/**
- * Options for compileProject().
- */
-export interface ProjectOptions {
-  /**
-   * Entry point filename.
-   * @default 'index.blade'
-   */
-  readonly entry?: string;
-
-  /**
-   * Enable source tracking attributes on rendered output.
-   * @default true
-   */
-  readonly sourceTracking?: boolean;
-}
+// `ProjectOptions` used to be declared here, with an `entry` the project
+// compiler ignored when it built the context and a `sourceTracking` flag that
+// nothing has ever read - source tracking is a *render* option
+// (`sourceTrackingPrefix`) and is chosen when a template is rendered, not when
+// a project is compiled. The options a project load actually takes live with
+// the loader, as `ProjectLoadOptions` in `project/sources.ts`, where the
+// filesystem and discovery bounds they include belong.

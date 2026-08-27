@@ -1,53 +1,19 @@
 /**
- * Utility functions for preview feature
- * Feature: 007-vscode-preview-mode
- */
-
-import * as path from 'path';
-import * as fs from 'fs';
-
-/**
- * Find the project root containing samples/ folder from a file path.
- * Walks up the directory tree looking for a directory with samples/ subfolder.
+ * Small utilities for the preview feature.
  *
- * @param filePath - Path to the .blade file
- * @returns Project root path or null if not found
+ * Deliberately short: `findProjectRoot`, component-name derivation, sample
+ * discovery and prop parsing all used to live here or next door as second
+ * implementations of engine functions, and each one had drifted from the
+ * definition the compiler actually uses.
  */
-export function findProjectRoot(filePath: string): string | null {
-  let dir = path.dirname(filePath);
-  const root = path.parse(dir).root;
 
-  while (dir !== root) {
-    const samplesPath = path.join(dir, 'samples');
-    const indexPath = path.join(dir, 'index.blade');
-
-    // Project root has samples/ folder or index.blade
-    if (fs.existsSync(samplesPath) || fs.existsSync(indexPath)) {
-      return dir;
-    }
-
-    dir = path.dirname(dir);
-  }
-
-  return null;
-}
+import { randomBytes } from 'crypto';
 
 /**
- * Check if a .blade file is a component (not index.blade).
- *
- * @param filePath - Path to the .blade file
- * @returns True if this is a component file
- */
-export function isComponentFile(filePath: string): boolean {
-  const fileName = path.basename(filePath);
-  return fileName !== 'index.blade' && fileName.endsWith('.blade');
-}
-
-/**
- * Generate a hash for a project path (for workspace state keys).
+ * A stable key for a project path, for workspace-state storage.
  *
  * @param projectPath - Path to the project root
- * @returns A simple hash string
+ * @returns A short, filesystem-independent hash
  */
 export function hashProjectPath(projectPath: string): string {
   let hash = 0;
@@ -59,31 +25,35 @@ export function hashProjectPath(projectPath: string): string {
   return Math.abs(hash).toString(36);
 }
 
+/** A debounced function, with the timer it owns. */
+export type Debounced<T extends (...args: never[]) => void> = ((
+  ...args: Parameters<T>
+) => void) & { cancel: () => void };
+
 /**
- * Create a debounced function that delays execution until after the
- * specified wait time has elapsed since the last call.
+ * Delays execution until `wait` ms after the last call.
  *
  * @param fn - Function to debounce
- * @param wait - Milliseconds to wait (default: 300ms)
- * @returns Debounced function with cancel method
+ * @param wait - Milliseconds to wait
+ * @returns The debounced function, with a `cancel` that clears a pending call
  */
-export function debounce<T extends (...args: unknown[]) => void>(
+export function debounce<T extends (...args: never[]) => void>(
   fn: T,
   wait: number = 300
-): T & { cancel: () => void } {
+): Debounced<T> {
   let timeout: NodeJS.Timeout | null = null;
 
-  const debounced = ((...args: unknown[]) => {
+  const debounced = (...args: Parameters<T>): void => {
     if (timeout) {
       clearTimeout(timeout);
     }
     timeout = setTimeout(() => {
-      fn(...args);
       timeout = null;
+      fn(...args);
     }, wait);
-  }) as T & { cancel: () => void };
+  };
 
-  debounced.cancel = () => {
+  debounced.cancel = (): void => {
     if (timeout) {
       clearTimeout(timeout);
       timeout = null;
@@ -94,16 +64,32 @@ export function debounce<T extends (...args: unknown[]) => void>(
 }
 
 /**
- * Get the nonce for webview script security.
+ * A nonce for the webview's script CSP.
  *
- * @returns A random nonce string
+ * Cryptographically random. It used to be built from `Math.random()`, which in
+ * V8 is a seeded xorshift128+ - so the one value standing between markup
+ * rendered from an arbitrary workspace template and script execution inside a
+ * webview holding `acquireVsCodeApi()` was predictable from a handful of prior
+ * outputs. Both the CSP specification and VS Code's webview guidance require a
+ * cryptographically random nonce for exactly this reason.
+ *
+ * @returns 128 bits of randomness, base64 encoded
  */
 export function getNonce(): string {
-  let text = '';
-  const possible =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
+  return randomBytes(16).toString('base64');
+}
+
+/**
+ * Escapes text for interpolation into an HTML attribute or text node.
+ *
+ * @param value - Text to escape
+ * @returns The text with every character that can leave its context replaced
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

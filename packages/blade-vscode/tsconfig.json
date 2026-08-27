@@ -1,19 +1,22 @@
 {
+  // Extends the repo-wide config, so the extension is held to the same
+  // strictness as the engine it consumes - `noUnusedLocals`,
+  // `noUncheckedIndexedAccess` and the rest. It used to carry a hand-rolled,
+  // looser copy.
+  //
+  // Module resolution is `bundler` because that is the truth: nothing here is
+  // published as a module. esbuild bundles `src/extension.ts` into one
+  // CommonJS file that VS Code requires, and `@bladets/template` is resolved by
+  // esbuild, not by Node. Under `Node16` the same imports are refused outright
+  // - a CommonJS file may not `require` an ES module - which is why the preview
+  // used to reach the engine through `await import()` behind `type BladeModule
+  // = any`, and why the whole engine API was untyped inside the extension.
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
     "lib": ["ES2022"],
-    "outDir": "./out",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true
+    "types": ["node", "vscode"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "out"]
+  "include": ["src"],
+  "exclude": ["node_modules", "out", "tests"]
 }

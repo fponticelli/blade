@@ -5,9 +5,12 @@ import {
   extractSampleValues,
   getSampleValues,
   formatSampleHint,
+  loadProjectSamplesResult,
 } from '../../src/project/samples.js';
+import { createMemoryFileSystem } from '../../src/project/fs.js';
+import { PROJECT_FIXTURES_ROOT } from '@bladets/corpus';
 
-const fixturesPath = resolve(__dirname, '../fixtures/project');
+const fixturesPath = PROJECT_FIXTURES_ROOT;
 
 describe('Sample Loading', () => {
   describe('loadProjectSamples', () => {
@@ -212,5 +215,43 @@ describe('Sample Integration', () => {
     // Format hint for display
     const hint = formatSampleHint(getSampleValues(samples!, 'user.name'));
     expect(hint).toContain('Examples:');
+  });
+});
+
+describe('loadProjectSamplesResult', () => {
+  it('reads through a filesystem it is given', async () => {
+    const io = createMemoryFileSystem(
+      { 'index.blade': '', 'samples/one.json': '{"a":1}' },
+      '/p'
+    );
+    const result = await loadProjectSamplesResult('/p', io);
+
+    expect(result.samples!.samples.map(s => s.name)).toEqual(['one']);
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('reports a malformed sample instead of skipping it in silence', async () => {
+    const io = createMemoryFileSystem(
+      {
+        'index.blade': '',
+        'samples/good.json': '{"a":1}',
+        'samples/broken.json': '{"a":}',
+      },
+      '/p'
+    );
+    const result = await loadProjectSamplesResult('/p', io);
+
+    expect(result.samples!.samples.map(s => s.name)).toEqual(['good']);
+    expect(result.diagnostics).toHaveLength(1);
+    expect(result.diagnostics[0]!.code).toBe('INVALID_SAMPLE');
+    expect(result.diagnostics[0]!.message).toContain('broken.json');
+  });
+
+  it('says nothing about a project that ships no samples', async () => {
+    const io = createMemoryFileSystem({ 'index.blade': '' }, '/p');
+    const result = await loadProjectSamplesResult('/p', io);
+
+    expect(result.samples).toBeNull();
+    expect(result.diagnostics).toEqual([]);
   });
 });

@@ -5,7 +5,8 @@
 
 import * as path from 'path';
 import { workspace, ExtensionContext } from 'vscode';
-import { registerPreviewCommand } from './commands/preview';
+import { registerPreviewCommand } from './commands/preview.js';
+import { PreviewPanelManager } from './preview/panel.js';
 
 import {
   LanguageClient,
@@ -61,12 +62,20 @@ export function activate(context: ExtensionContext): void {
   // Start the client, which also starts the server
   client.start();
 
-  // Register preview command
-  const previewDisposable = registerPreviewCommand(context);
-  context.subscriptions.push(previewDisposable);
+  // Register preview command, and the serializer that claims a preview panel
+  // VS Code restores after a window reload.
+  context.subscriptions.push(
+    registerPreviewCommand(context),
+    PreviewPanelManager.registerSerializer(context)
+  );
 }
 
 export function deactivate(): Thenable<void> | undefined {
+  // The preview panel is a singleton that outlives the command registration:
+  // without this its webview, its file watchers and its cached project
+  // compilers survive deactivation.
+  PreviewPanelManager.disposeInstance();
+
   if (!client) {
     return undefined;
   }

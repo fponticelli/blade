@@ -1,0 +1,18 @@
+{
+  // This package has no build and no dependencies of its own: it is a table of
+  // test data, read by both packages' suites through a path alias. It is
+  // typechecked here for its own sake and again as part of each consumer's
+  // `typecheck:tests`, which is what actually holds it to their strictness.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "noEmit": true,
+    // `samples.ts` reads the repository's sample projects off disk. The Node
+    // typings are the ones @bladets/template already depends on rather than a
+    // second copy, since this package installs nothing.
+    "typeRoots": ["../blade/node_modules/@types"],
+    "types": ["node"]
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}

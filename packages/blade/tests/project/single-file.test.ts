@@ -1,12 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import { compile } from '../../src/compiler/index.js';
+import type { CompileResult, Diagnostic } from '../../src/ast/types.js';
+
+/** Every diagnostic a compile produced, whichever way it went. */
+function diagnosticsOf(result: CompileResult): readonly Diagnostic[] {
+  return result.ok ? result.template.diagnostics : result.diagnostics;
+}
 
 /**
  * Tests for single-file compilation without project context.
  *
- * Note: Project-based validation (component resolution, prop validation)
- * is only available through compileProject() from the project module.
- * The compile() function is browser-safe and doesn't do filesystem operations.
+ * Component resolution against the filesystem is only available through
+ * compileProject(); `compile()` is browser-safe and knows only the components
+ * the template defines inline and the ones the caller declares.
  */
 describe('Single file compilation', () => {
   describe('without project context', () => {
@@ -15,11 +21,12 @@ describe('Single file compilation', () => {
 
       const result = compile(source);
 
-      // No project validation errors - unknown components are allowed
-      const errors = result.diagnostics.filter(
-        d => d.level === 'error' && d.message.includes('not found')
+      // A component the compiler has never heard of cannot render, so it is an
+      // error - but one about the component, not about the filesystem.
+      expect(result.ok).toBe(false);
+      expect(diagnosticsOf(result).map(d => d.code)).toContain(
+        'UNKNOWN_COMPONENT'
       );
-      expect(errors).toHaveLength(0);
     });
 
     it('validates template-defined components', () => {
@@ -28,10 +35,10 @@ describe('Single file compilation', () => {
 </template:Button>
 <div><Button /></div>`;
 
-      const result = compile(source, { validate: true });
+      const result = compile(source);
 
       // Should report missing required prop for template-defined component
-      const errors = result.diagnostics.filter(d => d.level === 'error');
+      const errors = diagnosticsOf(result).filter(d => d.level === 'error');
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0]?.message).toContain('Missing required prop');
     });
@@ -42,9 +49,9 @@ describe('Single file compilation', () => {
 </template:Button>
 <div><Button label="OK" /></div>`;
 
-      const result = compile(source, { validate: true });
+      const result = compile(source);
 
-      const errors = result.diagnostics.filter(d => d.level === 'error');
+      const errors = diagnosticsOf(result).filter(d => d.level === 'error');
       expect(errors).toHaveLength(0);
     });
   });

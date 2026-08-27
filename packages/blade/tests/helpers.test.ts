@@ -5,43 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { standardLibrary } from '../src/helpers/index.js';
-import type { Scope } from '../src/evaluator/index.js';
-
-// Helper to create a mock scope
-function createScope(globals: Record<string, unknown> = {}): Scope {
-  return {
-    variables: {},
-    globals,
-    helpers: standardLibrary,
-  };
-}
-
-// Helper to create a warning collector
-function createWarningCollector(): {
-  warnings: string[];
-  setWarning: (msg: string) => void;
-} {
-  const warnings: string[] = [];
-  return {
-    warnings,
-    setWarning: (msg: string) => warnings.push(msg),
-  };
-}
-
-// Helper to invoke a helper function
-function invokeHelper(
-  name: keyof typeof standardLibrary,
-  args: unknown[],
-  globals: Record<string, unknown> = {}
-): { result: unknown; warnings: string[] } {
-  const scope = createScope(globals);
-  const { warnings, setWarning } = createWarningCollector();
-  const helper = standardLibrary[name];
-  const fn = helper(scope, setWarning);
-  const result = fn(...args);
-  return { result, warnings };
-}
+import { invokeHelper } from './helpers-support.js';
 
 describe('Polymorphic Helpers', () => {
   describe('len', () => {
@@ -589,11 +553,11 @@ describe('Date Helpers', () => {
       expect(result.getUTCDate()).toBe(26);
     });
 
-    it('returns epoch for invalid date with warning', () => {
-      const { result, warnings } = invokeHelper('parseDate', [
-        'not-a-date',
-      ]) as { result: Date; warnings: string[] };
-      expect(result.getTime()).toBe(0);
+    it('returns null for an invalid date with a warning', () => {
+      // The epoch is a real date: returning it printed "Dec 31, 1969" into a
+      // document for input that was never a date at all.
+      const { result, warnings } = invokeHelper('parseDate', ['not-a-date']);
+      expect(result).toBeNull();
       expect(warnings.length).toBe(1);
     });
   });

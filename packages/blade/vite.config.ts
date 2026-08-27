@@ -12,22 +12,33 @@ export default defineConfig({
   build: {
     lib: {
       entry: {
+        // Runtime-neutral. `scripts/check-bundles.mjs` asserts that the built
+        // `index` and `browser` bundles import no Node built-in, which is what
+        // keeps `import { compile } from '@bladets/template'` loadable on
+        // Cloudflare Workers, Vercel Edge and Deno Deploy.
         index: resolve(__dirname, 'src/index.ts'),
         browser: resolve(__dirname, 'src/browser.ts'),
-        'lsp/server': resolve(__dirname, 'src/lsp/server.ts'),
+        // The filesystem-backed project layer. The only entry that may reach
+        // `fs`, `path` or `url`.
+        node: resolve(__dirname, 'src/node.ts'),
       },
       name: 'Blade',
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      // Node.js built-ins and vscode LSP packages are external
+      // Node built-ins and the JSON Schema validator are external.
+      //
+      // `ajv` is a runtime dependency, not something to inline: it is only
+      // reached from the `node` entry, and a copy in the bundle would be dead
+      // weight for anyone importing `@bladets/template`.
       external: [
+        /^node:/,
+        'fs',
         'fs/promises',
         'path',
-        'fs',
         'url',
-        'vscode-languageserver/node.js',
-        'vscode-languageserver-textdocument',
+        /^ajv($|\/)/,
+        /^ajv-formats($|\/)/,
       ],
       output: [
         {

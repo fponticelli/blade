@@ -6,9 +6,14 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "browser": {
+        "import": "./dist/browser.js",
+        "require": "./dist/browser.cjs"
+      },
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
@@ -17,11 +22,12 @@
       "import": "./dist/browser.js",
       "require": "./dist/browser.cjs"
     },
-    "./lsp/server": {
-      "types": "./dist/server.d.ts",
-      "import": "./dist/lsp/server.js",
-      "require": "./dist/lsp/server.cjs"
-    }
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js",
+      "require": "./dist/node.cjs"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -44,9 +50,9 @@
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts --fix",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm run lint:fix && pnpm run lint && pnpm run build && pnpm run test",
+    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
     "clean": "rm -rf dist coverage .turbo",
-    "prepublishOnly": "pnpm run check"
+    "prepublishOnly": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "keywords": [
     "template",
@@ -66,12 +72,13 @@
     "@types/node": "^22.19.11",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
+    "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-dts": "^4.5.4",
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.12"
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
   }
 }

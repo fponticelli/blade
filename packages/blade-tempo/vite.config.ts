@@ -21,8 +21,10 @@ export default defineConfig({
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      // Peer dependencies are external
-      external: ['@bladets/template', '@tempots/dom'],
+      // Peer dependencies are external, including their subpath entry points
+      // (e.g. `@bladets/template/browser`). Bare-string externals only match
+      // the package root, which would silently inline every subpath import.
+      external: [/^@bladets\/template(\/.*)?$/, /^@tempots\/dom(\/.*)?$/],
       output: [
         {
           format: 'es',
@@ -42,6 +44,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
+      // The shared renderer conformance corpus - the same table
+      // @bladets/template's suite drives, so the two cannot drift apart.
+      // Test-only: `build.rollupOptions.input` never reaches it.
+      '@bladets/corpus': resolve(__dirname, '../blade-corpus/src/index.ts'),
     },
   },
 });

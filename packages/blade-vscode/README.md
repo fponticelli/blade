@@ -45,9 +45,20 @@ Preview your Blade templates with real sample data:
 
 - **Open Preview**: Use `Cmd+Shift+V` (Mac) or `Ctrl+Shift+V` (Windows/Linux), or click the preview icon in the editor toolbar
 - **Sample Selection**: Choose from available sample JSON files in your project's `samples/` folder
-- **Live Refresh**: Preview updates automatically as you type (with debounce)
-- **Error Display**: Compilation errors are shown inline with line numbers
+- **Live Refresh**: Preview updates automatically as you type, including edits to component files in other tabs, saved or not
+- **Error Display**: Compilation errors are shown with the file and line they belong to
 - **Component Support**: Component files show a helpful message with option to create sample data
+
+A Blade project is a directory containing `index.blade` - the same definition the
+compiler and the language server use, so the preview never resolves a component
+that a build would not. Components in subdirectories are namespaced by folder
+(`components/form/input.blade` is `<Components.Form.Input/>`) and are resolved by
+the engine's own project loader.
+
+Rendered output is displayed inside a sandboxed frame with its own restrictive
+Content-Security-Policy: no scripting, no forms, no plugins, and no access to the
+panel's API. Images, fonts and inline styles from your workspace do load, and
+relative URLs resolve against the project root.
 
 ## Installation
 
@@ -71,10 +82,13 @@ code --install-extension fponticelli.blade-templates
   "blade.lsp.diagnostics.enabled": true,
   "blade.lsp.diagnostics.unusedVariables": "warning",
   "blade.lsp.diagnostics.deprecatedHelpers": "warning",
+  "blade.lsp.diagnostics.potentiallyUndefined": "hint",
   "blade.lsp.diagnostics.deepNesting": "warning",
   "blade.lsp.diagnostics.deepNestingThreshold": 4
 }
 ```
+
+Every severity accepts `"error"`, `"warning"`, `"hint"` or `"off"`.
 
 ### Completion
 
@@ -86,6 +100,19 @@ code --install-extension fponticelli.blade-templates
 }
 ```
 
+### Performance
+
+```json
+{
+  "blade.lsp.performance.debounceMs": 200,
+  "blade.lsp.performance.maxFileSize": 1048576
+}
+```
+
+`maxFileSize` is the largest file the language server will parse; a file above
+the limit reports one diagnostic saying so instead of being re-tokenised on every
+keystroke.
+
 ### Debugging
 
 ```json
@@ -93,6 +120,10 @@ code --install-extension fponticelli.blade-templates
   "blade.trace.server": "verbose"
 }
 ```
+
+Every setting listed here is read by the language server, and every setting the
+language server reads is listed here - a test in this package asserts that the
+two lists are the same list.
 
 ## Blade Syntax Overview
 

@@ -10,13 +10,19 @@
     "test:ui": "turbo test:ui",
     "test:coverage": "turbo test:coverage",
     "lint": "turbo lint",
-    "lint:fix": "turbo lint:fix",
+    "fix": "turbo lint:fix && prettier --write \"**/*.{ts,tsx,json,md}\"",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
     "typecheck": "turbo typecheck",
+    "typecheck:tests": "turbo typecheck:tests",
     "check": "turbo check",
+    "check:bundles": "node scripts/check-bundles.mjs",
+    "check:api": "node scripts/api-surface.mjs",
+    "api:update": "node scripts/api-surface.mjs --write",
     "clean": "turbo clean && rm -rf node_modules",
-    "publish:package": "node scripts/publish.mjs"
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "release": "turbo build && changeset publish"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

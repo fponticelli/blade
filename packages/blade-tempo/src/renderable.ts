@@ -1,107 +1,56 @@
-// @bladets/tempo - Core Renderable Creation
-// Converts compiled Blade templates to Tempo Renderables
+// @bladets/tempo - Reactive rendering of a compiled Blade template
+//
+// This package used to contain a converter per node kind - eleven of them,
+// re-implementing the scope rules, the loop and component and slot semantics
+// and the escaping decisions that @bladets/template already implemented twice.
+// It disagreed with both on eight observable points, and every one of them was
+// a consequence of it being a separate traversal rather than a separate sink.
+//
+// It is now neither: `renderTo` walks the template, `SignalReactivity` decides
+// when its decisions are re-made, and `TempoTarget` decides what its output
+// looks like. There is one traversal for three renderers, so a fix to `@let`
+// scoping or to the iteration ceiling is a fix in all three at once.
 
 import type {
   CompiledTemplate,
-  TemplateNode,
-  Scope,
+  RenderOptions,
 } from '@bladets/template/browser';
-import { compile } from '@bladets/template/browser';
+import { compileOrThrow, renderTo } from '@bladets/template/browser';
 import type { Renderable, Signal } from '@tempots/dom';
-import { Fragment } from '@tempots/dom';
+import { Empty, WithScope } from '@tempots/dom';
 import type {
+  ErrorHandler,
+  FailureDetail,
+  SourceLocation,
   TempoRenderOptions,
   TempoRenderer,
-  RenderContext,
-  RenderConfig,
-  ErrorHandler,
 } from './types.js';
-import { DEFAULT_RENDER_CONFIG } from './types.js';
-import { defaultErrorHandler } from './evaluator.js';
-
-// Node converters - will be implemented in Phase 3
-import { convertTextNode } from './nodes/text.js';
-import { convertElementNode } from './nodes/element.js';
-import { convertIfNode } from './nodes/if.js';
-import { convertForNode } from './nodes/for.js';
-import { convertFragmentNode } from './nodes/fragment.js';
-// Phase 4 converters
-import { convertMatchNode } from './nodes/match.js';
-import { convertLetNode } from './nodes/let.js';
-import { convertComponentNode } from './nodes/component.js';
-import { convertSlotNode } from './nodes/slot.js';
-import { convertCommentNode } from './nodes/comment.js';
-
-// =============================================================================
-// Node Dispatcher
-// =============================================================================
+import { Emitter } from './emitter.js';
+import { SignalReactivity } from './reactivity.js';
+import { TempoTarget } from './target.js';
 
 /**
- * Converts a Blade AST node to a Tempo Renderable.
- * Dispatches to the appropriate converter based on node kind.
+ * Default error handler that logs warnings to console.
  *
- * @param node - The Blade AST node to convert
- * @param ctx - The render context
- * @returns A Tempo Renderable
+ * @param error - The error that occurred
+ * @param location - Source location of the error
  */
-export function convertNode(
-  node: TemplateNode,
-  ctx: RenderContext
-): Renderable[] {
-  switch (node.kind) {
-    case 'text':
-      return convertTextNode(node, ctx);
-    case 'element':
-      return convertElementNode(node, ctx);
-    case 'if':
-      return convertIfNode(node, ctx);
-    case 'for':
-      return convertForNode(node, ctx);
-    case 'fragment':
-      return convertFragmentNode(node, ctx);
-    case 'match':
-      return convertMatchNode(node, ctx);
-    case 'let':
-      return convertLetNode(node, ctx);
-    case 'component':
-      return convertComponentNode(node, ctx);
-    case 'slot':
-      return convertSlotNode(node, ctx);
-    case 'comment':
-      return convertCommentNode(node, ctx);
-    case 'doctype':
-      // DOCTYPE is not applicable in Tempo rendering (DOM-based)
-      return [];
-    default: {
-      // Exhaustive check
-      const _exhaustive: never = node;
-      throw new Error(
-        `Unknown node kind: ${(_exhaustive as TemplateNode).kind}`
-      );
-    }
-  }
+export function defaultErrorHandler(
+  error: Error,
+  location: SourceLocation,
+  detail?: FailureDetail
+): void {
+  const where = `line ${location.start.line}, column ${location.start.column}`;
+  const times =
+    detail === undefined || detail.occurrences === 1
+      ? ''
+      : ` (${detail.occurrences} times`.concat(
+          detail.indices.length === 0
+            ? ')'
+            : `, first at ${detail.indices.join('.')})`
+        );
+  console.warn(`[blade-tempo] ${where}${times}:`, error.message);
 }
-
-/**
- * Converts an array of Blade AST nodes to Tempo Renderables.
- *
- * @param nodes - Array of Blade AST nodes
- * @param ctx - The render context
- * @returns A Tempo Renderable containing all children
- */
-export function convertChildren(
-  nodes: readonly TemplateNode[],
-  ctx: RenderContext
-): Renderable[] {
-  if (nodes.length === 0) {
-    return [];
-  }
-  return nodes.flatMap(node => convertNode(node, ctx));
-}
-
-// =============================================================================
-// Renderer Factory
-// =============================================================================
 
 /**
  * Creates a Tempo renderer from a compiled Blade template.
@@ -132,7 +81,6 @@ export function createTempoRenderer<T = any>(
   template: CompiledTemplate,
   options?: TempoRenderOptions
 ): TempoRenderer<T> {
-  // Validate template
   if (template.diagnostics.some(d => d.level === 'error')) {
     throw new Error(
       `Template has compilation errors: ${template.diagnostics
@@ -142,71 +90,59 @@ export function createTempoRenderer<T = any>(
     );
   }
 
-  // Build render config
-  const config: RenderConfig = {
-    includeSourceTracking:
-      options?.includeSourceTracking ??
-      DEFAULT_RENDER_CONFIG.includeSourceTracking,
-    sourceTrackingPrefix:
-      options?.sourceTrackingPrefix ??
-      DEFAULT_RENDER_CONFIG.sourceTrackingPrefix,
-    includeOperationTracking:
-      options?.includeOperationTracking ??
-      DEFAULT_RENDER_CONFIG.includeOperationTracking,
-    includeNoteGeneration:
-      options?.includeNoteGeneration ??
-      DEFAULT_RENDER_CONFIG.includeNoteGeneration,
-    resolveLoopIndices:
-      options?.resolveLoopIndices ?? DEFAULT_RENDER_CONFIG.resolveLoopIndices,
-    helperSourceOps: options?.helperSourceOps,
-    htmlEscape: DEFAULT_RENDER_CONFIG.htmlEscape,
-  };
-
-  // Error handler
   const onError: ErrorHandler = options?.onError ?? defaultErrorHandler;
 
-  // Helpers and globals
-  const helpers = options?.helpers ?? {};
-  const globals = options?.globals ?? {};
-
-  // Return the renderer factory function
-  return (dataSignal: Signal<T>): Renderable => {
-    // Create initial scope structure.
-    // NOTE: scope.data is NOT used for reactive evaluation.
-    // Reactivity is achieved through dataSignal.map() in node converters,
-    // where the fresh data value is passed to evaluateSafe() which
-    // creates a new scope with the current data.
-    const scope: Scope = {
-      locals: {},
-      data: null, // Placeholder - actual data comes from signal in evaluateSafe
-      globals,
-    };
-
-    // Create render context
-    const ctx: RenderContext = {
-      dataSignal,
-      scope,
-      helpers,
-      config,
-      components: new Map(template.root.components),
-      slots: new Map(),
-      onError,
-    };
-
-    // Convert template children to Renderables
-    return Fragment(...convertChildren(template.root.children, ctx));
+  const base: RenderOptions = {
+    helpers: options?.helpers,
+    globals: options?.globals,
+    limits: options?.limits,
+    config: {
+      includeComments: options?.includeComments ?? false,
+      includeSourceTracking: options?.includeSourceTracking ?? false,
+      sourceTrackingPrefix: options?.sourceTrackingPrefix ?? 'rd-',
+      includeOperationTracking: options?.includeOperationTracking ?? false,
+      includeNoteGeneration: options?.includeNoteGeneration ?? false,
+      resolveLoopIndices: options?.resolveLoopIndices ?? false,
+      helperSourceOps: options?.helperSourceOps,
+      allowStyleInterpolation: options?.allowStyleInterpolation ?? false,
+    },
   };
-}
 
-// =============================================================================
-// One-Step Compilation and Rendering
-// =============================================================================
+  return (data: Signal<T>): Renderable =>
+    // Inside a disposal scope, so that every cell the traversal derives is
+    // released when the tree it feeds is unmounted.
+    WithScope(() => {
+      const emitter = new Emitter();
+      const reactivity = new SignalReactivity(
+        emitter,
+        onError,
+        template.root.location
+      );
+
+      try {
+        const { output, metadata } = renderTo(
+          template,
+          data,
+          { ...base, reactivity },
+          (budget, position) => new TempoTarget(emitter, budget, position)
+        );
+        // The engine appends what it substituted or refused to this list as it
+        // goes, and an incremental render never stops going.
+        reactivity.watchWarnings(metadata.warnings);
+        return output;
+      } catch (error) {
+        // A failure while *building* the tree - a component that recurses past
+        // the depth ceiling, an unknown component - has a caller, but that
+        // caller is Tempo's renderer and it has no use for an exception. The
+        // host hears about it through the same channel as every later failure.
+        reactivity.fail(error);
+        return Empty;
+      }
+    });
+}
 
 /**
  * Compiles a template source and returns a ready-to-use Tempo renderer.
- *
- * This is a convenience function that combines compile() and createTempoRenderer()
- * into a single async call.
  *
  * @typeParam T - The type of data the template expects
  * @param source - Template source string
@@ -218,7 +154,7 @@ export function createTempoRenderer<T = any>(
  * import { compileToRenderable } from '@bladets/tempo';
  * import { prop, render } from '@tempots/dom';
  *
- * const renderer = await compileToRenderable<{ name: string }>('<div>Hello, ${name}!</div>');
+ * const renderer = compileToRenderable<{ name: string }>('<div>Hello, ${name}!</div>');
  * const data = prop({ name: 'World' });
  * render(renderer(data), document.body);
  * ```
@@ -228,6 +164,5 @@ export function compileToRenderable<T = any>(
   source: string,
   options?: TempoRenderOptions
 ): TempoRenderer<T> {
-  const template = compile(source);
-  return createTempoRenderer<T>(template, options);
+  return createTempoRenderer<T>(compileOrThrow(source), options);
 }

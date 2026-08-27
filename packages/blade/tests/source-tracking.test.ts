@@ -12,7 +12,7 @@ import {
   buildSourceExpression,
   loopAliases,
 } from '../src/source-tracking/index.js';
-import type { ArrayWildcardNode, PathNode } from '../src/ast/types.js';
+import type { ArrayWildcardNode, ExprAst, PathNode } from '../src/ast/types.js';
 
 function expr(source: string) {
   const result = parseExpression(source);
@@ -236,5 +236,34 @@ describe('loopAliases', () => {
   it('leaves a computed iterable unaliased', () => {
     const aliases = loopAliases(expr('reverse(rows)'), 'r', 'of', undefined, 1);
     expect(aliases).toBeUndefined();
+  });
+});
+
+describe('function expressions', () => {
+  // `FunctionExpr` joined `ExprAst` when `@let` arrows became callable, so every
+  // structural walk here has to descend into a function body. Falling through to
+  // `default` made a `@let` function contribute no paths, no op and no note.
+  function arrow(body: string): ExprAst {
+    return {
+      kind: 'function',
+      params: ['a'],
+      body: expr(body),
+      location: {
+        start: { line: 1, column: 1, offset: 0 },
+        end: { line: 1, column: 1, offset: 0 },
+      },
+    };
+  }
+
+  it('collects the paths its body reads', () => {
+    expect(collectPaths(arrow('$a * $rate'))).toEqual(['a', 'rate']);
+  });
+
+  it('classifies the arithmetic in its body', () => {
+    expect(classifyExpression(arrow('$a * $rate')).category).toBe('calculated');
+  });
+
+  it('describes itself as the function it is', () => {
+    expect(describeExpression(arrow('$a'))).toBe('(a) => a');
   });
 });

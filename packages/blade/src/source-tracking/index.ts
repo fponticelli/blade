@@ -8,11 +8,27 @@
  *
  *   rd-source    = expression ( ";" expression )*
  *   expression   = path ( "," path )*
- *   rd-source-op = op ( ";" op )*
- *   op           = category [ ":" detail ]
+ *   rd-source-op = op ( ":" detail )? ( ";" op )*
  *
- * Nothing here evaluates data. Classification and path collection are static
- * properties of the expression AST, so they hold for every render.
+ * Nothing here evaluates data. Path collection, classification and the prose
+ * note are static properties of the expression AST, so they hold for every
+ * render - and every one of them is therefore memoised against the AST node
+ * that produced it, in `WeakMap`s that die with the template. Rebuilding them
+ * per element per render made the cost of tracking proportional to the number
+ * of loop iterations rather than to the size of the template; the evaluator
+ * already learned that lesson one level down (see `evaluator/index.ts`).
+ *
+ * The only genuinely per-render input is the alias map, which renames a
+ * component prop or loop variable in the caller's terms. Everything cached here
+ * is therefore cached in its *alias-free* form, and alias resolution runs over
+ * the cached result. When the alias map itself repeats - which it does for
+ * every iteration of a loop unless concrete indices were asked for - the
+ * finished attribute values are cached too, and a tracked element costs a
+ * handful of map lookups after its first render.
+ *
+ * Alias maps are treated as immutable. They are produced by `loopAliases` and
+ * `componentAliases`, are typed `ReadonlyMap`, and are used as cache keys: a
+ * caller that mutates one after passing it in will read stale provenance.
  */
 
 import type {
@@ -20,6 +36,7 @@ import type {
   ElementNode,
   ExprAst,
   PathItem,
+  PathNode,
   TemplateNode,
 } from '../ast/types.js';
 import { helperMetadata } from '../helpers/metadata.js';
@@ -49,7 +66,14 @@ export type SourceOpTable = Readonly<Record<string, SourceOp>>;
  */
 export type PathAliases = ReadonlyMap<string, readonly string[]>;
 
-/** One expression's contribution to an element's provenance. */
+/**
+ * One expression's contribution to an element's provenance.
+ *
+ * `op` and `note` are lazy: the two attributes they feed are off by default
+ * while `rd-source` is on, and classifying an expression or writing its note
+ * costs several more AST walks than collecting its paths. Reading either
+ * property computes it (memoised); leaving it alone costs nothing.
+ */
 export interface SourceExpression {
   readonly paths: readonly string[];
   readonly op: SourceOp;
@@ -60,6 +84,146 @@ export const SOURCE_OP_NONE: SourceOp = { category: 'none' };
 
 /** Operators that derive a new value rather than select or compare one. */
 const ARITHMETIC_OPERATORS = new Set(['+', '-', '*', '/', '%']);
+
+// =============================================================================
+// Memoisation
+// =============================================================================
+
+/**
+ * One segment of a note: either fixed prose, or a placeholder for a data path
+ * that has to be resolved through the caller's aliases at render time.
+ */
+type NoteSegment = string | { readonly path: string };
+
+/** Stands in for "no aliases" so the absent case can key a `WeakMap`. */
+const NO_ALIASES: PathAliases = new Map();
+
+/** Stands in for "no caller op table", i.e. classify against the built-ins. */
+const BUILTIN_OP_TABLE: SourceOpTable = {};
+
+interface SourceTrackingCaches {
+  readonly elementExpressions: WeakMap<ElementNode, readonly ExprAst[]>;
+  readonly paths: WeakMap<ExprAst, readonly string[]>;
+  readonly classifications: WeakMap<SourceOpTable, WeakMap<ExprAst, SourceOp>>;
+  readonly notes: WeakMap<ExprAst, readonly NoteSegment[]>;
+  readonly elements: WeakMap<
+    ElementNode,
+    WeakMap<
+      PathAliases,
+      WeakMap<SourceOpTable, Map<string, ElementSourceTracking | null>>
+    >
+  >;
+  readonly loopAliases: WeakMap<
+    PathAliases,
+    WeakMap<ExprAst, Map<string, PathAliases | undefined>>
+  >;
+  readonly componentAliases: WeakMap<
+    object,
+    WeakMap<PathAliases, PathAliases | undefined>
+  >;
+}
+
+function createCaches(): SourceTrackingCaches {
+  return {
+    elementExpressions: new WeakMap(),
+    paths: new WeakMap(),
+    classifications: new WeakMap(),
+    notes: new WeakMap(),
+    elements: new WeakMap(),
+    loopAliases: new WeakMap(),
+    componentAliases: new WeakMap(),
+  };
+}
+
+let caches = createCaches();
+
+/** Hit and miss counts for one cache. A miss is one run of the real work. */
+export interface CacheCounts {
+  readonly hits: number;
+  readonly misses: number;
+}
+
+/**
+ * What every memo in this module has done since the last reset.
+ *
+ * Exported as a diagnostic, and used by the tests that hold the line on cost:
+ * misses must stay proportional to the size of the template, never to the
+ * number of rows rendered through it.
+ */
+export interface SourceTrackingCacheStats {
+  /** Per-element expression collection (`collectElementExpressions`). */
+  readonly elementExpressions: CacheCounts;
+  /** Per-expression path collection (`collectPaths`). */
+  readonly paths: CacheCounts;
+  /** Per-expression classification (`classifyExpression`). */
+  readonly classifications: CacheCounts;
+  /** Per-expression note construction (`describeExpression`). */
+  readonly notes: CacheCounts;
+  /** Finished attribute values for an element (`buildElementSourceTracking`). */
+  readonly elements: CacheCounts;
+  /** Loop alias maps (`loopAliases`). */
+  readonly loopAliases: CacheCounts;
+  /** Component alias maps (`componentAliases`). */
+  readonly componentAliases: CacheCounts;
+}
+
+interface MutableCounts {
+  hits: number;
+  misses: number;
+}
+
+const counters: Readonly<
+  Record<keyof SourceTrackingCacheStats, MutableCounts>
+> = {
+  elementExpressions: { hits: 0, misses: 0 },
+  paths: { hits: 0, misses: 0 },
+  classifications: { hits: 0, misses: 0 },
+  notes: { hits: 0, misses: 0 },
+  elements: { hits: 0, misses: 0 },
+  loopAliases: { hits: 0, misses: 0 },
+  componentAliases: { hits: 0, misses: 0 },
+};
+
+/** A snapshot, so a caller cannot watch the counters move under it. */
+export function sourceTrackingCacheStats(): SourceTrackingCacheStats {
+  return {
+    elementExpressions: { ...counters.elementExpressions },
+    paths: { ...counters.paths },
+    classifications: { ...counters.classifications },
+    notes: { ...counters.notes },
+    elements: { ...counters.elements },
+    loopAliases: { ...counters.loopAliases },
+    componentAliases: { ...counters.componentAliases },
+  };
+}
+
+/**
+ * Drops every memo and zeroes the counters.
+ *
+ * The caches are weak and need no maintenance; this exists so a measurement
+ * starts from a known state, and so a host that swaps its whole template set
+ * can release the derived data without waiting for the collector.
+ */
+export function resetSourceTrackingCaches(): void {
+  caches = createCaches();
+  for (const key of Object.keys(counters) as (keyof typeof counters)[]) {
+    counters[key].hits = 0;
+    counters[key].misses = 0;
+  }
+}
+
+/** Get-or-create one level of a nested weak cache. */
+function level<K extends object, V>(
+  map: WeakMap<K, V>,
+  key: K,
+  create: () => V
+): V {
+  const existing = map.get(key);
+  if (existing !== undefined) return existing;
+  const created = create();
+  map.set(key, created);
+  return created;
+}
 
 // =============================================================================
 // Paths
@@ -92,8 +256,24 @@ export function serializePath(
  *
  * Branches of a ternary are both included: the condition and both arms all
  * take part in producing the value, and which arm wins is data-dependent.
+ *
+ * The result is memoised against the node and shared with every caller, so it
+ * must not be modified. Paths are in the expression's own terms; use
+ * `resolvePath` to put them in the caller's.
  */
-export function collectPaths(expr: ExprAst): string[] {
+export function collectPaths(expr: ExprAst): readonly string[] {
+  const cached = caches.paths.get(expr);
+  if (cached !== undefined) {
+    counters.paths.hits++;
+    return cached;
+  }
+  counters.paths.misses++;
+  const paths = collectPathsUncached(expr);
+  caches.paths.set(expr, paths);
+  return paths;
+}
+
+function collectPathsUncached(expr: ExprAst): readonly string[] {
   const seen = new Set<string>();
   const paths: string[] = [];
 
@@ -135,6 +315,11 @@ export function collectPaths(expr: ExprAst): string[] {
         // so only the object contributes a path.
         visit(node.object);
         return;
+      case 'function':
+        // A `@let` arrow reads data through its body. The parameters shadow
+        // nothing that could be a path, so the body's paths are the function's.
+        visit(node.body);
+        return;
       case 'literal':
         return;
     }
@@ -165,12 +350,18 @@ export function resolvePath(path: string, aliases?: PathAliases): string[] {
   return resolved.map(base => `${base}${tail}`);
 }
 
-/** Resolve and de-duplicate a whole expression's paths through a component. */
+/**
+ * Resolve and de-duplicate a whole expression's paths through a component.
+ *
+ * With no aliases in force there is nothing to rewrite, and the memoised list
+ * is handed back as it is - copying it per element per render is exactly the
+ * per-iteration cost this module exists to avoid.
+ */
 function resolvePaths(
   paths: readonly string[],
   aliases?: PathAliases
-): string[] {
-  if (!aliases || aliases.size === 0) return [...paths];
+): readonly string[] {
+  if (!aliases || aliases.size === 0) return paths;
   const seen = new Set<string>();
   const out: string[] = [];
   for (const path of paths) {
@@ -234,6 +425,8 @@ function findOp(
     }
     case 'member':
       return findOp(expr.object, category, table);
+    case 'function':
+      return findOp(expr.body, category, table);
     default:
       return undefined;
   }
@@ -263,6 +456,8 @@ function hasArithmetic(expr: ExprAst | undefined): boolean {
       return expr.elements.some(hasArithmetic);
     case 'member':
       return hasArithmetic(expr.object);
+    case 'function':
+      return hasArithmetic(expr.body);
     default:
       return false;
   }
@@ -277,8 +472,31 @@ function hasArithmetic(expr: ExprAst | undefined): boolean {
  *
  * Comparisons and logical operators are not arithmetic here. They steer which
  * value is shown; they do not derive the value itself.
+ *
+ * Answering this walks the expression up to five times, so the answer is
+ * memoised per node and per op table - the table is part of the question.
  */
 export function classifyExpression(
+  expr: ExprAst,
+  table?: SourceOpTable
+): SourceOp {
+  const byExpr = level(
+    caches.classifications,
+    table ?? BUILTIN_OP_TABLE,
+    () => new WeakMap<ExprAst, SourceOp>()
+  );
+  const cached = byExpr.get(expr);
+  if (cached !== undefined) {
+    counters.classifications.hits++;
+    return cached;
+  }
+  counters.classifications.misses++;
+  const op = classifyExpressionUncached(expr, table);
+  byExpr.set(expr, op);
+  return op;
+}
+
+function classifyExpressionUncached(
   expr: ExprAst,
   table?: SourceOpTable
 ): SourceOp {
@@ -323,6 +541,132 @@ function describeLiteral(value: unknown): string {
 }
 
 /**
+ * The note for an expression, as fixed prose with holes where its data paths
+ * go. Building it walks the whole expression, so it is built once per node;
+ * only the holes depend on the aliases in force, and filling them is a lookup
+ * per path rather than a second walk.
+ */
+function noteTemplate(expr: ExprAst): readonly NoteSegment[] {
+  const cached = caches.notes.get(expr);
+  if (cached !== undefined) {
+    counters.notes.hits++;
+    return cached;
+  }
+  counters.notes.misses++;
+  const segments = buildNoteTemplate(expr);
+  caches.notes.set(expr, segments);
+  return segments;
+}
+
+function buildNoteTemplate(expr: ExprAst): readonly NoteSegment[] {
+  const segments: NoteSegment[] = [];
+  let pending = '';
+
+  const text = (value: string): void => {
+    pending += value;
+  };
+
+  const hole = (path: string): void => {
+    if (pending !== '') {
+      segments.push(pending);
+      pending = '';
+    }
+    segments.push({ path });
+  };
+
+  const list = (nodes: readonly ExprAst[], parenthesize: boolean): void => {
+    nodes.forEach((node, index) => {
+      if (index > 0) text(', ');
+      write(node, parenthesize);
+    });
+  };
+
+  const write = (node: ExprAst, parenthesize = false): void => {
+    switch (node.kind) {
+      case 'literal':
+        text(describeLiteral(node.value));
+        return;
+      case 'path':
+        hole(serializePath(node.segments, node.isGlobal));
+        return;
+      case 'wildcard':
+        hole(serializePath(node.path.segments, node.path.isGlobal));
+        return;
+      case 'call': {
+        text(humanize(node.callee));
+        if (node.args.length === 0) return;
+        text(' of ');
+        // A lone argument reads better bare; once arguments are separated by
+        // commas an unbracketed operation becomes ambiguous.
+        list(node.args, node.args.length > 1);
+        return;
+      }
+      case 'binary': {
+        // Nested operations keep their brackets, so a note can be read back as
+        // the expression it describes.
+        if (parenthesize) text('(');
+        write(node.left, true);
+        text(` ${node.operator} `);
+        write(node.right, true);
+        if (parenthesize) text(')');
+        return;
+      }
+      case 'unary':
+        text(node.operator);
+        write(node.operand, true);
+        return;
+      case 'ternary': {
+        if (parenthesize) text('(');
+        write(node.condition);
+        text(' ? ');
+        write(node.truthy);
+        text(' : ');
+        write(node.falsy);
+        if (parenthesize) text(')');
+        return;
+      }
+      case 'array':
+        text('[');
+        list(node.elements, false);
+        text(']');
+        return;
+      case 'member':
+        write(node.object, true);
+        text(serializePath(node.path));
+        return;
+      case 'function':
+        text(`(${node.params.join(', ')}) => `);
+        write(node.body);
+        return;
+    }
+  };
+
+  write(expr);
+  if (pending !== '') segments.push(pending);
+  return segments;
+}
+
+/** A path as a note names it: through the aliases, several joined by commas. */
+function describePath(path: string, aliases?: PathAliases): string {
+  if (!aliases || aliases.size === 0) return path;
+  return resolvePath(path, aliases).join(', ');
+}
+
+function renderNote(
+  segments: readonly NoteSegment[],
+  aliases?: PathAliases
+): string {
+  let out = '';
+  for (const segment of segments) {
+    out +=
+      typeof segment === 'string'
+        ? segment
+        : describePath(segment.path, aliases);
+  }
+  return out;
+}
+
+/**
  * A human-readable account of how a value was produced, for `rd-source-note`.
  *
  * Paths are resolved through the same aliases as `rd-source`, so a note never
@@ -334,48 +678,7 @@ export function describeExpression(
   expr: ExprAst,
   aliases?: PathAliases
 ): string {
-  const describePath = (path: string): string =>
-    resolvePath(path, aliases).join(', ');
-
-  const describe = (node: ExprAst, parenthesize = false): string => {
-    switch (node.kind) {
-      case 'literal':
-        return describeLiteral(node.value);
-      case 'path':
-        return describePath(serializePath(node.segments, node.isGlobal));
-      case 'wildcard':
-        return describePath(
-          serializePath(node.path.segments, node.path.isGlobal)
-        );
-      case 'call': {
-        // A lone argument reads better bare; once arguments are separated by
-        // commas an unbracketed operation becomes ambiguous.
-        const bracket = node.args.length > 1;
-        const args = node.args.map(arg => describe(arg, bracket)).join(', ');
-        return args
-          ? `${humanize(node.callee)} of ${args}`
-          : humanize(node.callee);
-      }
-      case 'binary': {
-        // Nested operations keep their brackets, so a note can be read back as
-        // the expression it describes.
-        const text = `${describe(node.left, true)} ${node.operator} ${describe(node.right, true)}`;
-        return parenthesize ? `(${text})` : text;
-      }
-      case 'unary':
-        return `${node.operator}${describe(node.operand, true)}`;
-      case 'ternary': {
-        const text = `${describe(node.condition)} ? ${describe(node.truthy)} : ${describe(node.falsy)}`;
-        return parenthesize ? `(${text})` : text;
-      }
-      case 'array':
-        return `[${node.elements.map(element => describe(element)).join(', ')}]`;
-      case 'member':
-        return `${describe(node.object, true)}${serializePath(node.path)}`;
-    }
-  };
-
-  return describe(expr);
+  return renderNote(noteTemplate(expr), aliases);
 }
 
 // =============================================================================
@@ -387,15 +690,26 @@ export interface BuildSourceExpressionOptions {
   readonly opTable?: SourceOpTable;
 }
 
-/** Everything one expression contributes to its element's attributes. */
+/**
+ * Everything one expression contributes to its element's attributes.
+ *
+ * `op` and `note` are computed on access, not up front: the element builder
+ * discards both unless the corresponding attribute was asked for, and they are
+ * the expensive halves of the answer.
+ */
 export function buildSourceExpression(
   expr: ExprAst,
   options: BuildSourceExpressionOptions = {}
 ): SourceExpression {
+  const { aliases, opTable } = options;
   return {
-    paths: resolvePaths(collectPaths(expr), options.aliases),
-    op: classifyExpression(expr, options.opTable),
-    note: describeExpression(expr, options.aliases),
+    paths: resolvePaths(collectPaths(expr), aliases),
+    get op(): SourceOp {
+      return classifyExpression(expr, opTable);
+    },
+    get note(): string {
+      return describeExpression(expr, aliases);
+    },
   };
 }
 
@@ -452,8 +766,27 @@ export function formatSourceNoteValue(
  * components and slots - those render their own opening tags and own their own
  * provenance. Without that boundary every ancestor would re-claim every
  * descendant's sources and the outermost element would list the whole payload.
+ *
+ * The answer depends only on the node, so it is memoised and shared: callers
+ * must not modify the returned array.
  */
-export function collectElementExpressions(node: ElementNode): ExprAst[] {
+export function collectElementExpressions(
+  node: ElementNode
+): readonly ExprAst[] {
+  const cached = caches.elementExpressions.get(node);
+  if (cached !== undefined) {
+    counters.elementExpressions.hits++;
+    return cached;
+  }
+  counters.elementExpressions.misses++;
+  const exprs = collectElementExpressionsUncached(node);
+  caches.elementExpressions.set(node, exprs);
+  return exprs;
+}
+
+function collectElementExpressionsUncached(
+  node: ElementNode
+): readonly ExprAst[] {
   const exprs: ExprAst[] = [];
 
   for (const attr of node.attributes as readonly AttributeNode[]) {
@@ -546,8 +879,50 @@ export interface ElementSourceTrackingOptions {
  * renders no expressions or the author already annotated it by hand.
  *
  * Shared by every renderer so the string, DOM and reactive outputs agree.
+ *
+ * The answer is a function of the node, the alias map, the op table and the
+ * requested attributes - never of the data - so it is cached against exactly
+ * those four. A loop that renders one row template a thousand times reuses one
+ * alias map (see `loopAliases`) and therefore builds its rows' attributes once.
  */
 export function buildElementSourceTracking(
+  node: ElementNode,
+  options: ElementSourceTrackingOptions
+): ElementSourceTracking | null {
+  const byAliases = level(
+    caches.elements,
+    node,
+    () =>
+      new WeakMap<
+        PathAliases,
+        WeakMap<SourceOpTable, Map<string, ElementSourceTracking | null>>
+      >()
+  );
+  const byTable = level(
+    byAliases,
+    options.aliases ?? NO_ALIASES,
+    () =>
+      new WeakMap<SourceOpTable, Map<string, ElementSourceTracking | null>>()
+  );
+  const byShape = level(
+    byTable,
+    options.opTable ?? BUILTIN_OP_TABLE,
+    () => new Map<string, ElementSourceTracking | null>()
+  );
+
+  const shape = `${options.includeOp ? '1' : '0'}${options.includeNote ? '1' : '0'} ${options.prefix}`;
+  const cached = byShape.get(shape);
+  if (cached !== undefined || byShape.has(shape)) {
+    counters.elements.hits++;
+    return cached ?? null;
+  }
+  counters.elements.misses++;
+  const tracking = buildElementSourceTrackingUncached(node, options);
+  byShape.set(shape, tracking);
+  return tracking;
+}
+
+function buildElementSourceTrackingUncached(
   node: ElementNode,
   options: ElementSourceTrackingOptions
 ): ElementSourceTracking | null {
@@ -577,8 +952,32 @@ export function buildElementSourceTracking(
  * Aliases for a component call: each prop name mapped to the caller paths that
  * fed it, already resolved through the caller's own aliases so provenance
  * composes through any depth of nesting.
+ *
+ * Cached against the prop list and the caller's aliases, so a component
+ * rendered once per row of a loop derives its aliases once.
  */
 export function componentAliases(
+  props: readonly { readonly name: string; readonly value: ExprAst }[],
+  callerAliases?: PathAliases
+): PathAliases | undefined {
+  const byCaller = level(
+    caches.componentAliases,
+    props,
+    () => new WeakMap<PathAliases, PathAliases | undefined>()
+  );
+  const key = callerAliases ?? NO_ALIASES;
+  const cached = byCaller.get(key);
+  if (cached !== undefined || byCaller.has(key)) {
+    counters.componentAliases.hits++;
+    return cached;
+  }
+  counters.componentAliases.misses++;
+  const aliases = componentAliasesUncached(props, callerAliases);
+  byCaller.set(key, aliases);
+  return aliases;
+}
+
+function componentAliasesUncached(
   props: readonly { readonly name: string; readonly value: ExprAst }[],
   callerAliases?: PathAliases
 ): PathAliases | undefined {
@@ -613,6 +1012,12 @@ export function componentAliases(
  *
  * Only a plain path iterable can be named this way; anything computed has no
  * stable address in the source data, and the loop variable is left alone.
+ *
+ * The index-free answer is the same for every iteration, so it is cached and
+ * every row of a loop shares one map - which in turn lets the row's elements
+ * share their finished attribute values. An indexed answer is different for
+ * every row by construction: caching those would pin one map per row for the
+ * life of the template, so they are built fresh and not retained.
  */
 export function loopAliases(
   itemsExpr: ExprAst,
@@ -623,6 +1028,52 @@ export function loopAliases(
 ): PathAliases | undefined {
   if (itemsExpr.kind !== 'path') return callerAliases;
 
+  if (index !== undefined) {
+    counters.loopAliases.misses++;
+    return buildLoopAliases(
+      itemsExpr,
+      itemVar,
+      iterationType,
+      callerAliases,
+      index
+    );
+  }
+
+  const byExpr = level(
+    caches.loopAliases,
+    callerAliases ?? NO_ALIASES,
+    () => new WeakMap<ExprAst, Map<string, PathAliases | undefined>>()
+  );
+  const byVar = level(
+    byExpr,
+    itemsExpr,
+    () => new Map<string, PathAliases | undefined>()
+  );
+  const key = `${iterationType} ${itemVar}`;
+  const cached = byVar.get(key);
+  if (cached !== undefined || byVar.has(key)) {
+    counters.loopAliases.hits++;
+    return cached;
+  }
+  counters.loopAliases.misses++;
+  const aliases = buildLoopAliases(
+    itemsExpr,
+    itemVar,
+    iterationType,
+    callerAliases,
+    index
+  );
+  byVar.set(key, aliases);
+  return aliases;
+}
+
+function buildLoopAliases(
+  itemsExpr: PathNode,
+  itemVar: string,
+  iterationType: 'of' | 'in',
+  callerAliases?: PathAliases,
+  index?: number
+): PathAliases {
   const base = serializePath(itemsExpr.segments, itemsExpr.isGlobal);
   const resolved = resolvePath(base, callerAliases);
   const aliases = new Map<string, readonly string[]>(callerAliases);

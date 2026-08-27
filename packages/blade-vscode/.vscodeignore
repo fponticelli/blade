@@ -6,6 +6,9 @@ tests/**
 *.ts
 !*.d.ts
 tsconfig.json
+tsconfig.test.json
+vitest.config.ts
+coverage/**
 .eslintrc*
 .gitignore
 .prettierrc

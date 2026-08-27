@@ -1,0 +1,59 @@
+name: Release
+
+# Changesets is the single release mechanism for @bladets/template,
+# @bladets/lsp-server and @bladets/tempo. On every push to main this either
+# opens/updates a "version packages" PR (when unreleased changesets exist) or,
+# once that PR is merged, publishes the versioned packages to npm.
+#
+# blade-templates (the VS Code extension) is listed in `.changeset/config.json`
+# under `ignore` - it ships to the Marketplace, not to npm.
+#
+# Requires an NPM_TOKEN repository secret: an npm automation token with publish
+# rights on the @bladets scope. Without it the publish step fails; nothing here
+# invents credentials.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: version or publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Changesets needs full history to work out what changed.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Same gate as CI, re-run here so a publish can never outrun a red build.
+      - run: pnpm check
+      - run: pnpm check:bundles
+      - run: pnpm check:api
+
+      - uses: changesets/action@v1
+        with:
+          version: pnpm changeset:version
+          publish: pnpm release
+          commit: 'release: version packages'
+          title: 'release: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

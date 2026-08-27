@@ -1,0 +1,27 @@
+{
+  // Typechecks the test suite, which tsconfig.json excludes. Extends the
+  // package config rather than the base so tests always inherit whatever
+  // strictness src is held to.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // `rootDir` is deliberately unset - see packages/blade/tsconfig.test.json.
+    "paths": {
+      "@/*": ["./src/*"],
+      "@bladets/corpus": ["../blade-corpus/src/index.ts"]
+    },
+    // The only relaxation, kept identical to packages/blade/tsconfig.test.json.
+    // Test assertions index into fixtures of known shape; an out-of-range read
+    // is a test bug that fails loudly at runtime, and `?.` would convert that
+    // into a silent `undefined === expected` mismatch. Every other strict flag,
+    // including strictNullChecks, stays on.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "../blade-corpus/src/**/*.ts",
+    "../../scripts/**/*.d.mts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

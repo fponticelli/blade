@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compile } from '../src/compiler/index.js';
+import { compileOrThrow } from '../src/compiler/index.js';
 import { createStringRenderer } from '../src/renderer/index.js';
 import { standardLibrary } from '../src/helpers/index.js';
 import type { RenderConfig } from '../src/renderer/index.js';
@@ -9,7 +9,7 @@ function render(
   data: unknown,
   config: Partial<RenderConfig> = {}
 ): string {
-  const renderer = createStringRenderer(compile(source));
+  const renderer = createStringRenderer(compileOrThrow(source));
   return renderer(data, {
     helpers: standardLibrary,
     config: { includeSourceTracking: true, ...config },
@@ -18,7 +18,7 @@ function render(
 
 describe('source tracking emission', () => {
   it('is off unless asked for', () => {
-    const template = compile('<p>$name</p>');
+    const template = compileOrThrow('<p>$name</p>');
     const html = createStringRenderer(template)(
       { name: 'Ada' },
       {
@@ -326,7 +326,7 @@ describe('loop index resolution', () => {
 
   it('does nothing when source tracking is off', () => {
     const html = createStringRenderer(
-      compile('<ul>@for(p of rows) { <li>${p.n}</li> }</ul>')
+      compileOrThrow('<ul>@for(p of rows) { <li>${p.n}</li> }</ul>')
     )({ rows: [{ n: 1 }] }, { config: { resolveLoopIndices: true } }).html;
     expect(html).toBe('<ul><li>1</li></ul>');
   });

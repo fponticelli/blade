@@ -90,7 +90,7 @@
           }
         },
         "couponCode": { "type": "string" },
-        "giftMessage": { "type": "string" },
+        "giftMessage": { "type": ["string", "null"] },
         "isGift": { "type": "boolean" }
       }
     },

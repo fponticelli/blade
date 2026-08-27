@@ -1,11 +1,26 @@
 {
-  "extends": "../../tsconfig.base.json",
+  // Typechecks the test suite, which tsconfig.json excludes. Extends the
+  // package config rather than the base so tests always inherit whatever
+  // strictness src is held to.
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["vitest/globals"],
     "noEmit": true,
-    "rootDir": ".",
-    "strictNullChecks": false
+    // Widened from the package's own `src`, because the suite imports the
+    // shared renderer conformance corpus from packages/blade-corpus and the
+    // API-surface tool from scripts/. Nothing here is emitted, so the root only
+    // has to contain the program.
+    "rootDir": "../..",
+    "baseUrl": ".",
+    "paths": {
+      "@bladets/corpus": ["../blade-corpus/src/index.ts"]
+    },
+    // The only relaxation. Test assertions index into fixtures of known shape
+    // (`result.segments[0].kind`); an out-of-range read is a test bug that
+    // fails loudly at runtime, and `?.` would convert that into a silent
+    // `undefined === expected` mismatch. Every other strict flag, including
+    // strictNullChecks, stays on so API-shape mismatches are still caught.
+    "noUncheckedIndexedAccess": false
   },
-  "include": ["tests/**/*.ts", "src/**/*.ts"],
+  "include": ["src", "tests", "../blade-corpus/src", "../../scripts"],
   "exclude": ["node_modules", "dist"]
 }

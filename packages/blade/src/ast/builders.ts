@@ -1,13 +1,35 @@
-// AST Builder DSL
+// AST Builders
 //
-// Provides a terse, ergonomic API for constructing AST nodes with sensible defaults.
-// Used primarily in tests and parser implementation.
+// ONE constructor per node kind, and every one of them takes the source
+// location it is building the node at.
 //
-// Design principles:
-// - Partial option objects instead of positional arguments
-// - Smart defaults for location and metadata
-// - Minimal boilerplate for common cases
-// - Type-safe and IDE-friendly
+// Two things this file used to get wrong, both of which cost real diagnostics:
+//
+//   (a) `location` was optional and defaulted to line 1, column 1, offset 0.
+//       `SourceLocation` is REQUIRED on `BaseNode`, and its doc comment says
+//       the point of it is "error reporting, debugging, and source map
+//       generation" - so a silent 1:1:0 is not a default, it is a wrong answer
+//       that type-checks. A diagnostic on line 40 highlighted zero characters
+//       at offset 0, which is an unusable editor squiggle. Two call sites in
+//       validation/index.ts had written `expr.location ?? fallback` on a
+//       NON-OPTIONAL field: the authors did not trust the type, correctly.
+//       Location is now a required argument everywhere, and the one way to say
+//       "this node has no source" is to write {@link syntheticLoc} - a
+//       deliberate, greppable act.
+//
+//   (b) there were two and a half parallel construction APIs. The namespaced
+//       banks below, a "Convenience Aliases for Parser" bank and an "Expression
+//       Parser Compatibility Exports" bank - and the latter two did not
+//       delegate, they RE-WROTE the object literals. `expr.literal` and
+//       `literal` each independently built `{kind:'literal', type, value,
+//       location}`, and so did the rest, so changing `LiteralNode` meant three
+//       coordinated edits with no compiler link between the copies. They
+//       existed only because the template parser and the expression parser
+//       wanted different argument orders. Both banks are gone; the two parsers
+//       call the canonical constructors.
+//
+// The boundary itself is worth keeping and is now enforced by having one door:
+// `grep "kind: '"` outside this directory finds no node construction at all.
 
 import type {
   SourceLocation,
@@ -36,63 +58,94 @@ import type {
   StaticAttributeNode,
   ExprAttributeNode,
   MixedAttributeNode,
+  EventAttributeNode,
   StaticAttributeValue,
   ExprAttributeValue,
   IfNode,
+  IfBranch,
   ForNode,
   MatchNode,
   MatchCase,
   MatchLiteralCase,
   MatchExpressionCase,
   LetNode,
+  PropsNode,
+  PropDeclaration,
   FunctionExpr,
   ComponentNode,
+  ComponentProp,
   FragmentNode,
   SlotNode,
+  SlotFillNode,
   CommentNode,
   DoctypeNode,
   ComponentDefinition,
-  PropDefinition,
+  PartialTemplate,
+  ValidTemplate,
   RootNode,
   TemplateMetadata,
-  CompiledTemplate,
   Diagnostic,
 } from './types.js';
 
 // =============================================================================
-// Location & Metadata Helpers
+// Locations
 // =============================================================================
 
-/**
- * Creates a minimal source location (defaults to line 1, col 1).
- * Useful for tests and generated code.
- */
-export function loc(opts?: {
-  line?: number;
-  column?: number;
-  offset?: number;
-  endLine?: number;
-  endColumn?: number;
-  endOffset?: number;
-  source?: string;
-}): SourceLocation {
-  const line = opts?.line ?? 1;
-  const column = opts?.column ?? 1;
-  const offset = opts?.offset ?? 0;
+/** One end of a source span. */
+export interface SourcePosition {
+  readonly line: number;
+  readonly column: number;
+  readonly offset: number;
+}
 
+/**
+ * Creates a source location spanning `start` to `end`.
+ *
+ * The canonical way to build a location: both ends are supplied, so the offsets
+ * cannot silently disagree with the lines and columns beside them.
+ *
+ * @param start - Where the construct begins
+ * @param end - Where it ends, exclusive
+ * @param source - Optional file the span belongs to
+ */
+export function location(
+  start: SourcePosition,
+  end: SourcePosition,
+  source?: string
+): SourceLocation {
   return {
-    start: { line, column, offset },
-    end: {
-      line: opts?.endLine ?? line,
-      column: opts?.endColumn ?? column + 1,
-      offset: opts?.endOffset ?? offset + 1,
-    },
-    source: opts?.source,
+    start: { line: start.line, column: start.column, offset: start.offset },
+    end: { line: end.line, column: end.column, offset: end.offset },
+    source,
   };
 }
 
 /**
- * Creates empty path metadata.
+ * The location of a node that genuinely has no source text.
+ *
+ * For tests and for generated nodes - and for nothing else. It is spelled out
+ * rather than defaulted so that "this node came from nowhere" is a claim
+ * someone made on purpose and a reviewer can grep for, instead of what happens
+ * when a caller forgets an argument.
+ *
+ * A parser, a compiler or an inference pass that has a real line and column
+ * must build one with {@link location}: a diagnostic pointing at 1:1 with a
+ * zero-width span is worse than no diagnostic, because an editor renders it as
+ * a squiggle over nothing at the top of the file.
+ */
+export function syntheticLoc(): SourceLocation {
+  return {
+    start: { line: 1, column: 1, offset: 0 },
+    end: { line: 1, column: 2, offset: 1 },
+  };
+}
+
+// =============================================================================
+// Metadata
+// =============================================================================
+
+/**
+ * Creates path metadata, empty by default.
  */
 export function metadata(opts?: {
   staticPaths?: string[];
@@ -111,9 +164,13 @@ export function metadata(opts?: {
 }
 
 // =============================================================================
-// Path Item Helpers
+// Path Items
 // =============================================================================
 
+/**
+ * Path segments. These carry no location of their own - a path's span is the
+ * span of the {@link PathNode} that holds them.
+ */
 export const path = {
   /**
    * Creates a key path item.
@@ -165,7 +222,7 @@ export const path = {
 };
 
 // =============================================================================
-// Expression Builders
+// Expressions
 // =============================================================================
 
 function inferLiteralType(
@@ -181,211 +238,312 @@ function inferLiteralType(
 export const expr = {
   /**
    * Creates a literal node.
-   * @example expr.literal(123)
-   * @example expr.literal("hello")
+   *
+   * `type` is inferred from the value unless the caller knows better - the
+   * expression parser does, because the token it read says which literal form
+   * was written.
+   *
+   * @example expr.literal(123, span)
+   * @example expr.literal('hello', span, 'string')
    */
   literal(
     value: string | number | boolean | null | undefined,
-    opts?: { type?: LiteralType; location?: SourceLocation }
+    location: SourceLocation,
+    type: LiteralType = inferLiteralType(value)
   ): LiteralNode {
-    return {
-      kind: 'literal',
-      type: opts?.type ?? inferLiteralType(value),
-      value,
-      location: opts?.location ?? loc(),
-    };
+    return { kind: 'literal', type, value, location };
   },
 
   /**
    * Creates a path node.
-   * @example expr.path([path.key('order'), path.key('total')])
-   * @example expr.path([path.key('currency')], { isGlobal: true })
+   * @example expr.pathNode([path.key('order'), path.key('total')], span)
+   * @example expr.pathNode([path.key('currency')], span, true)
    */
   pathNode(
     segments: PathItem[],
-    opts?: { isGlobal?: boolean; location?: SourceLocation }
+    location: SourceLocation,
+    isGlobal = false
   ): PathNode {
-    return {
-      kind: 'path',
-      segments,
-      isGlobal: opts?.isGlobal ?? false,
-      location: opts?.location ?? loc(),
-    };
+    return { kind: 'path', segments, isGlobal, location };
   },
 
   /**
    * Creates a path node from a string.
-   * @example expr.pathFrom('order.customer.name')
-   * @example expr.pathFrom('$.currency', { isGlobal: true })
-   * @example expr.pathFrom('items[0].name')
-   * @example expr.pathFrom('items[*].price')
+   *
+   * `isGlobal` defaults to whether the string names a global (`$.currency`).
+   *
+   * @example expr.pathFrom('order.customer.name', span)
+   * @example expr.pathFrom('$.currency', span)
+   * @example expr.pathFrom('items[*].price', span)
    */
   pathFrom(
     pathStr: string,
-    opts?: { isGlobal?: boolean; location?: SourceLocation }
+    location: SourceLocation,
+    isGlobal = pathStr.startsWith('$')
   ): PathNode {
-    const segments = path.parse(pathStr);
-    return expr.pathNode(segments, {
-      isGlobal: opts?.isGlobal ?? pathStr.startsWith('$'),
-      location: opts?.location,
-    });
+    return expr.pathNode(path.parse(pathStr), location, isGlobal);
   },
 
   /**
    * Creates a unary operation node.
-   * @example expr.unary('!', expr.pathFrom('isValid'))
-   * @example expr.unary('-', expr.literal(10))
+   * @example expr.unary('!', expr.pathFrom('isValid', span), span)
    */
   unary(
     operator: '!' | '-',
     operand: ExprAst,
-    location?: SourceLocation
+    location: SourceLocation
   ): UnaryNode {
-    return {
-      kind: 'unary',
-      operator,
-      operand,
-      location: location ?? loc(),
-    };
+    return { kind: 'unary', operator, operand, location };
   },
 
   /**
    * Creates a binary operation node.
-   * @example expr.binary('+', expr.pathFrom('a'), expr.pathFrom('b'))
+   * @example expr.binary('+', left, right, span)
    */
   binary(
     operator: BinaryOperator,
     left: ExprAst,
     right: ExprAst,
-    location?: SourceLocation
+    location: SourceLocation
   ): BinaryNode {
-    return {
-      kind: 'binary',
-      operator,
-      left,
-      right,
-      location: location ?? loc(),
-    };
+    return { kind: 'binary', operator, left, right, location };
   },
 
   /**
    * Creates a ternary expression node.
-   * @example expr.ternary(condition, expr.literal('yes'), expr.literal('no'))
+   * @example expr.ternary(condition, truthy, falsy, span)
    */
   ternary(
     condition: ExprAst,
     truthy: ExprAst,
     falsy: ExprAst,
-    location?: SourceLocation
+    location: SourceLocation
   ): TernaryNode {
-    return {
-      kind: 'ternary',
-      condition,
-      truthy,
-      falsy,
-      location: location ?? loc(),
-    };
+    return { kind: 'ternary', condition, truthy, falsy, location };
   },
 
   /**
    * Creates a function call node.
-   * @example expr.call('sum', [expr.pathFrom('items')])
-   * @example expr.call('formatCurrency', [expr.literal(100)])
+   * @example expr.call('sum', [items], span)
    */
-  call(
-    callee: string,
-    args: ExprAst[] = [],
-    location?: SourceLocation
-  ): CallNode {
-    return {
-      kind: 'call',
-      callee,
-      args,
-      location: location ?? loc(),
-    };
+  call(callee: string, args: ExprAst[], location: SourceLocation): CallNode {
+    return { kind: 'call', callee, args, location };
   },
 
   /**
    * Creates an array wildcard node.
-   * @example expr.wildcard(expr.pathFrom('items[*].price'))
+   * @example expr.wildcard(expr.pathFrom('items[*].price', span), span)
    */
-  wildcard(pathNode: PathNode, location?: SourceLocation): ArrayWildcardNode {
-    return {
-      kind: 'wildcard',
-      path: pathNode,
-      location: location ?? loc(),
-    };
+  wildcard(pathNode: PathNode, location: SourceLocation): ArrayWildcardNode {
+    return { kind: 'wildcard', path: pathNode, location };
   },
 
   /**
    * Creates an array literal node.
-   * @example expr.array([expr.literal(1), expr.literal(2)])
-   * @example expr.array([]) // empty array
+   * @example expr.array([one, two], span)
    */
-  array(elements: ExprAst[] = [], location?: SourceLocation): ArrayNode {
-    return {
-      kind: 'array',
-      elements,
-      location: location ?? loc(),
-    };
+  array(elements: ExprAst[], location: SourceLocation): ArrayNode {
+    return { kind: 'array', elements, location };
   },
 
   /**
    * Creates a member access node.
-   * @example expr.member(callNode, [path.index(0)]) // foo()[0]
-   * @example expr.member(callNode, [path.star(), path.key('bar')], true) // foo()[*].bar
+   * @example expr.member(callNode, [path.index(0)], false, span) // foo()[0]
+   * @example expr.member(callNode, [path.star(), path.key('bar')], true, span)
    */
   member(
     object: ExprAst,
     pathSegments: PathItem[],
-    hasWildcard = false,
-    location?: SourceLocation
+    hasWildcard: boolean,
+    location: SourceLocation
   ): MemberAccessNode {
     return {
       kind: 'member',
       object,
       path: pathSegments,
       hasWildcard,
-      location: location ?? loc(),
+      location,
     };
+  },
+
+  /**
+   * Creates a function expression - the value half of `@let f = (x) => ...`.
+   * @example expr.fn(['x', 'y'], body, span)
+   */
+  fn(params: string[], body: ExprAst, location: SourceLocation): FunctionExpr {
+    return { kind: 'function', params, body, location };
   },
 };
 
 // =============================================================================
-// Template Node Builders
+// Text Segments
+// =============================================================================
+
+/** The expression half of {@link TextSegment}, named so builders can share it. */
+type ExprTextSegment = Extract<TextSegment, { kind: 'expr' }>;
+
+export const seg = {
+  /**
+   * Creates a literal text segment.
+   */
+  literal(text: string, location: SourceLocation): TextSegment {
+    return { kind: 'literal', text, location };
+  },
+
+  /**
+   * Creates an escaped expression text segment - `$name` or `${expr}`.
+   */
+  expr(exprAst: ExprAst, location: SourceLocation): ExprTextSegment {
+    return { kind: 'expr', expr: exprAst, location };
+  },
+
+  /**
+   * Creates a raw expression text segment - `$!name` or `$!{expr}`.
+   *
+   * `unsafe` is the author's explicit assertion that the value is already
+   * trusted HTML; nothing downstream escapes it. It is the same segment as
+   * {@link seg.expr} plus that assertion, and is built from it so the two
+   * cannot drift apart.
+   */
+  unsafeExpr(exprAst: ExprAst, location: SourceLocation): ExprTextSegment {
+    return { ...seg.expr(exprAst, location), unsafe: true };
+  },
+};
+
+// =============================================================================
+// Attributes
+// =============================================================================
+
+export const attr = {
+  /**
+   * Creates a static attribute.
+   *
+   * A whole attribute is one segment plus a name - `StaticAttributeNode`
+   * *extends* `StaticAttributeValue` - so it is built from the segment builder
+   * rather than repeating its shape.
+   *
+   * @example attr.static('class', 'container', span)
+   */
+  static(
+    name: string,
+    value: string,
+    location: SourceLocation
+  ): StaticAttributeNode {
+    return { ...attr.staticValue(value, location), name };
+  },
+
+  /**
+   * Creates a dynamic expression attribute.
+   * @example attr.expr('disabled', notValid, span)
+   */
+  expr(
+    name: string,
+    exprAst: ExprAst,
+    location: SourceLocation
+  ): ExprAttributeNode {
+    return { ...attr.exprValue(exprAst, location), name };
+  },
+
+  /**
+   * Creates a mixed attribute (static + expression segments).
+   * @example attr.mixed('class', [attr.staticValue('status-', s), attr.exprValue(e, s)], span)
+   */
+  mixed(
+    name: string,
+    segments: (StaticAttributeValue | ExprAttributeValue)[],
+    location: SourceLocation
+  ): MixedAttributeNode {
+    return { kind: 'mixed', name, segments, location };
+  },
+
+  /**
+   * Creates an event binding.
+   * @example attr.event('on:click', 'click', handler, span)
+   */
+  event(
+    name: string,
+    event: string,
+    exprAst: ExprAst,
+    location: SourceLocation
+  ): EventAttributeNode {
+    return { kind: 'event', name, event, expr: exprAst, location };
+  },
+
+  /**
+   * Creates a static value segment, for use inside {@link attr.mixed}.
+   */
+  staticValue(value: string, location: SourceLocation): StaticAttributeValue {
+    return { kind: 'static', value, location };
+  },
+
+  /**
+   * Creates an expression value segment, for use inside {@link attr.mixed}.
+   */
+  exprValue(exprAst: ExprAst, location: SourceLocation): ExprAttributeValue {
+    return { kind: 'expr', expr: exprAst, location };
+  },
+};
+
+// =============================================================================
+// Match Cases
+// =============================================================================
+
+export const match = {
+  /**
+   * Creates a literal match case.
+   * @example match.literal(['paid', 'completed'], body, span)
+   */
+  literal(
+    values: (string | number | boolean)[],
+    body: TemplateNode[],
+    location: SourceLocation
+  ): MatchLiteralCase {
+    return { kind: 'literal', values, body, location };
+  },
+
+  /**
+   * Creates an expression match case.
+   * @example match.expression(condition, body, span)
+   */
+  expression(
+    condition: ExprAst,
+    body: TemplateNode[],
+    location: SourceLocation
+  ): MatchExpressionCase {
+    return { kind: 'expression', condition, body, location };
+  },
+};
+
+// =============================================================================
+// Template Nodes
 // =============================================================================
 
 export const node = {
   /**
-   * Creates a text node with literal and/or expression segments.
-   * @example node.text([seg.literal('Hello')])
-   * @example node.text([seg.literal('Total: '), seg.expr(expr.pathFrom('total'))])
+   * Creates a text node from literal and/or expression segments.
+   * @example node.text([seg.literal('Hello', s)], span)
    */
-  text(segments: TextSegment[], location?: SourceLocation): TextNode {
-    return {
-      kind: 'text',
-      segments,
-      location: location ?? loc(),
-    };
+  text(segments: TextSegment[], location: SourceLocation): TextNode {
+    return { kind: 'text', segments, location };
   },
 
   /**
-   * Creates a text node from a plain string.
-   * @example node.textLiteral('Hello, world!')
+   * Creates a text node holding one literal string.
+   * @example node.textLiteral('Hello, world!', span)
    */
-  textLiteral(text: string, location?: SourceLocation): TextNode {
+  textLiteral(text: string, location: SourceLocation): TextNode {
     return node.text([seg.literal(text, location)], location);
   },
 
   /**
    * Creates an HTML element node.
-   * @example node.element({ tag: 'div', attributes: [attr.static('class', 'foo')] })
+   * @example node.element({ tag: 'div', attributes: [...], location: span })
    */
   element(opts: {
     tag: string;
     attributes?: AttributeNode[];
     children?: TemplateNode[];
-    location?: SourceLocation;
+    location: SourceLocation;
     metadata?: PathMetadata;
   }): ElementNode {
     return {
@@ -393,47 +551,44 @@ export const node = {
       tag: opts.tag,
       attributes: opts.attributes ?? [],
       children: opts.children ?? [],
-      location: opts.location ?? loc(),
+      location: opts.location,
       metadata: opts.metadata,
     };
   },
 
   /**
    * Creates an if/else if/else node.
-   * @example node.ifNode({ branches: [{ condition: expr.pathFrom('isValid'), body: [...] }] })
+   *
+   * Every branch carries its own span, because an `@else if` diagnostic that
+   * pointed at the opening `@if` sent the reader to the wrong line.
+   *
+   * @example node.ifNode({ branches: [{ condition, body, location: s }], location: span })
    */
   ifNode(opts: {
-    branches: Array<{
-      condition: ExprAst;
-      body: TemplateNode[];
-      location?: SourceLocation;
-    }>;
+    branches: IfBranch[];
     elseBranch?: TemplateNode[];
-    location?: SourceLocation;
+    location: SourceLocation;
   }): IfNode {
     return {
       kind: 'if',
-      branches: opts.branches.map(b => ({
-        condition: b.condition,
-        body: b.body,
-        location: b.location ?? loc(),
-      })),
+      branches: opts.branches,
       elseBranch: opts.elseBranch,
-      location: opts.location ?? loc(),
+      location: opts.location,
     };
   },
 
   /**
    * Creates a for loop node.
-   * @example node.forLoop({ itemVar: 'item', itemsExpr: expr.pathFrom('items'), body: [...] })
+   * @example node.forLoop({ itemVar: 'item', itemsExpr: items, body, location: span })
    */
   forLoop(opts: {
     itemVar: string;
     itemsExpr: ExprAst;
     indexVar?: string;
     iterationType?: 'of' | 'in';
+    key?: ExprAst;
     body: TemplateNode[];
-    location?: SourceLocation;
+    location: SourceLocation;
   }): ForNode {
     return {
       kind: 'for',
@@ -441,392 +596,234 @@ export const node = {
       itemsExpr: opts.itemsExpr,
       indexVar: opts.indexVar,
       iterationType: opts.iterationType ?? 'of',
+      key: opts.key,
       body: opts.body,
-      location: opts.location ?? loc(),
+      location: opts.location,
     };
   },
 
   /**
-   * Creates a match/switch node.
-   * @example node.match({ value: expr.pathFrom('status'), cases: [...] })
+   * Creates a match node.
+   * @example node.match({ value: status, cases: [...], location: span })
    */
   match(opts: {
     value: ExprAst;
     cases: MatchCase[];
     defaultCase?: TemplateNode[];
-    location?: SourceLocation;
+    location: SourceLocation;
   }): MatchNode {
     return {
       kind: 'match',
       value: opts.value,
       cases: opts.cases,
       defaultCase: opts.defaultCase,
-      location: opts.location ?? loc(),
+      location: opts.location,
     };
   },
 
   /**
    * Creates a let/variable declaration node.
-   * @example node.letNode({ name: 'x', value: expr.literal(10) })
+   * @example node.letNode({ name: 'x', value: ten, location: span })
    */
   letNode(opts: {
     name: string;
     value: ExprAst | FunctionExpr;
     isGlobal?: boolean;
-    location?: SourceLocation;
+    location: SourceLocation;
   }): LetNode {
     return {
       kind: 'let',
       name: opts.name,
       isGlobal: opts.isGlobal ?? false,
       value: opts.value,
-      location: opts.location ?? loc(),
+      location: opts.location,
     };
   },
 
   /**
-   * Creates a function expression.
-   * @example node.fn({ params: ['x', 'y'], body: expr.binary('+', ...) })
+   * Creates a `@props` declaration node.
+   * @example node.props({ props: [comp.prop({ name: 'label', location: s })], location: span })
    */
-  fn(opts: {
-    params: string[];
-    body: ExprAst;
-    location?: SourceLocation;
-  }): FunctionExpr {
-    return {
-      kind: 'function',
-      params: opts.params,
-      body: opts.body,
-      location: opts.location ?? loc(),
-    };
+  props(opts: {
+    props: readonly PropDeclaration[];
+    location: SourceLocation;
+  }): PropsNode {
+    return { kind: 'props', props: opts.props, location: opts.location };
   },
 
   /**
    * Creates a component instance node.
-   * @example node.component({ name: 'Card', props: [...], children: [...] })
+   * @example node.component({ name: 'Card', props: [...], location: span })
    */
   component(opts: {
     name: string;
-    props?: Array<{
-      name: string;
-      value: ExprAst;
-      location?: SourceLocation;
-    }>;
+    props?: readonly ComponentProp[];
     children?: TemplateNode[];
-    location?: SourceLocation;
+    location: SourceLocation;
   }): ComponentNode {
     return {
       kind: 'component',
       name: opts.name,
-      props:
-        opts.props?.map(p => ({
-          name: p.name,
-          value: p.value,
-          location: p.location ?? loc(),
-        })) ?? [],
+      props: opts.props ?? [],
       children: opts.children ?? [],
-      location: opts.location ?? loc(),
+      location: opts.location,
     };
+  },
+
+  /**
+   * Creates one `name=value` prop on a component call.
+   * @example node.componentProp('title', titleExpr, span)
+   */
+  componentProp(
+    name: string,
+    value: ExprAst,
+    location: SourceLocation
+  ): ComponentProp {
+    return { name, value, location };
   },
 
   /**
    * Creates a fragment node.
-   * @example node.fragment([...children])
+   * @example node.fragment(children, span)
    */
-  fragment(children: TemplateNode[], location?: SourceLocation): FragmentNode {
-    return {
-      kind: 'fragment',
-      children,
-      preserveWhitespace: true,
-      location: location ?? loc(),
-    };
+  fragment(children: TemplateNode[], location: SourceLocation): FragmentNode {
+    return { kind: 'fragment', children, location };
   },
 
   /**
    * Creates a slot node.
-   * @example node.slot({ name: 'header', fallback: [...] })
+   * @example node.slot({ name: 'header', fallback: [...], location: span })
    */
-  slot(opts?: {
+  slot(opts: {
     name?: string;
     fallback?: TemplateNode[];
-    location?: SourceLocation;
+    location: SourceLocation;
   }): SlotNode {
     return {
       kind: 'slot',
-      name: opts?.name,
-      fallback: opts?.fallback,
-      location: opts?.location ?? loc(),
+      name: opts.name,
+      fallback: opts.fallback,
+      location: opts.location,
+    };
+  },
+
+  /**
+   * Creates a slot fill node.
+   * @example node.slotFill({ name: 'header', children: [...], location: span })
+   */
+  slotFill(opts: {
+    name: string;
+    children?: TemplateNode[];
+    location: SourceLocation;
+  }): SlotFillNode {
+    return {
+      kind: 'slot-fill',
+      name: opts.name,
+      children: opts.children ?? [],
+      location: opts.location,
     };
   },
 
   /**
    * Creates a comment node.
-   * @example node.comment({ style: 'line', text: 'This is a comment' })
+   * @example node.comment({ style: 'line', text: 'note', location: span })
    */
   comment(opts: {
     style: 'line' | 'block' | 'html';
     text: string;
-    location?: SourceLocation;
+    location: SourceLocation;
   }): CommentNode {
     return {
       kind: 'comment',
       style: opts.style,
       text: opts.text,
-      location: opts.location ?? loc(),
+      location: opts.location,
     };
   },
 
   /**
    * Creates a DOCTYPE declaration node.
-   * @example node.doctype({ value: 'html' })
+   * @example node.doctype({ value: 'html', location: span })
    */
-  doctype(opts: { value: string; location?: SourceLocation }): DoctypeNode {
-    return {
-      kind: 'doctype',
-      value: opts.value,
-      location: opts.location ?? loc(),
-    };
+  doctype(opts: { value: string; location: SourceLocation }): DoctypeNode {
+    return { kind: 'doctype', value: opts.value, location: opts.location };
   },
 };
 
 // =============================================================================
-// Text Segment Helpers
-// =============================================================================
-
-export const seg = {
-  /**
-   * Creates a literal text segment.
-   */
-  literal(text: string, location?: SourceLocation): TextSegment {
-    return {
-      kind: 'literal',
-      text,
-      location: location ?? loc(),
-    };
-  },
-
-  /**
-   * Creates an expression text segment.
-   */
-  expr(exprAst: ExprAst, location?: SourceLocation): TextSegment {
-    return {
-      kind: 'expr',
-      expr: exprAst,
-      location: location ?? loc(),
-    };
-  },
-
-  /**
-   * Creates an unsafe (unescaped) expression text segment.
-   */
-  unsafeExpr(exprAst: ExprAst, location?: SourceLocation): TextSegment {
-    return {
-      kind: 'expr',
-      expr: exprAst,
-      unsafe: true,
-      location: location ?? loc(),
-    };
-  },
-};
-
-// =============================================================================
-// Attribute Helpers
-// =============================================================================
-
-export const attr = {
-  /**
-   * Creates a static attribute.
-   * @example attr.static('class', 'container')
-   */
-  static(
-    name: string,
-    value: string,
-    location?: SourceLocation
-  ): StaticAttributeNode {
-    return {
-      kind: 'static',
-      name,
-      value,
-      location: location ?? loc(),
-    };
-  },
-
-  /**
-   * Creates a dynamic expression attribute.
-   * @example attr.expr('disabled', expr.unary('!', expr.pathFrom('isValid')))
-   */
-  expr(
-    name: string,
-    exprAst: ExprAst,
-    location?: SourceLocation
-  ): ExprAttributeNode {
-    return {
-      kind: 'expr',
-      name,
-      expr: exprAst,
-      location: location ?? loc(),
-    };
-  },
-
-  /**
-   * Creates a mixed attribute (static + expression segments).
-   * @example attr.mixed('class', [{ kind: 'static', value: 'status-' }, { kind: 'expr', expr: ... }])
-   */
-  mixed(
-    name: string,
-    segments: (StaticAttributeValue | ExprAttributeValue)[],
-    location?: SourceLocation
-  ): MixedAttributeNode {
-    return {
-      kind: 'mixed',
-      name,
-      segments,
-      location: location ?? loc(),
-    };
-  },
-
-  /**
-   * Creates a static attribute value segment (for use in mixed attributes).
-   */
-  staticValue(value: string, location?: SourceLocation): StaticAttributeValue {
-    return {
-      kind: 'static',
-      value,
-      location: location ?? loc(),
-    };
-  },
-
-  /**
-   * Creates an expression attribute value segment (for use in mixed attributes).
-   */
-  exprValue(exprAst: ExprAst, location?: SourceLocation): ExprAttributeValue {
-    return {
-      kind: 'expr',
-      expr: exprAst,
-      location: location ?? loc(),
-    };
-  },
-};
-
-// =============================================================================
-// Match Case Helpers
-// =============================================================================
-
-export const match = {
-  /**
-   * Creates a literal match case.
-   * @example match.literal(['paid', 'completed'], [...body])
-   */
-  literal(
-    values: (string | number | boolean)[],
-    body: TemplateNode[],
-    location?: SourceLocation
-  ): MatchLiteralCase {
-    return {
-      kind: 'literal',
-      values,
-      body,
-      location: location ?? loc(),
-    };
-  },
-
-  /**
-   * Creates an expression match case.
-   * @example match.expression(expr.call('startsWith', [expr.pathFrom('_'), expr.literal('error')]), [...body])
-   */
-  expression(
-    condition: ExprAst,
-    body: TemplateNode[],
-    location?: SourceLocation
-  ): MatchExpressionCase {
-    return {
-      kind: 'expression',
-      condition,
-      body,
-      location: location ?? loc(),
-    };
-  },
-};
-
-// =============================================================================
-// Component Definition Helpers
+// Component Definitions
 // =============================================================================
 
 export const comp = {
   /**
    * Creates a component definition.
-   * @example comp.define({ name: 'Card', props: [...], body: [...] })
+   * @example comp.define({ name: 'Card', props: [...], body: [...], location: span })
    */
   define(opts: {
     name: string;
-    props?: Array<{
-      name: string;
-      required?: boolean;
-      defaultValue?: ExprAst | string;
-      location?: SourceLocation;
-    }>;
+    props?: readonly PropDeclaration[];
     body: TemplateNode[];
-    location?: SourceLocation;
+    location: SourceLocation;
   }): ComponentDefinition {
     return {
       name: opts.name,
-      props:
-        opts.props?.map(p => ({
-          name: p.name,
-          required: p.required ?? false,
-          defaultValue: p.defaultValue,
-          location: p.location ?? loc(),
-        })) ?? [],
+      props: opts.props ?? [],
       body: opts.body,
-      location: opts.location ?? loc(),
+      location: opts.location,
     };
   },
 
   /**
-   * Creates a prop definition.
-   * @example comp.prop({ name: 'title', required: true })
+   * Creates a prop declaration.
+   *
+   * The one constructor for the one prop shape: `<template:Card title!>` and
+   * `@props($title)` produce the same thing.
+   *
+   * @example comp.prop({ name: 'title', required: true, location: span })
    */
   prop(opts: {
     name: string;
     required?: boolean;
-    defaultValue?: ExprAst | string;
-    location?: SourceLocation;
-  }): PropDefinition {
+    defaultValue?: ExprAst;
+    location: SourceLocation;
+  }): PropDeclaration {
     return {
       name: opts.name,
       required: opts.required ?? false,
       defaultValue: opts.defaultValue,
-      location: opts.location ?? loc(),
+      location: opts.location,
     };
   },
 };
 
 // =============================================================================
-// Root & Compilation Helpers
+// Roots and Compilation Results
 // =============================================================================
 
 export const root = {
   /**
    * Creates a root node.
-   * @example root.node({ children: [...], components: new Map() })
+   * @example root.node({ children, location: span })
    */
   node(opts: {
     children: TemplateNode[];
     components?: ReadonlyMap<string, ComponentDefinition>;
+    props?: readonly PropDeclaration[];
     metadata?: TemplateMetadata;
-    location?: SourceLocation;
+    location: SourceLocation;
   }): RootNode {
     return {
       kind: 'root',
       children: opts.children,
       components: opts.components ?? new Map(),
+      props: opts.props ?? [],
       metadata: opts.metadata ?? root.metadata(),
-      location: opts.location ?? loc(),
+      location: opts.location,
     };
   },
 
   /**
-   * Creates empty template metadata.
+   * Creates template metadata, empty by default.
    */
   metadata(opts?: {
     globalsUsed?: string[];
@@ -843,21 +840,33 @@ export const root = {
   },
 
   /**
-   * Creates a compiled template.
+   * Creates a template that compiled with no errors.
    */
-  compiled(opts: {
-    root: RootNode;
-    diagnostics?: Diagnostic[];
-  }): CompiledTemplate {
+  valid(opts: { root: RootNode; diagnostics?: Diagnostic[] }): ValidTemplate {
     return {
+      kind: 'valid',
       root: opts.root,
       diagnostics: opts.diagnostics ?? [],
+    };
+  },
+
+  /**
+   * Creates the partial result of a template that failed to compile.
+   */
+  partial(opts: {
+    root: RootNode;
+    diagnostics: readonly Diagnostic[];
+  }): PartialTemplate {
+    return {
+      kind: 'partial',
+      root: opts.root,
+      diagnostics: opts.diagnostics,
     };
   },
 };
 
 // =============================================================================
-// Diagnostic Helpers
+// Diagnostics
 // =============================================================================
 
 export const diag = {
@@ -866,13 +875,13 @@ export const diag = {
    */
   error(opts: {
     message: string;
-    location?: SourceLocation;
+    location: SourceLocation;
     code?: string;
   }): Diagnostic {
     return {
       level: 'error',
       message: opts.message,
-      location: opts.location ?? loc(),
+      location: opts.location,
       code: opts.code,
     };
   },
@@ -882,313 +891,14 @@ export const diag = {
    */
   warning(opts: {
     message: string;
-    location?: SourceLocation;
+    location: SourceLocation;
     code?: string;
   }): Diagnostic {
     return {
       level: 'warning',
       message: opts.message,
-      location: opts.location ?? loc(),
+      location: opts.location,
       code: opts.code,
     };
   },
 };
-
-// =============================================================================
-// Convenience Aliases for Parser
-// =============================================================================
-
-export const element = {
-  node: node.element,
-};
-export const component = {
-  node: node.component,
-};
-export const slot = {
-  node: node.slot,
-};
-export const comment = {
-  node: node.comment,
-};
-export const doctype = {
-  node: node.doctype,
-};
-export const text = {
-  node: (opts: { segments: TextSegment[]; location?: SourceLocation }) =>
-    node.text(opts.segments, opts.location),
-  literalSegment: seg.literal,
-  exprSegment: seg.expr,
-  unsafeExprSegment: seg.unsafeExpr,
-};
-export const ifNode = {
-  node: (opts: {
-    condition?: ExprAst;
-    then?: TemplateNode[];
-    else?: TemplateNode[] | null;
-    branches?: Array<{
-      condition: ExprAst;
-      body: TemplateNode[];
-      location?: SourceLocation;
-    }>;
-    elseBranch?: TemplateNode[];
-    location?: SourceLocation;
-  }) => {
-    // Support both simple (condition/then/else) and branch-based syntax
-    if (opts.condition && opts.then) {
-      return node.ifNode({
-        branches: [{ condition: opts.condition, body: opts.then }],
-        elseBranch: opts.else ?? undefined,
-        location: opts.location,
-      });
-    }
-    return node.ifNode({
-      branches: opts.branches ?? [],
-      elseBranch: opts.elseBranch,
-      location: opts.location,
-    });
-  },
-};
-export const forNode = {
-  node: (opts: {
-    item: string;
-    index?: string;
-    iterable: ExprAst;
-    body: TemplateNode[];
-    iterationType?: 'of' | 'in';
-    location?: SourceLocation;
-  }) =>
-    node.forLoop({
-      itemVar: opts.item,
-      itemsExpr: opts.iterable,
-      indexVar: opts.index,
-      iterationType: opts.iterationType,
-      body: opts.body,
-      location: opts.location,
-    }),
-};
-export const matchNode = {
-  node: node.match,
-  literalCase: (opts: {
-    values: (string | number | boolean)[];
-    body: TemplateNode[];
-    location?: SourceLocation;
-  }) => match.literal(opts.values, opts.body, opts.location),
-  expressionCase: (opts: {
-    condition: ExprAst;
-    body: TemplateNode[];
-    location?: SourceLocation;
-  }) => match.expression(opts.condition, opts.body, opts.location),
-};
-export const letNode = {
-  node: node.letNode,
-};
-export const fragment = {
-  node: (opts: {
-    children: TemplateNode[];
-    preserveWhitespace?: boolean;
-    location?: SourceLocation;
-  }) => node.fragment(opts.children, opts.location),
-};
-export const attribute = {
-  static: (opts: { name: string; value: string; location?: SourceLocation }) =>
-    attr.static(opts.name, opts.value, opts.location),
-  expr: (opts: { name: string; expr: ExprAst; location?: SourceLocation }) =>
-    attr.expr(opts.name, opts.expr, opts.location),
-  mixed: (opts: {
-    name: string;
-    segments: (StaticAttributeValue | ExprAttributeValue)[];
-    location?: SourceLocation;
-  }) => attr.mixed(opts.name, opts.segments, opts.location),
-  staticValue: attr.staticValue,
-  exprValue: attr.exprValue,
-};
-
-/**
- * Creates a source location from start and end positions.
- * Used by expression parser for token-based location tracking.
- */
-export function location(
-  start: { line: number; column: number; offset: number },
-  end: { line: number; column: number; offset: number }
-): SourceLocation {
-  return {
-    start,
-    end,
-  };
-}
-
-// =============================================================================
-// Expression Parser Compatibility Exports
-// =============================================================================
-// These exports provide the exact signatures expected by the expression parser
-
-/**
- * Creates a literal node with explicit type and location.
- */
-export function literal(
-  value: string | number | boolean | null | undefined,
-  type: LiteralType,
-  location?: SourceLocation
-): LiteralNode {
-  return {
-    kind: 'literal',
-    type,
-    value,
-    location: location ?? loc(),
-  };
-}
-
-/**
- * Creates a path node with explicit isGlobal and location.
- * Note: The expression parser calls this as `ast.path(segments, isGlobal, location)`
- * We export it directly - not as an alias since `path` is already exported as an object.
- */
-export function exprPath(
-  segments: PathItem[],
-  isGlobal: boolean,
-  location?: SourceLocation
-): PathNode {
-  return {
-    kind: 'path',
-    segments,
-    isGlobal,
-    location: location ?? loc(),
-  };
-}
-
-/**
- * Creates a key path item with location.
- */
-export function pathKey(key: string): KeyPathItem {
-  return { kind: 'key', key };
-}
-
-/**
- * Creates an index path item with location.
- */
-export function pathIndex(index: number): IndexPathItem {
-  return { kind: 'index', index };
-}
-
-/**
- * Creates a star (wildcard) path item with location.
- */
-export function pathStar(): StarPathItem {
-  return { kind: 'star' };
-}
-
-/**
- * Creates a unary operation node.
- */
-export function unary(
-  operator: '!' | '-',
-  operand: ExprAst,
-  location?: SourceLocation
-): UnaryNode {
-  return {
-    kind: 'unary',
-    operator,
-    operand,
-    location: location ?? loc(),
-  };
-}
-
-/**
- * Creates a binary operation node.
- */
-export function binary(
-  operator: BinaryOperator,
-  left: ExprAst,
-  right: ExprAst,
-  location?: SourceLocation
-): BinaryNode {
-  return {
-    kind: 'binary',
-    operator,
-    left,
-    right,
-    location: location ?? loc(),
-  };
-}
-
-/**
- * Creates a ternary expression node.
- */
-export function ternary(
-  condition: ExprAst,
-  truthy: ExprAst,
-  falsy: ExprAst,
-  location?: SourceLocation
-): TernaryNode {
-  return {
-    kind: 'ternary',
-    condition,
-    truthy,
-    falsy,
-    location: location ?? loc(),
-  };
-}
-
-/**
- * Creates a function call node.
- */
-export function call(
-  callee: string,
-  args: ExprAst[],
-  location?: SourceLocation
-): CallNode {
-  return {
-    kind: 'call',
-    callee,
-    args,
-    location: location ?? loc(),
-  };
-}
-
-/**
- * Creates a function expression node (for arrow functions).
- */
-export function functionExpr(
-  params: string[],
-  body: ExprAst,
-  location?: SourceLocation
-): FunctionExpr {
-  return {
-    kind: 'function',
-    params,
-    body,
-    location: location ?? loc(),
-  };
-}
-
-/**
- * Creates an array literal node.
- */
-export function arrayLiteral(
-  elements: ExprAst[],
-  location?: SourceLocation
-): ArrayNode {
-  return {
-    kind: 'array',
-    elements,
-    location: location ?? loc(),
-  };
-}
-
-/**
- * Creates a member access node.
- */
-export function memberAccess(
-  object: ExprAst,
-  pathSegments: PathItem[],
-  hasWildcard: boolean,
-  location?: SourceLocation
-): MemberAccessNode {
-  return {
-    kind: 'member',
-    object,
-    path: pathSegments,
-    hasWildcard,
-    location: location ?? loc(),
-  };
-}

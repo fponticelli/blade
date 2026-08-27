@@ -1,10 +1,18 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    "tsconfig.base.json",
+    "eslint.config.js",
+    ".prettierrc",
+    "packages/blade-corpus/src/**",
+    "packages/blade-corpus/fixtures/**",
+    "scripts/api-surface.mjs"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["src/**", "package.json", "tsconfig.json", "vite.config.ts"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", "out/**"]
     },
     "dev": {
       "cache": false,
@@ -12,7 +20,13 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "tests/**"],
+      "inputs": [
+        "src/**",
+        "tests/**",
+        "package.json",
+        "vite.config.ts",
+        "vitest.config.ts"
+      ],
       "outputs": []
     },
     "test:ui": {
@@ -21,26 +35,41 @@
     },
     "test:coverage": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "tests/**"],
+      "inputs": [
+        "src/**",
+        "tests/**",
+        "package.json",
+        "vite.config.ts",
+        "vitest.config.ts"
+      ],
       "outputs": ["coverage/**"]
     },
     "lint": {
-      "inputs": ["src/**", "tests/**", "eslint.config.js"],
+      "inputs": ["src/**", "tests/**", "package.json"],
       "outputs": []
     },
     "lint:fix": {
-      "inputs": ["src/**", "tests/**", "eslint.config.js"],
+      "cache": false,
       "outputs": []
     },
     "typecheck": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "tests/**", "tsconfig.json"],
+      "inputs": ["src/**", "package.json", "tsconfig.json"],
+      "outputs": []
+    },
+    "typecheck:tests": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "tests/**",
+        "package.json",
+        "tsconfig.json",
+        "tsconfig.test.json"
+      ],
       "outputs": []
     },
     "check": {
-      "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "tsconfig.json", "vite.config.ts"],
-      "outputs": ["dist/**"]
+      "dependsOn": ["lint", "typecheck", "typecheck:tests", "test", "build"]
     },
     "clean": {
       "cache": false

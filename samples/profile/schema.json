@@ -96,7 +96,7 @@
               "company": { "type": "string" },
               "role": { "type": "string" },
               "startDate": { "type": "string", "format": "date" },
-              "endDate": { "type": "string", "format": "date" },
+              "endDate": { "type": ["string", "null"], "format": "date" },
               "current": { "type": "boolean" },
               "description": { "type": "string" }
             }

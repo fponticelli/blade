@@ -1,44 +1,69 @@
+/**
+ * The string renderer, driven from real templates.
+ *
+ * This file used to build its input by hand: 140 uses of a
+ * `createMockTemplate()` helper and not one call to `compile()`. Every mock set
+ * `diagnostics: []` and an empty metadata block unconditionally, so no test
+ * here ever saw a diagnostic, and the parser-to-renderer seam was insulated
+ * from the entire suite. Two defects lived in exactly that gap - static
+ * attribute text escaped twice, and a `@let`-bound arrow function that was
+ * stored and never callable - and neither could be caught by a test whose AST
+ * came from the test.
+ *
+ * Everything below now compiles the template it is about, through
+ * {@link ./support/render-ok.js#renderOk}, which asserts the compile was clean
+ * before it renders. The handful of cases the parser genuinely CANNOT produce -
+ * a call to a component the compiler would have refused, a comment style no
+ * syntax creates - are built by hand under a section that says so.
+ *
+ * Node semantics shared by every sink are not re-asserted here: they belong to
+ * the conformance corpus (`tests/corpus-eager-sinks.test.ts`) and to
+ * `tests/renderer/traversal.test.ts`. What this file is about is the string
+ * renderer's own surface - its factories, its options, its context, its
+ * metadata and its errors.
+ */
+
 import { describe, it, expect } from 'vitest';
 import {
   RenderError,
   ResourceLimitError,
-  escapeHtml,
   createRenderContext,
-  createLoopScope,
-  createComponentScope,
-  addToScope,
   createStringRenderer,
   DEFAULT_RESOURCE_LIMITS,
   DEFAULT_RENDER_CONFIG,
+  EAGER,
+  constant,
   validateSourceTrackingPrefix,
-  getSourceAttributeName,
 } from '../src/renderer/index.js';
+import { sourceAttributeName } from '../src/source-tracking/index.js';
 import type {
   CompiledTemplate,
-  SourceLocation,
-  RootNode,
-  TemplateNode,
-  TextNode,
-  ElementNode,
-  IfNode,
-  ForNode,
-  MatchNode,
   ComponentDefinition,
-  ExprAst,
-  SlotNode,
+  RootNode,
+  SourceLocation,
+  TemplateNode,
 } from '../src/ast/types.js';
-import type { RenderOptions, ResourceLimits } from '../src/renderer/index.js';
+import type { Bindings } from '../src/evaluator/index.js';
+import { compileOk, htmlOk, renderOk } from './support/render-ok.js';
 
 // =============================================================================
-// Test Helpers
+// Synthetic trees
+//
+// Everything in this section is a tree the parser CANNOT produce, built by hand
+// because the code path under test is only reachable that way: the compiler
+// refuses an unknown component before a renderer ever sees one, and no syntax
+// produces a `line` or `block` comment node. Anything that a template can
+// express is compiled from a template instead - that is the point of the
+// rewrite, and this section is deliberately as small as it can be.
 // =============================================================================
 
-const mockLocation: SourceLocation = {
+const syntheticLocation: SourceLocation = {
   start: { line: 1, column: 1, offset: 0 },
   end: { line: 1, column: 10, offset: 9 },
 };
 
-function createMockTemplate(
+/** A compiled template made of nodes no parser would emit. */
+function syntheticTemplate(
   children: TemplateNode[] = [],
   components: Map<string, ComponentDefinition> = new Map()
 ): CompiledTemplate {
@@ -46,137 +71,42 @@ function createMockTemplate(
     kind: 'root',
     children,
     components,
+    props: [],
     metadata: {
       globalsUsed: new Set(),
       pathsAccessed: new Set(),
       helpersUsed: new Set(),
       componentsUsed: new Set(),
     },
-    location: mockLocation,
+    location: syntheticLocation,
   };
-
-  return {
-    root,
-    diagnostics: [],
-  };
-}
-
-// Helper to create a literal expression node
-function literal(value: string | number | boolean | null): ExprAst {
-  const type =
-    typeof value === 'string'
-      ? 'string'
-      : typeof value === 'number'
-        ? 'number'
-        : typeof value === 'boolean'
-          ? 'boolean'
-          : 'nil';
-  return {
-    kind: 'literal',
-    type,
-    value,
-    location: mockLocation,
-  };
-}
-
-// Helper to create a path expression node
-function path(...segments: string[]): ExprAst {
-  return {
-    kind: 'path',
-    segments: segments.map(key => ({ kind: 'key' as const, key })),
-    isGlobal: false,
-    location: mockLocation,
-  };
-}
-
-// Helper to create a binary expression node
-function binary(left: ExprAst, op: string, right: ExprAst): ExprAst {
-  return {
-    kind: 'binary',
-    operator: op as
-      | '+'
-      | '-'
-      | '*'
-      | '/'
-      | '=='
-      | '!='
-      | '<'
-      | '>'
-      | '<='
-      | '>='
-      | '&&'
-      | '||'
-      | '??'
-      | '%',
-    left,
-    right,
-    location: mockLocation,
-  };
-}
-
-// Helper to create a text node
-function text(
-  segments: Array<
-    | { kind: 'literal'; text: string }
-    | { kind: 'expr'; expr: ExprAst; unsafe?: boolean }
-  >
-): TextNode {
-  return {
-    kind: 'text',
-    segments: segments.map(s =>
-      s.kind === 'literal'
-        ? { kind: 'literal' as const, text: s.text, location: mockLocation }
-        : {
-            kind: 'expr' as const,
-            expr: s.expr,
-            ...(s.unsafe ? { unsafe: true as const } : {}),
-            location: mockLocation,
-          }
-    ),
-    location: mockLocation,
-  };
-}
-
-// Helper to create an element node
-function element(
-  tag: string,
-  attributes: ElementNode['attributes'] = [],
-  children: TemplateNode[] = []
-): ElementNode {
-  return {
-    kind: 'element',
-    tag,
-    attributes,
-    children,
-    location: mockLocation,
-  };
+  return { kind: 'valid', root, diagnostics: [] };
 }
 
 // =============================================================================
-// Phase 1: Setup Tests
+// Errors
 // =============================================================================
 
-describe('Renderer Setup', () => {
+describe('render errors', () => {
   describe('RenderError', () => {
-    it('should create error with message, location, and code', () => {
+    it('carries its message, location and code', () => {
       const error = new RenderError(
-        'Test error message',
-        mockLocation,
+        'Something went wrong',
+        syntheticLocation,
         'RENDER_FAILED'
       );
 
-      expect(error.message).toBe('Test error message');
-      expect(error.location).toEqual(mockLocation);
+      expect(error.message).toBe('Something went wrong');
+      expect(error.location).toEqual(syntheticLocation);
       expect(error.code).toBe('RENDER_FAILED');
       expect(error.name).toBe('RenderError');
-      expect(error instanceof Error).toBe(true);
     });
 
-    it('should create error with optional cause', () => {
-      const cause = new Error('Original error');
+    it('carries the error it wraps', () => {
+      const cause = new Error('original');
       const error = new RenderError(
-        'Wrapped error',
-        mockLocation,
+        'Wrapped',
+        syntheticLocation,
         'RENDER_FAILED',
         cause
       );
@@ -184,1566 +114,672 @@ describe('Renderer Setup', () => {
       expect(error.cause).toBe(cause);
     });
 
-    it('should support all error codes', () => {
+    it('accepts every code it declares', () => {
       const codes = [
         'LOOP_NESTING_EXCEEDED',
         'ITERATION_LIMIT_EXCEEDED',
         'COMPONENT_DEPTH_EXCEEDED',
+        'SLOT_DEPTH_EXCEEDED',
+        'OUTPUT_SIZE_EXCEEDED',
+        'RENDER_TIME_EXCEEDED',
         'UNKNOWN_COMPONENT',
         'RENDER_FAILED',
       ] as const;
 
       for (const code of codes) {
-        const error = new RenderError('Test', mockLocation, code);
-        expect(error.code).toBe(code);
+        expect(new RenderError('Test', syntheticLocation, code).code).toBe(
+          code
+        );
       }
     });
   });
 
   describe('ResourceLimitError', () => {
-    it('should create error for loop nesting limit', () => {
-      const error = new ResourceLimitError('loopNesting', 6, 5, mockLocation);
+    it('names the ceiling, the count and the maximum', () => {
+      const error = new ResourceLimitError(
+        'loopNesting',
+        6,
+        5,
+        syntheticLocation
+      );
 
-      expect(error.message).toBe('Loop nesting depth exceeded: 6 > 5');
-      expect(error.code).toBe('LOOP_NESTING_EXCEEDED');
       expect(error.limitType).toBe('loopNesting');
       expect(error.current).toBe(6);
       expect(error.max).toBe(5);
-      expect(error.name).toBe('ResourceLimitError');
-      expect(error instanceof RenderError).toBe(true);
+      expect(error.code).toBe('LOOP_NESTING_EXCEEDED');
+      expect(error.message).toContain('6 > 5');
     });
 
-    it('should create error for iteration limit', () => {
-      const error = new ResourceLimitError(
-        'iterations',
-        10001,
-        10000,
-        mockLocation
-      );
+    it('maps every ceiling to its own code', () => {
+      const codes = {
+        loopNesting: 'LOOP_NESTING_EXCEEDED',
+        iterations: 'ITERATION_LIMIT_EXCEEDED',
+        componentDepth: 'COMPONENT_DEPTH_EXCEEDED',
+        slotDepth: 'SLOT_DEPTH_EXCEEDED',
+        outputSize: 'OUTPUT_SIZE_EXCEEDED',
+        renderTime: 'RENDER_TIME_EXCEEDED',
+      } as const;
 
-      expect(error.message).toBe('Iteration limit exceeded: 10001 > 10000');
-      expect(error.code).toBe('ITERATION_LIMIT_EXCEEDED');
-      expect(error.limitType).toBe('iterations');
-    });
-
-    it('should create error for component depth limit', () => {
-      const error = new ResourceLimitError(
-        'componentDepth',
-        11,
-        10,
-        mockLocation
-      );
-
-      expect(error.message).toBe('Component nesting depth exceeded: 11 > 10');
-      expect(error.code).toBe('COMPONENT_DEPTH_EXCEEDED');
-      expect(error.limitType).toBe('componentDepth');
-    });
-  });
-
-  describe('escapeHtml', () => {
-    it('should escape ampersands', () => {
-      expect(escapeHtml('foo & bar')).toBe('foo &amp; bar');
-    });
-
-    it('should escape less than', () => {
-      expect(escapeHtml('<script>')).toBe('&lt;script&gt;');
-    });
-
-    it('should escape greater than', () => {
-      expect(escapeHtml('a > b')).toBe('a &gt; b');
-    });
-
-    it('should escape double quotes', () => {
-      expect(escapeHtml('say "hello"')).toBe('say &quot;hello&quot;');
-    });
-
-    it('should escape single quotes', () => {
-      expect(escapeHtml("it's")).toBe('it&#39;s');
-    });
-
-    it('should escape all special characters together', () => {
-      expect(escapeHtml('<script>alert("xss")</script>')).toBe(
-        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
-      );
-    });
-
-    it('should not modify strings without special characters', () => {
-      expect(escapeHtml('Hello World')).toBe('Hello World');
-    });
-
-    it('should handle empty string', () => {
-      expect(escapeHtml('')).toBe('');
-    });
-  });
-
-  describe('DEFAULT_RESOURCE_LIMITS', () => {
-    it('should have expected default values', () => {
-      expect(DEFAULT_RESOURCE_LIMITS.maxLoopNesting).toBe(5);
-      expect(DEFAULT_RESOURCE_LIMITS.maxIterationsPerLoop).toBe(1000);
-      expect(DEFAULT_RESOURCE_LIMITS.maxTotalIterations).toBe(10000);
-      expect(DEFAULT_RESOURCE_LIMITS.maxComponentDepth).toBe(10);
-    });
-  });
-
-  describe('DEFAULT_RENDER_CONFIG', () => {
-    it('should have expected default values', () => {
-      expect(DEFAULT_RENDER_CONFIG.htmlEscape).toBe(true);
-      expect(DEFAULT_RENDER_CONFIG.includeComments).toBe(false);
-      expect(DEFAULT_RENDER_CONFIG.includeSourceTracking).toBe(false);
-      expect(DEFAULT_RENDER_CONFIG.preserveWhitespace).toBe(false);
-      expect(DEFAULT_RENDER_CONFIG.sourceTrackingPrefix).toBe('rd-');
+      for (const [limit, code] of Object.entries(codes)) {
+        expect(
+          new ResourceLimitError(
+            limit as keyof typeof codes,
+            2,
+            1,
+            syntheticLocation
+          ).code
+        ).toBe(code);
+      }
     });
   });
 });
 
 // =============================================================================
-// Phase 2: Foundational Tests
+// Defaults
+//
+// Asserted by what they DO, not by what they say. A test that read
+// `DEFAULT_RESOURCE_LIMITS.maxIterationsPerLoop` back and compared it to 1000
+// passed for years while `maxExpressionNodes` sat beside it enforced by
+// nothing: restating a constant proves the constant exists, and nothing else.
 // =============================================================================
 
-describe('Render Context', () => {
-  describe('createRenderContext', () => {
-    it('should create context with default values', () => {
-      const template = createMockTemplate();
-      const data = { name: 'Alice' };
-
-      const context = createRenderContext(template, data);
-
-      expect(context.scope.data).toEqual(data);
-      expect(context.scope.locals).toEqual({});
-      expect(context.scope.globals).toEqual({});
-      expect(context.currentLoopNesting).toBe(0);
-      expect(context.componentDepth).toBe(0);
-      expect(context.stats.totalIterations).toBe(0);
-      expect(context.stats.maxComponentDepthReached).toBe(0);
-      expect(context.stats.pathsAccessed).toBeInstanceOf(Set);
-      expect(context.stats.helpersUsed).toBeInstanceOf(Set);
-    });
-
-    it('should apply custom globals', () => {
-      const template = createMockTemplate();
-      const context = createRenderContext(
-        template,
-        {},
-        {
-          globals: { currency: 'EUR' },
-        }
-      );
-
-      expect(context.scope.globals).toEqual({ currency: 'EUR' });
-    });
-
-    it('should apply custom helpers', () => {
-      const template = createMockTemplate();
-      const myHelper = () => () => 'result';
-      const context = createRenderContext(
-        template,
-        {},
-        {
-          helpers: { myHelper },
-        }
-      );
-
-      expect(context.helpers.myHelper).toBe(myHelper);
-    });
-
-    it('should merge render config with defaults', () => {
-      const template = createMockTemplate();
-      const context = createRenderContext(
-        template,
-        {},
-        {
-          config: { includeComments: true },
-        }
-      );
-
-      expect(context.renderConfig.includeComments).toBe(true);
-      expect(context.renderConfig.htmlEscape).toBe(true); // Default preserved
-    });
-
-    it('should merge resource limits with defaults', () => {
-      const template = createMockTemplate();
-      const context = createRenderContext(
-        template,
-        {},
-        {
-          limits: { maxLoopNesting: 10 },
-        }
-      );
-
-      expect(context.limits.maxLoopNesting).toBe(10);
-      expect(context.limits.maxTotalIterations).toBe(10000); // Default preserved
-    });
-  });
-
-  describe('createLoopScope', () => {
-    it('should create child scope with item variable', () => {
-      const parent = {
-        locals: { existing: 'value' },
-        data: { items: [1, 2, 3] },
-        globals: { global: 'var' },
-      };
-
-      const child = createLoopScope(parent, 'item', 42);
-
-      expect(child.locals.item).toBe(42);
-      expect(child.locals.existing).toBe('value');
-      expect(child.data).toBe(parent.data);
-      expect(child.globals).toBe(parent.globals);
-    });
-
-    it('should create child scope with item and index variables', () => {
-      const parent = {
-        locals: {},
-        data: {},
-        globals: {},
-      };
-
-      const child = createLoopScope(parent, 'item', 'value', 'index', 5);
-
-      expect(child.locals.item).toBe('value');
-      expect(child.locals.index).toBe(5);
-    });
-
-    it('should not mutate parent scope', () => {
-      const parent = {
-        locals: { a: 1 },
-        data: {},
-        globals: {},
-      };
-
-      createLoopScope(parent, 'b', 2);
-
-      expect(parent.locals).toEqual({ a: 1 });
-    });
-  });
-
-  describe('createComponentScope', () => {
-    it('should create isolated scope with props as data', () => {
-      const props = { title: 'Hello', count: 42 };
-      const globals = { currency: 'USD' };
-
-      const scope = createComponentScope(props, globals);
-
-      expect(scope.data).toBe(props);
-      expect(scope.globals).toBe(globals);
-      expect(scope.locals).toEqual({});
-    });
-
-    it('should not include parent scope variables', () => {
-      const props = { title: 'Test' };
-      const globals = {};
-
-      const scope = createComponentScope(props, globals);
-
-      // Only props should be accessible via data
-      expect(scope.data).toEqual({ title: 'Test' });
-    });
-  });
-
-  describe('addToScope', () => {
-    it('should add local variable', () => {
-      const scope = {
-        locals: { a: 1 },
-        data: {},
-        globals: {},
-      };
-
-      const newScope = addToScope(scope, 'b', 2, false);
-
-      expect(newScope.locals).toEqual({ a: 1, b: 2 });
-      expect(newScope.globals).toEqual({});
-    });
-
-    it('should add global variable', () => {
-      const scope = {
-        locals: {},
-        data: {},
-        globals: { x: 1 },
-      };
-
-      const newScope = addToScope(scope, 'y', 2, true);
-
-      expect(newScope.globals).toEqual({ x: 1, y: 2 });
-      expect(newScope.locals).toEqual({});
-    });
-
-    it('should not mutate original scope', () => {
-      const scope = {
-        locals: { a: 1 },
-        data: {},
-        globals: { x: 1 },
-      };
-
-      addToScope(scope, 'b', 2, false);
-      addToScope(scope, 'y', 2, true);
-
-      expect(scope.locals).toEqual({ a: 1 });
-      expect(scope.globals).toEqual({ x: 1 });
-    });
-  });
-});
-
-// =============================================================================
-// User Story 1: Render Static and Dynamic Content
-// =============================================================================
-
-describe('User Story 1 - Basic Rendering', () => {
-  describe('Text Rendering', () => {
-    it('should render literal text', () => {
-      const template = createMockTemplate([
-        text([{ kind: 'literal', text: 'Hello, World!' }]),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({});
-
-      expect(result.html).toBe('Hello, World!');
-    });
-
-    it('should render expression in text', () => {
-      const template = createMockTemplate([
-        text([
-          { kind: 'literal', text: 'Hello, ' },
-          { kind: 'expr', expr: path('name') },
-          { kind: 'literal', text: '!' },
-        ]),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({ name: 'Alice' });
-
-      expect(result.html).toBe('Hello, Alice!');
-    });
-
-    it('should render nested path expressions', () => {
-      const template = createMockTemplate([
-        text([{ kind: 'expr', expr: path('user', 'name') }]),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({ user: { name: 'Bob' } });
-
-      expect(result.html).toBe('Bob');
-    });
-
-    it('should render arithmetic expressions', () => {
-      const template = createMockTemplate([
-        text([
-          { kind: 'expr', expr: binary(path('price'), '*', path('quantity')) },
-        ]),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({ price: 10, quantity: 3 });
-
-      expect(result.html).toBe('30');
-    });
-
-    it('should HTML-escape expressions by default', () => {
-      const template = createMockTemplate([
-        text([{ kind: 'expr', expr: path('message') }]),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({ message: "<script>alert('xss')</script>" });
-
-      expect(result.html).toBe(
-        '&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;'
-      );
-    });
-
-    it('should render undefined values as empty string', () => {
-      const template = createMockTemplate([
-        text([
-          { kind: 'literal', text: 'Value: ' },
-          { kind: 'expr', expr: path('missing') },
-        ]),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({});
-
-      expect(result.html).toBe('Value: ');
-    });
-
-    it('should render null values as empty string', () => {
-      const template = createMockTemplate([
-        text([{ kind: 'expr', expr: path('value') }]),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({ value: null });
-
-      expect(result.html).toBe('');
-    });
-  });
-
-  describe('Element Rendering', () => {
-    it('should render element with no attributes', () => {
-      const template = createMockTemplate([
-        element('div', [], [text([{ kind: 'literal', text: 'content' }])]),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({});
-
-      expect(result.html).toBe('<div>content</div>');
-    });
-
-    it('should render element with static attribute', () => {
-      const template = createMockTemplate([
-        element(
-          'a',
-          [
-            {
-              kind: 'static',
-              name: 'href',
-              value: '/home',
-              location: mockLocation,
-            },
-          ],
-          [text([{ kind: 'literal', text: 'Home' }])]
-        ),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({});
-
-      expect(result.html).toBe('<a href="/home">Home</a>');
-    });
-
-    it('should render element with expression attribute', () => {
-      const template = createMockTemplate([
-        element(
-          'div',
-          [
-            {
-              kind: 'expr',
-              name: 'class',
-              expr: path('cls'),
-              location: mockLocation,
-            },
-          ],
-          [text([{ kind: 'literal', text: 'text' }])]
-        ),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({ cls: 'highlight' });
-
-      expect(result.html).toBe('<div class="highlight">text</div>');
-    });
-
-    it('should render element with mixed attribute', () => {
-      const template = createMockTemplate([
-        element(
-          'div',
-          [
-            {
-              kind: 'mixed',
-              name: 'class',
-              segments: [
-                { kind: 'static', value: 'status-', location: mockLocation },
-                { kind: 'expr', expr: path('status'), location: mockLocation },
-              ],
-              location: mockLocation,
-            },
-          ],
-          []
-        ),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({ status: 'active' });
-
-      expect(result.html).toBe('<div class="status-active"></div>');
-    });
-
-    it('should handle boolean attribute true', () => {
-      const template = createMockTemplate([
-        element(
-          'button',
-          [
-            {
-              kind: 'expr',
-              name: 'disabled',
-              expr: path('isDisabled'),
-              location: mockLocation,
-            },
-          ],
-          [text([{ kind: 'literal', text: 'Click' }])]
-        ),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({ isDisabled: true });
-
-      expect(result.html).toBe('<button disabled>Click</button>');
-    });
-
-    it('should handle boolean attribute false', () => {
-      const template = createMockTemplate([
-        element(
-          'button',
-          [
-            {
-              kind: 'expr',
-              name: 'disabled',
-              expr: path('isDisabled'),
-              location: mockLocation,
-            },
-          ],
-          [text([{ kind: 'literal', text: 'Click' }])]
-        ),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({ isDisabled: false });
-
-      expect(result.html).toBe('<button>Click</button>');
-    });
-
-    it('should omit null/undefined attribute values', () => {
-      const template = createMockTemplate([
-        element(
-          'div',
-          [
-            {
-              kind: 'expr',
-              name: 'title',
-              expr: path('tooltip'),
-              location: mockLocation,
-            },
-          ],
-          []
-        ),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({});
-
-      expect(result.html).toBe('<div></div>');
-    });
-
-    it('should render void elements as self-closing', () => {
-      const template = createMockTemplate([element('br', [], [])]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({});
-
-      expect(result.html).toBe('<br/>');
-    });
-
-    it('should render img element as self-closing', () => {
-      const template = createMockTemplate([
-        element(
-          'img',
-          [
-            {
-              kind: 'static',
-              name: 'src',
-              value: '/image.png',
-              location: mockLocation,
-            },
-            {
-              kind: 'static',
-              name: 'alt',
-              value: 'An image',
-              location: mockLocation,
-            },
-          ],
-          []
-        ),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({});
-
-      expect(result.html).toBe('<img src="/image.png" alt="An image"/>');
-    });
-
-    it('should escape attribute values', () => {
-      const template = createMockTemplate([
-        element(
-          'div',
-          [
-            {
-              kind: 'static',
-              name: 'title',
-              value: 'Say "hello"',
-              location: mockLocation,
-            },
-          ],
-          []
-        ),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({});
-
-      expect(result.html).toBe('<div title="Say &quot;hello&quot;"></div>');
-    });
-
-    it('should render nested elements', () => {
-      const template = createMockTemplate([
-        element(
-          'div',
-          [],
-          [
-            element('h1', [], [text([{ kind: 'literal', text: 'Title' }])]),
-            element('p', [], [text([{ kind: 'literal', text: 'Content' }])]),
-          ]
-        ),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({});
-
-      expect(result.html).toBe('<div><h1>Title</h1><p>Content</p></div>');
-    });
-  });
-
-  describe('Metadata Collection', () => {
-    it('should return render metadata', () => {
-      const template = createMockTemplate([
-        text([{ kind: 'literal', text: 'Hello' }]),
-      ]);
-
-      const renderer = createStringRenderer(template);
-      const result = renderer({});
-
-      expect(result.metadata).toBeDefined();
-      expect(result.metadata.renderTime).toBeGreaterThanOrEqual(0);
-      expect(result.metadata.iterationCount).toBe(0);
-      expect(result.metadata.pathsAccessed).toBeInstanceOf(Set);
-      expect(result.metadata.helpersUsed).toBeInstanceOf(Set);
-    });
-  });
-});
-
-// =============================================================================
-// User Story 2: Conditional Rendering
-// =============================================================================
-
-describe('User Story 2 - Conditional Rendering', () => {
-  it('should render @if branch when condition is truthy', () => {
-    const ifNode: IfNode = {
-      kind: 'if',
-      branches: [
-        {
-          condition: path('isLoggedIn'),
-          body: [text([{ kind: 'literal', text: 'Welcome' }])],
-          location: mockLocation,
-        },
-      ],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([ifNode]);
-    const renderer = createStringRenderer(template);
-    const result = renderer({ isLoggedIn: true });
-
-    expect(result.html).toBe('Welcome');
-  });
-
-  it('should not render @if branch when condition is falsy', () => {
-    const ifNode: IfNode = {
-      kind: 'if',
-      branches: [
-        {
-          condition: path('isLoggedIn'),
-          body: [text([{ kind: 'literal', text: 'Welcome' }])],
-          location: mockLocation,
-        },
-      ],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([ifNode]);
-    const renderer = createStringRenderer(template);
-    const result = renderer({ isLoggedIn: false });
-
-    expect(result.html).toBe('');
-  });
-
-  it('should render @else branch when condition is falsy', () => {
-    const ifNode: IfNode = {
-      kind: 'if',
-      branches: [
-        {
-          condition: path('isLoggedIn'),
-          body: [text([{ kind: 'literal', text: 'Welcome' }])],
-          location: mockLocation,
-        },
-      ],
-      elseBranch: [text([{ kind: 'literal', text: 'Please login' }])],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([ifNode]);
-    const renderer = createStringRenderer(template);
-    const result = renderer({ isLoggedIn: false });
-
-    expect(result.html).toBe('Please login');
-  });
-
-  it('should evaluate @else if branches in order', () => {
-    const ifNode: IfNode = {
-      kind: 'if',
-      branches: [
-        {
-          condition: binary(path('count'), '>', literal(10)),
-          body: [text([{ kind: 'literal', text: 'Many' }])],
-          location: mockLocation,
-        },
-        {
-          condition: binary(path('count'), '>', literal(0)),
-          body: [text([{ kind: 'literal', text: 'Some' }])],
-          location: mockLocation,
-        },
-      ],
-      elseBranch: [text([{ kind: 'literal', text: 'None' }])],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([ifNode]);
-    const renderer = createStringRenderer(template);
-
-    expect(renderer({ count: 15 }).html).toBe('Many');
-    expect(renderer({ count: 5 }).html).toBe('Some');
-    expect(renderer({ count: 0 }).html).toBe('None');
-  });
-});
-
-// =============================================================================
-// User Story 3: Loop Rendering
-// =============================================================================
-
-describe('User Story 3 - Loop Rendering', () => {
-  it('should render @for loop with array', () => {
-    const forNode: ForNode = {
-      kind: 'for',
-      itemVar: 'item',
-      itemsExpr: path('items'),
-      iterationType: 'of',
-      body: [
-        element(
-          'li',
-          [],
-          [text([{ kind: 'expr', expr: path('item', 'name') }])]
-        ),
-      ],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([forNode]);
-    const renderer = createStringRenderer(template);
-    const result = renderer({ items: [{ name: 'A' }, { name: 'B' }] });
-
-    expect(result.html).toBe('<li>A</li><li>B</li>');
-  });
-
-  it('should render @for loop with index', () => {
-    const forNode: ForNode = {
-      kind: 'for',
-      itemVar: 'item',
-      indexVar: 'index',
-      itemsExpr: path('items'),
-      iterationType: 'of',
-      body: [
-        element(
-          'li',
-          [],
-          [
-            text([
-              { kind: 'expr', expr: path('index') },
-              { kind: 'literal', text: ': ' },
-              { kind: 'expr', expr: path('item') },
-            ]),
-          ]
-        ),
-      ],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([forNode]);
-    const renderer = createStringRenderer(template);
-    const result = renderer({ items: ['X', 'Y'] });
-
-    expect(result.html).toBe('<li>0: X</li><li>1: Y</li>');
-  });
-
-  it('should render @for in loop with object keys', () => {
-    const forNode: ForNode = {
-      kind: 'for',
-      itemVar: 'key',
-      itemsExpr: path('obj'),
-      iterationType: 'in',
-      body: [element('dt', [], [text([{ kind: 'expr', expr: path('key') }])])],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([forNode]);
-    const renderer = createStringRenderer(template);
-    const result = renderer({ obj: { a: 1, b: 2 } });
-
-    expect(result.html).toBe('<dt>a</dt><dt>b</dt>');
-  });
-
-  it('should render empty for empty array', () => {
-    const forNode: ForNode = {
-      kind: 'for',
-      itemVar: 'item',
-      itemsExpr: path('items'),
-      iterationType: 'of',
-      body: [element('li', [], [text([{ kind: 'expr', expr: path('item') }])])],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([forNode]);
-    const renderer = createStringRenderer(template);
-    const result = renderer({ items: [] });
-
-    expect(result.html).toBe('');
-  });
-
-  it('should track iteration count in metadata', () => {
-    const forNode: ForNode = {
-      kind: 'for',
-      itemVar: 'item',
-      itemsExpr: path('items'),
-      iterationType: 'of',
-      body: [text([{ kind: 'expr', expr: path('item') }])],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([forNode]);
-    const renderer = createStringRenderer(template);
-    const result = renderer({ items: [1, 2, 3, 4, 5] });
-
-    expect(result.metadata.iterationCount).toBe(5);
-  });
-
-  it('should throw ResourceLimitError when iterations exceed limit', () => {
-    const forNode: ForNode = {
-      kind: 'for',
-      itemVar: 'item',
-      itemsExpr: path('items'),
-      iterationType: 'of',
-      body: [text([{ kind: 'literal', text: 'x' }])],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([forNode]);
-    const renderer = createStringRenderer(template);
+describe('defaults', () => {
+  it('bounds a loop at a thousand passes when the caller names no limit', () => {
+    const rows = Array.from({ length: 1001 }, (_unused, index) => index);
 
     expect(() =>
-      renderer({ items: Array(101).fill(0) }, {
-        limits: { maxIterationsPerLoop: 100 },
-      } as RenderOptions & { limits?: Partial<ResourceLimits> })
-    ).toThrow(ResourceLimitError);
+      htmlOk('@for(x of xs) { <i></i> }', { xs: rows })
+    ).toThrowError(ResourceLimitError);
+    expect(
+      htmlOk('@for(x of xs) { <i></i> }', { xs: rows.slice(0, 1000) })
+    ).toBe('<i></i>'.repeat(1000));
+    // And the constant says the same thing the behaviour does.
+    expect(DEFAULT_RESOURCE_LIMITS.maxIterationsPerLoop).toBe(1000);
+  });
+
+  it('bounds loop nesting at five when the caller names no limit', () => {
+    const nest = (depth: number): string =>
+      depth === 0 ? '<i></i>' : `@for(a${depth} of xs) { ${nest(depth - 1)} }`;
+
+    expect(htmlOk(nest(5), { xs: [1] })).toBe('<i></i>');
+    expect(() => htmlOk(nest(6), { xs: [1] })).toThrowError(ResourceLimitError);
+    expect(DEFAULT_RESOURCE_LIMITS.maxLoopNesting).toBe(5);
+  });
+
+  it('drops comments unless the caller asks for them', () => {
+    expect(htmlOk('a<!-- note -->b')).toBe('ab');
+    expect(
+      htmlOk('a<!-- note -->b', {}, { config: { includeComments: true } })
+    ).toBe('a<!-- note -->b');
+    expect(DEFAULT_RENDER_CONFIG.includeComments).toBe(false);
+  });
+
+  it('escapes evaluated text unless the caller turns it off', () => {
+    expect(htmlOk('${v}', { v: '<b>' })).toBe('&lt;b&gt;');
+    expect(
+      htmlOk('${v}', { v: '<b>' }, { config: { htmlEscape: false } })
+    ).toBe('<b>');
+    expect(DEFAULT_RENDER_CONFIG.htmlEscape).toBe(true);
+  });
+
+  it('emits no source-tracking attributes unless the caller asks', () => {
+    expect(htmlOk('<p>${v}</p>', { v: 'x' })).toBe('<p>x</p>');
+    expect(
+      htmlOk(
+        '<p>${v}</p>',
+        { v: 'x' },
+        { config: { includeSourceTracking: true } }
+      )
+    ).toContain('rd-source');
+    expect(DEFAULT_RENDER_CONFIG.includeSourceTracking).toBe(false);
+    expect(DEFAULT_RENDER_CONFIG.sourceTrackingPrefix).toBe('rd-');
   });
 });
 
 // =============================================================================
-// User Story 4: Pattern Matching
+// Render context
 // =============================================================================
 
-describe('User Story 4 - Pattern Matching', () => {
-  it('should match literal string value', () => {
-    const matchNode: MatchNode = {
-      kind: 'match',
-      value: path('status'),
-      cases: [
-        {
-          kind: 'literal',
-          values: ['active'],
-          body: [text([{ kind: 'literal', text: 'Active' }])],
-          location: mockLocation,
-        },
-        {
-          kind: 'literal',
-          values: ['inactive'],
-          body: [text([{ kind: 'literal', text: 'Inactive' }])],
-          location: mockLocation,
-        },
-      ],
-      defaultCase: [text([{ kind: 'literal', text: 'Unknown' }])],
-      location: mockLocation,
-    };
+describe('createRenderContext', () => {
+  const empty = () => compileOk('');
 
-    const template = createMockTemplate([matchNode]);
-    const renderer = createStringRenderer(template);
+  it("starts with the caller's data and nothing else", () => {
+    const data = { name: 'Alice' };
+    const context = createRenderContext(empty(), data);
 
-    expect(renderer({ status: 'active' }).html).toBe('Active');
-    expect(renderer({ status: 'inactive' }).html).toBe('Inactive');
-    expect(renderer({ status: 'other' }).html).toBe('Unknown');
+    expect(context.scope.snapshot().data).toEqual(data);
+    expect(context.scope.snapshot().locals).toEqual({});
+    expect(context.scope.snapshot().globals).toEqual({});
+    expect(context.currentLoopNesting).toBe(0);
+    expect(context.componentDepth).toBe(0);
+    expect(context.stats.totalIterations).toBe(0);
+    expect(context.stats.maxComponentDepthReached).toBe(0);
+    expect(context.stats.pathsAccessed).toBeInstanceOf(Set);
+    expect(context.stats.helpersUsed).toBeInstanceOf(Set);
   });
 
-  it('should match multiple literal values', () => {
-    const matchNode: MatchNode = {
-      kind: 'match',
-      value: path('code'),
-      cases: [
-        {
-          kind: 'literal',
-          values: [200, 201],
-          body: [text([{ kind: 'literal', text: 'OK' }])],
-          location: mockLocation,
-        },
-        {
-          kind: 'literal',
-          values: [404],
-          body: [text([{ kind: 'literal', text: 'Not Found' }])],
-          location: mockLocation,
-        },
-      ],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([matchNode]);
-    const renderer = createStringRenderer(template);
-
-    expect(renderer({ code: 200 }).html).toBe('OK');
-    expect(renderer({ code: 201 }).html).toBe('OK');
-    expect(renderer({ code: 404 }).html).toBe('Not Found');
+  it("takes the caller's globals", () => {
+    const context = createRenderContext(
+      empty(),
+      {},
+      { globals: { currency: 'EUR' } }
+    );
+    expect(context.scope.snapshot().globals).toEqual({ currency: 'EUR' });
   });
 
-  it('should match expression case with _ binding', () => {
-    const matchNode: MatchNode = {
-      kind: 'match',
-      value: path('value'),
-      cases: [
-        {
-          kind: 'expression',
-          condition: binary(path('_', 'x'), '>', literal(10)),
-          body: [text([{ kind: 'literal', text: 'Big' }])],
-          location: mockLocation,
-        },
-      ],
-      defaultCase: [text([{ kind: 'literal', text: 'Small' }])],
-      location: mockLocation,
-    };
-
-    const template = createMockTemplate([matchNode]);
-    const renderer = createStringRenderer(template);
-
-    expect(renderer({ value: { x: 15 } }).html).toBe('Big');
-    expect(renderer({ value: { x: 5 } }).html).toBe('Small');
+  it("takes the caller's helpers", () => {
+    const myHelper = () => () => 'result';
+    const context = createRenderContext(empty(), {}, { helpers: { myHelper } });
+    expect(context.helpers.myHelper).toBe(myHelper);
   });
 
-  it('should render empty for no match and no default', () => {
-    const matchNode: MatchNode = {
-      kind: 'match',
-      value: path('status'),
-      cases: [
-        {
-          kind: 'literal',
-          values: ['active'],
-          body: [text([{ kind: 'literal', text: 'Active' }])],
-          location: mockLocation,
-        },
-      ],
-      location: mockLocation,
-    };
+  it('merges the render config over the defaults', () => {
+    const context = createRenderContext(
+      empty(),
+      {},
+      { config: { includeComments: true } }
+    );
 
-    const template = createMockTemplate([matchNode]);
-    const renderer = createStringRenderer(template);
+    expect(context.renderConfig.includeComments).toBe(true);
+    expect(context.renderConfig.htmlEscape).toBe(true);
+  });
 
-    expect(renderer({ status: 'other' }).html).toBe('');
+  it('merges the limits over the defaults', () => {
+    const context = createRenderContext(
+      empty(),
+      {},
+      { limits: { maxLoopNesting: 10 } }
+    );
+
+    expect(context.limits.maxLoopNesting).toBe(10);
+    expect(context.limits.maxTotalIterations).toBe(10000);
+  });
+});
+
+// The scope rules themselves. `EAGER` is the reactivity the string and DOM
+// sinks render with; a reactive host supplies its own, and the traversal binds
+// names through this same interface either way, so the two cannot disagree
+// about what a loop variable or a component prop is.
+describe('EAGER scopes', () => {
+  const root = () =>
+    EAGER.rootScope({ items: [1, 2, 3] }, { global: 'var' } as Bindings);
+
+  it('binds a loop variable as a local, over the data', () => {
+    const parent = EAGER.extendScope(root(), { existing: constant('value') });
+    const child = EAGER.extendScope(parent, { item: constant(42) });
+
+    expect(child.snapshot().locals.item).toBe(42);
+    expect(child.snapshot().locals.existing).toBe('value');
+    expect(child.snapshot().data).toEqual({ items: [1, 2, 3] });
+    expect(child.snapshot().globals).toEqual({ global: 'var' });
+  });
+
+  it('binds several names at once', () => {
+    const child = EAGER.extendScope(root(), {
+      item: constant('value'),
+      index: constant(5),
+    });
+
+    expect(child.snapshot().locals.item).toBe('value');
+    expect(child.snapshot().locals.index).toBe(5);
+  });
+
+  it('leaves the parent scope alone', () => {
+    const parent = EAGER.extendScope(root(), { a: constant(1) });
+    EAGER.extendScope(parent, { b: constant(2) });
+
+    expect(parent.snapshot().locals.b).toBeUndefined();
+    expect(parent.snapshot().locals.a).toBe(1);
+  });
+
+  it('gives a component its props as data and nothing else', () => {
+    const props = { title: 'Hello', count: 42 } as Bindings;
+    const caller = EAGER.extendScope(root(), { hidden: constant('x') });
+
+    const scope = EAGER.componentScope(constant(props), caller).snapshot();
+
+    expect(scope.data).toBe(props);
+    expect(scope.globals).toEqual({ global: 'var' });
+    expect(scope.locals).toEqual({});
+    expect(scope.locals.hidden).toBeUndefined();
+  });
+
+  it('binds a global without touching the locals', () => {
+    const scope = EAGER.extendGlobals(root(), 'y', constant(2)).snapshot();
+
+    expect(scope.globals.global).toBe('var');
+    expect(scope.globals.y).toBe(2);
+    expect(scope.locals).toEqual({});
+  });
+
+  it('chains binding sets rather than copying them', () => {
+    // The addition is the new set's only own property, and both names still
+    // resolve, so a loop that runs a thousand times does not copy its
+    // enclosing locals a thousand times.
+    const parent = EAGER.extendScope(root(), { a: constant(1) });
+    const child = EAGER.extendScope(parent, { b: constant(2) });
+
+    expect(Object.keys(child.snapshot().locals)).toEqual(['b']);
+    expect(child.snapshot().locals.a).toBe(1);
   });
 });
 
 // =============================================================================
-// User Story 5: Components
+// Rendering
+//
+// Compiled, every one. What each of these asserts about the DOCUMENT is also
+// asserted of the DOM and reactive sinks by the conformance corpus; what they
+// add here is the string renderer's own spelling of it.
 // =============================================================================
 
-describe('User Story 5 - Component Rendering', () => {
-  it('should render component with props', () => {
-    const cardDef: ComponentDefinition = {
-      name: 'Card',
-      props: [{ name: 'title', required: true, location: mockLocation }],
-      body: [
-        element(
-          'div',
-          [
-            {
-              kind: 'static',
-              name: 'class',
-              value: 'card',
-              location: mockLocation,
-            },
-          ],
-          [element('h2', [], [text([{ kind: 'expr', expr: path('title') }])])]
-        ),
-      ],
-      location: mockLocation,
-    };
-
-    const components = new Map([['Card', cardDef]]);
-
-    const template = createMockTemplate(
-      [
-        {
-          kind: 'component',
-          name: 'Card',
-          props: [
-            { name: 'title', value: path('heading'), location: mockLocation },
-          ],
-          children: [],
-          location: mockLocation,
-        },
-      ],
-      components
-    );
-
-    const renderer = createStringRenderer(template);
-    const result = renderer({ heading: 'Hello' });
-
-    expect(result.html).toBe('<div class="card"><h2>Hello</h2></div>');
+describe('text', () => {
+  it('renders literal text', () => {
+    expect(htmlOk('Hello, World!')).toBe('Hello, World!');
   });
 
-  it('should render component with default slot', () => {
-    const cardDef: ComponentDefinition = {
-      name: 'Card',
-      props: [],
-      body: [
-        element(
-          'div',
-          [],
-          [{ kind: 'slot', location: mockLocation } as SlotNode]
-        ),
-      ],
-      location: mockLocation,
-    };
-
-    const components = new Map([['Card', cardDef]]);
-
-    const template = createMockTemplate(
-      [
-        {
-          kind: 'component',
-          name: 'Card',
-          props: [],
-          children: [text([{ kind: 'literal', text: 'Slot content' }])],
-          location: mockLocation,
-        },
-      ],
-      components
-    );
-
-    const renderer = createStringRenderer(template);
-    const result = renderer({});
-
-    expect(result.html).toBe('<div>Slot content</div>');
+  it('interpolates a value', () => {
+    expect(htmlOk('Hello, ${name}!', { name: 'Alice' })).toBe('Hello, Alice!');
   });
 
-  it('should render slot fallback when no content provided', () => {
-    const cardDef: ComponentDefinition = {
-      name: 'Card',
-      props: [],
-      body: [
-        element(
-          'div',
-          [],
-          [
-            {
-              kind: 'slot',
-              fallback: [text([{ kind: 'literal', text: 'Default content' }])],
-              location: mockLocation,
-            } as SlotNode,
-          ]
-        ),
-      ],
-      location: mockLocation,
-    };
-
-    const components = new Map([['Card', cardDef]]);
-
-    const template = createMockTemplate(
-      [
-        {
-          kind: 'component',
-          name: 'Card',
-          props: [],
-          children: [],
-          location: mockLocation,
-        },
-      ],
-      components
-    );
-
-    const renderer = createStringRenderer(template);
-    const result = renderer({});
-
-    expect(result.html).toBe('<div>Default content</div>');
+  it('follows a path', () => {
+    expect(htmlOk('${user.name}', { user: { name: 'Bob' } })).toBe('Bob');
   });
 
-  it('should enforce component isolation', () => {
-    const cardDef: ComponentDefinition = {
-      name: 'Card',
-      props: [],
-      body: [
-        // Try to access parent's 'secret' variable - should be undefined
-        text([{ kind: 'expr', expr: path('secret') }]),
-      ],
-      location: mockLocation,
-    };
-
-    const components = new Map([['Card', cardDef]]);
-
-    const template = createMockTemplate(
-      [
-        {
-          kind: 'component',
-          name: 'Card',
-          props: [],
-          children: [],
-          location: mockLocation,
-        },
-      ],
-      components
-    );
-
-    const renderer = createStringRenderer(template);
-    // Parent has 'secret', but component shouldn't see it
-    const result = renderer({ secret: 'hidden' });
-
-    expect(result.html).toBe(''); // undefined renders as empty
+  it('evaluates arithmetic', () => {
+    expect(htmlOk('${a + b}', { a: 2, b: 3 })).toBe('5');
   });
 
-  it('should throw RenderError for unknown component', () => {
-    const template = createMockTemplate([
+  it('escapes an evaluated value', () => {
+    expect(htmlOk('${v}', { v: '<script>alert("x")</script>' })).toBe(
+      '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;'
+    );
+  });
+
+  it('renders a missing value as nothing', () => {
+    expect(htmlOk('[${missing}]')).toBe('[]');
+  });
+
+  it('renders null as nothing', () => {
+    expect(htmlOk('[${v}]', { v: null })).toBe('[]');
+  });
+
+  it('does not escape a $! segment, and still escapes its neighbours', () => {
+    expect(htmlOk('${safe}$!{raw}', { safe: '<i>', raw: '<em>ok</em>' })).toBe(
+      '&lt;i&gt;<em>ok</em>'
+    );
+  });
+});
+
+describe('elements', () => {
+  it('renders an element with no attributes', () => {
+    expect(htmlOk('<div></div>')).toBe('<div></div>');
+  });
+
+  it('renders a static attribute', () => {
+    expect(htmlOk('<div class="container"></div>')).toBe(
+      '<div class="container"></div>'
+    );
+  });
+
+  it('renders an evaluated attribute', () => {
+    expect(htmlOk('<div id=$id></div>', { id: 'main' })).toBe(
+      '<div id="main"></div>'
+    );
+  });
+
+  it('renders a mixed attribute', () => {
+    expect(
+      htmlOk('<div class="status-${status}"></div>', { status: 'ok' })
+    ).toBe('<div class="status-ok"></div>');
+  });
+
+  it('writes a true boolean attribute with no value', () => {
+    expect(htmlOk('<input disabled=$on/>', { on: true })).toBe(
+      '<input disabled/>'
+    );
+  });
+
+  it('omits a false boolean attribute', () => {
+    expect(htmlOk('<input disabled=$on/>', { on: false })).toBe('<input/>');
+  });
+
+  it('omits an attribute whose value is null', () => {
+    expect(htmlOk('<div title=$t></div>', { t: null })).toBe('<div></div>');
+  });
+
+  it('writes a void element self-closing', () => {
+    expect(htmlOk('<br/>')).toBe('<br/>');
+    expect(htmlOk('<img src="/a.png" alt="A"/>')).toBe(
+      '<img src="/a.png" alt="A"/>'
+    );
+  });
+
+  it('escapes an evaluated attribute value', () => {
+    expect(htmlOk('<div title=$t></div>', { t: '"quoted" & <tagged>' })).toBe(
+      '<div title="&quot;quoted&quot; &amp; &lt;tagged&gt;"></div>'
+    );
+  });
+
+  it('does not re-escape author-written attribute source', () => {
+    // The seam the hand-built ASTs hid: a static attribute value is HTML
+    // source already, and escaping it again put `&amp;amp;` on the page.
+    expect(htmlOk('<div title="Tom &amp; Jerry"></div>')).toBe(
+      '<div title="Tom &amp; Jerry"></div>'
+    );
+  });
+
+  it('nests elements', () => {
+    expect(htmlOk('<div><span>Hello</span></div>')).toBe(
+      '<div><span>Hello</span></div>'
+    );
+  });
+});
+
+describe('directives', () => {
+  // Directive bodies are written with an element around the content, because
+  // `{ A }` renders as `A ` - a block body keeps the whitespace before its
+  // closing brace - and a test about `@if` should not also be a test about
+  // that.
+  it('takes a true @if arm', () => {
+    expect(htmlOk('@if(show) { <i>yes</i> }', { show: true })).toBe(
+      '<i>yes</i>'
+    );
+  });
+
+  it('renders nothing for a false @if with no @else', () => {
+    expect(htmlOk('[@if(show) { <i>yes</i> }]', { show: false })).toBe('[]');
+  });
+
+  it('takes the @else arm', () => {
+    expect(
+      htmlOk('@if(show) { <i>yes</i> } else { <b>no</b> }', { show: false })
+    ).toBe('<b>no</b>');
+  });
+
+  it('takes the first true arm of an @else if chain', () => {
+    const source =
+      '@if(a) { <i>A</i> } else if(b) { <i>B</i> } else { <i>C</i> }';
+    expect(htmlOk(source, { a: true, b: true })).toBe('<i>A</i>');
+    expect(htmlOk(source, { a: false, b: true })).toBe('<i>B</i>');
+    expect(htmlOk(source, { a: false, b: false })).toBe('<i>C</i>');
+  });
+
+  it('loops over an array', () => {
+    expect(htmlOk('@for(x of xs) { <i>${x}</i> }', { xs: ['a', 'b'] })).toBe(
+      '<i>a</i><i>b</i>'
+    );
+  });
+
+  it('binds the index of an `of` loop', () => {
+    expect(
+      htmlOk('@for(x, i of xs) { <i>${i}:${x}</i> }', { xs: ['a', 'b'] })
+    ).toBe('<i>0:a</i><i>1:b</i>');
+  });
+
+  it("loops over an object's keys", () => {
+    expect(htmlOk('@for(k in o) { <i>${k}</i> }', { o: { a: 1, b: 2 } })).toBe(
+      '<i>a</i><i>b</i>'
+    );
+  });
+
+  it('renders nothing for an empty list', () => {
+    expect(htmlOk('[@for(x of xs) { <i>${x}</i> }]', { xs: [] })).toBe('[]');
+  });
+
+  it('matches a literal case, and several values in one', () => {
+    const source =
+      '@match(s) { when "a" { <i>A</i> } when "b", "c" { <i>BC</i> } * { <i>D</i> } }';
+    expect(htmlOk(source, { s: 'a' })).toBe('<i>A</i>');
+    expect(htmlOk(source, { s: 'c' })).toBe('<i>BC</i>');
+    expect(htmlOk(source, { s: 'z' })).toBe('<i>D</i>');
+  });
+
+  it('binds `_` in an expression case', () => {
+    expect(
+      htmlOk('@match(v) { _ > 5 { <i>big ${_}</i> } * { <i>small</i> } }', {
+        v: 10,
+      })
+    ).toBe('<i>big 10</i>');
+  });
+
+  it('renders nothing when no case matches and there is no default', () => {
+    expect(htmlOk('[@match(s) { when "a" { <i>A</i> } }]', { s: 'z' })).toBe(
+      '[]'
+    );
+  });
+
+  it('binds a @let and uses it', () => {
+    expect(htmlOk('@@ { let greeting = "Hello"; }${greeting}')).toBe('Hello');
+  });
+
+  it('binds a global with @let $.name', () => {
+    expect(htmlOk('@@ { let $.currency = "EUR"; }${$.currency}')).toBe('EUR');
+  });
+
+  it('renders a fragment without a wrapper', () => {
+    expect(htmlOk('<><span>A</span><span>B</span></>')).toBe(
+      '<span>A</span><span>B</span>'
+    );
+  });
+});
+
+describe('components', () => {
+  const CARD =
+    '<template:Card title!><div class="card"><h1>${title}</h1><slot/></div></template:Card>';
+
+  it('renders a component with its props', () => {
+    expect(htmlOk(`${CARD}<Card title=$heading/>`, { heading: 'Hello' })).toBe(
+      '<div class="card"><h1>Hello</h1></div>'
+    );
+  });
+
+  it("fills the default slot with the caller's content", () => {
+    expect(htmlOk(`${CARD}<Card title="T">body</Card>`)).toBe(
+      '<div class="card"><h1>T</h1>body</div>'
+    );
+  });
+
+  it("falls back to the slot's own content", () => {
+    expect(
+      htmlOk('<template:C><b><slot>fallback</slot></b></template:C><C/>')
+    ).toBe('<b>fallback</b>');
+  });
+
+  it("does not let a component see the caller's data", () => {
+    expect(
+      htmlOk('<template:C><i>[${secret}]</i></template:C><C/>', {
+        secret: 'hidden',
+      })
+    ).toBe('<i>[]</i>');
+  });
+});
+
+describe('configuration', () => {
+  it('emits an HTML comment when includeComments is on', () => {
+    expect(
+      htmlOk('<!-- A comment -->', {}, { config: { includeComments: true } })
+    ).toBe('<!-- A comment -->');
+  });
+
+  it('drops an HTML comment by default', () => {
+    expect(htmlOk('<!-- A comment -->')).toBe('');
+  });
+
+  it('turns off body escaping when asked, and only for evaluated text', () => {
+    expect(
+      htmlOk('${v}', { v: '<b>bold</b>' }, { config: { htmlEscape: false } })
+    ).toBe('<b>bold</b>');
+  });
+});
+
+describe('metadata', () => {
+  it('reports the paths and helpers a render actually used', () => {
+    const { metadata } = renderOk(
+      '${upper(user.name)}@if(never) { ${unused} }',
+      { user: { name: 'a' }, never: false, unused: 'x' },
+      { helpers: { upper: () => (v: unknown) => String(v).toUpperCase() } }
+    );
+
+    expect([...metadata.pathsAccessed]).toContain('user.name');
+    // An untaken arm contributes nothing: this is a record of what the render
+    // DID, which is what makes subtracting it from the static set meaningful.
+    expect([...metadata.pathsAccessed]).not.toContain('unused');
+    expect([...metadata.helpersUsed]).toEqual(['upper']);
+  });
+
+  it('counts iterations and measures the output', () => {
+    const { metadata, html } = renderOk('@for(x of xs) { ${x} }', {
+      xs: [1, 2, 3],
+    });
+
+    expect(metadata.iterationCount).toBe(3);
+    expect(metadata.outputSize).toBe(html.length);
+    expect(metadata.renderTime).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// =============================================================================
+// Paths only a hand-built tree can reach
+// =============================================================================
+
+describe('synthetic trees', () => {
+  it('refuses a component the compiler would never have admitted', () => {
+    // SYNTHETIC: `compile('<Missing/>')` reports UNKNOWN_COMPONENT and returns
+    // a partial template, which `createStringRenderer` structurally will not
+    // take - so this render-time guard is unreachable from any source text.
+    // It is still the last line of defence for a host that assembles a tree
+    // itself, which is what `renderTo` invites.
+    expect(compileOk('<div/>')).toBeDefined();
+
+    const template = syntheticTemplate([
       {
         kind: 'component',
-        name: 'Unknown',
+        name: 'Missing',
         props: [],
         children: [],
-        location: mockLocation,
+        location: syntheticLocation,
       },
     ]);
 
-    const renderer = createStringRenderer(template);
-
-    expect(() => renderer({})).toThrow(RenderError);
-    expect(() => renderer({})).toThrow('Unknown component: Unknown');
-  });
-
-  it('should throw ResourceLimitError when component depth exceeded', () => {
-    // Create a component that calls itself
-    const recursiveDef: ComponentDefinition = {
-      name: 'Recursive',
-      props: [
-        {
-          name: 'depth',
-          required: false,
-          defaultValue: literal(0),
-          location: mockLocation,
-        },
-      ],
-      body: [
-        {
-          kind: 'component',
-          name: 'Recursive',
-          props: [],
-          children: [],
-          location: mockLocation,
-        },
-      ],
-      location: mockLocation,
-    };
-
-    const components = new Map([['Recursive', recursiveDef]]);
-
-    const template = createMockTemplate(
-      [
-        {
-          kind: 'component',
-          name: 'Recursive',
-          props: [],
-          children: [],
-          location: mockLocation,
-        },
-      ],
-      components
+    expect(() => createStringRenderer(template)({})).toThrowError(
+      /Unknown component/
     );
-
-    const renderer = createStringRenderer(template);
-
-    expect(() =>
-      renderer({}, { limits: { maxComponentDepth: 3 } } as RenderOptions & {
-        limits?: Partial<ResourceLimits>;
-      })
-    ).toThrow(ResourceLimitError);
-  });
-});
-
-// =============================================================================
-// User Story 6: Variable Declarations
-// =============================================================================
-
-describe('User Story 6 - Variable Declarations', () => {
-  it('should render let declaration and use value', () => {
-    const template = createMockTemplate([
-      {
-        kind: 'let',
-        name: 'total',
-        isGlobal: false,
-        value: binary(path('price'), '*', path('qty')),
-        location: mockLocation,
-      },
-      text([{ kind: 'expr', expr: path('total') }]),
-    ]);
-
-    const renderer = createStringRenderer(template);
-    const result = renderer({ price: 10, qty: 3 });
-
-    expect(result.html).toBe('30');
   });
 
-  it('should support global declarations with $', () => {
-    const template = createMockTemplate([
-      {
-        kind: 'let',
-        name: 'currency',
-        isGlobal: true,
-        value: literal('EUR'),
-        location: mockLocation,
-      },
-      text([
-        {
-          kind: 'expr',
-          expr: {
-            kind: 'path',
-            segments: [{ kind: 'key', key: 'currency' }],
-            isGlobal: true,
-            location: mockLocation,
-          },
-        },
-      ]),
-    ]);
-
-    const renderer = createStringRenderer(template);
-    const result = renderer({});
-
-    expect(result.html).toBe('EUR');
-  });
-});
-
-// =============================================================================
-// User Story 7 & 8: Configuration Tests
-// =============================================================================
-
-describe('Configuration Options', () => {
-  it('should include HTML comments when enabled', () => {
-    const template = createMockTemplate([
-      {
-        kind: 'comment',
-        style: 'html',
-        text: 'This is a comment',
-        location: mockLocation,
-      },
-    ]);
-
-    const renderer = createStringRenderer(template);
-    const result = renderer({}, { config: { includeComments: true } });
-
-    expect(result.html).toBe('<!--This is a comment-->');
-  });
-
-  it('should exclude HTML comments by default', () => {
-    const template = createMockTemplate([
-      {
-        kind: 'comment',
-        style: 'html',
-        text: 'This is a comment',
-        location: mockLocation,
-      },
-    ]);
-
-    const renderer = createStringRenderer(template);
-    const result = renderer({});
-
-    expect(result.html).toBe('');
-  });
-
-  it('should skip non-HTML comments even when includeComments is true', () => {
-    const template = createMockTemplate([
+  it('emits only HTML comments, whatever style the node claims', () => {
+    // SYNTHETIC: the parser produces `style: 'html'` and nothing else; `line`
+    // and `block` exist in the AST for tooling that models `//` and `/* */`,
+    // and neither belongs in rendered output.
+    const template = syntheticTemplate([
       {
         kind: 'comment',
         style: 'line',
-        text: 'Line comment',
-        location: mockLocation,
+        text: 'not html',
+        location: syntheticLocation,
       },
       {
         kind: 'comment',
-        style: 'block',
-        text: 'Block comment',
-        location: mockLocation,
+        style: 'html',
+        text: 'html',
+        location: syntheticLocation,
       },
     ]);
 
-    const renderer = createStringRenderer(template);
-    const result = renderer({}, { config: { includeComments: true } });
-
-    expect(result.html).toBe('');
-  });
-
-  it('should disable HTML escaping when configured', () => {
-    const template = createMockTemplate([
-      text([{ kind: 'expr', expr: path('html') }]),
-    ]);
-
-    const renderer = createStringRenderer(template);
-    const result = renderer(
-      { html: '<b>bold</b>' },
-      { config: { htmlEscape: false } }
-    );
-
-    expect(result.html).toBe('<b>bold</b>');
-  });
-
-  it('should NOT HTML-escape unsafe expression segments', () => {
-    const template = createMockTemplate([
-      text([{ kind: 'expr', expr: path('html'), unsafe: true }]),
-    ]);
-
-    const renderer = createStringRenderer(template);
-    const result = renderer({ html: '<b>bold</b>' });
-
-    expect(result.html).toBe('<b>bold</b>');
-  });
-
-  it('should escape safe segments even when unsafe segments exist', () => {
-    const template = createMockTemplate([
-      text([
-        { kind: 'expr', expr: path('safe') },
-        { kind: 'expr', expr: path('unsafe'), unsafe: true },
-      ]),
-    ]);
-
-    const renderer = createStringRenderer(template);
-    const result = renderer({
-      safe: '<script>alert("xss")</script>',
-      unsafe: '<em>allowed</em>',
-    });
-
-    expect(result.html).toBe(
-      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;<em>allowed</em>'
-    );
+    expect(
+      createStringRenderer(template)({}, { config: { includeComments: true } })
+        .html
+    ).toBe('<!--html-->');
   });
 });
 
 // =============================================================================
-// Fragment Rendering
+// Source tracking prefix
 // =============================================================================
 
-describe('Fragment Rendering', () => {
-  it('should render fragment children without wrapper', () => {
-    const template = createMockTemplate([
-      {
-        kind: 'fragment',
-        children: [
-          element('span', [], [text([{ kind: 'literal', text: 'A' }])]),
-          element('span', [], [text([{ kind: 'literal', text: 'B' }])]),
-        ],
-        preserveWhitespace: true,
-        location: mockLocation,
-      },
-    ]);
-
-    const renderer = createStringRenderer(template);
-    const result = renderer({});
-
-    expect(result.html).toBe('<span>A</span><span>B</span>');
-  });
-});
-
-// =============================================================================
-// Source Tracking Prefix Configuration
-// =============================================================================
-
-describe('Source Tracking Prefix', () => {
+describe('source tracking prefix', () => {
   describe('validateSourceTrackingPrefix', () => {
-    it('should accept default prefix rd-', () => {
-      expect(() => validateSourceTrackingPrefix('rd-')).not.toThrow();
-    });
+    it.each(['rd-', '', 'data-track-', 'my_prefix_', '_prefix', 'audit123'])(
+      'accepts %o',
+      prefix => {
+        expect(() => validateSourceTrackingPrefix(prefix)).not.toThrow();
+      }
+    );
 
-    it('should accept empty string', () => {
-      expect(() => validateSourceTrackingPrefix('')).not.toThrow();
-    });
+    it.each(['123-', 'my@prefix', 'has space', '-invalid'])(
+      'rejects %o',
+      prefix => {
+        expect(() => validateSourceTrackingPrefix(prefix)).toThrow(
+          /Invalid sourceTrackingPrefix/
+        );
+      }
+    );
 
-    it('should accept data-* prefix', () => {
-      expect(() => validateSourceTrackingPrefix('data-track-')).not.toThrow();
-    });
-
-    it('should accept underscore prefix', () => {
-      expect(() => validateSourceTrackingPrefix('my_prefix_')).not.toThrow();
-    });
-
-    it('should accept prefix starting with underscore', () => {
-      expect(() => validateSourceTrackingPrefix('_prefix')).not.toThrow();
-    });
-
-    it('should accept alphanumeric prefix', () => {
-      expect(() => validateSourceTrackingPrefix('audit123')).not.toThrow();
-    });
-
-    it('should reject prefix starting with number', () => {
-      expect(() => validateSourceTrackingPrefix('123-')).toThrow(
-        /Invalid sourceTrackingPrefix/
-      );
-    });
-
-    it('should reject prefix with @ symbol', () => {
-      expect(() => validateSourceTrackingPrefix('my@prefix')).toThrow(
-        /Invalid sourceTrackingPrefix/
-      );
-    });
-
-    it('should reject prefix with space', () => {
-      expect(() => validateSourceTrackingPrefix('has space')).toThrow(
-        /Invalid sourceTrackingPrefix/
-      );
-    });
-
-    it('should reject prefix starting with hyphen', () => {
-      expect(() => validateSourceTrackingPrefix('-invalid')).toThrow(
-        /Invalid sourceTrackingPrefix/
-      );
-    });
-
-    it('should provide helpful error message', () => {
+    it('says what a prefix has to look like', () => {
       expect(() => validateSourceTrackingPrefix('123bad')).toThrow(
         /Prefix must be empty or start with a letter\/underscore/
       );
     });
   });
 
-  describe('getSourceAttributeName', () => {
-    it('should generate attribute with default prefix', () => {
-      expect(getSourceAttributeName('rd-', 'source')).toBe('rd-source');
-      expect(getSourceAttributeName('rd-', 'source-op')).toBe('rd-source-op');
-      expect(getSourceAttributeName('rd-', 'source-note')).toBe(
-        'rd-source-note'
-      );
-    });
-
-    it('should generate attribute with custom prefix', () => {
-      expect(getSourceAttributeName('data-track-', 'source')).toBe(
+  describe('sourceAttributeName', () => {
+    it('prefixes each attribute name', () => {
+      expect(sourceAttributeName('rd-', 'source')).toBe('rd-source');
+      expect(sourceAttributeName('rd-', 'source-op')).toBe('rd-source-op');
+      expect(sourceAttributeName('rd-', 'source-note')).toBe('rd-source-note');
+      expect(sourceAttributeName('data-track-', 'source')).toBe(
         'data-track-source'
       );
-      expect(getSourceAttributeName('data-track-', 'source-op')).toBe(
-        'data-track-source-op'
-      );
-      expect(getSourceAttributeName('data-track-', 'source-note')).toBe(
-        'data-track-source-note'
-      );
+      expect(sourceAttributeName('audit_', 'source')).toBe('audit_source');
     });
 
-    it('should generate attribute with empty prefix', () => {
-      expect(getSourceAttributeName('', 'source')).toBe('source');
-      expect(getSourceAttributeName('', 'source-op')).toBe('source-op');
-      expect(getSourceAttributeName('', 'source-note')).toBe('source-note');
-    });
-
-    it('should generate attribute with underscore prefix', () => {
-      expect(getSourceAttributeName('audit_', 'source')).toBe('audit_source');
+    it('takes an empty prefix', () => {
+      expect(sourceAttributeName('', 'source')).toBe('source');
+      expect(sourceAttributeName('', 'source-op')).toBe('source-op');
+      expect(sourceAttributeName('', 'source-note')).toBe('source-note');
     });
   });
 
-  describe('createRenderContext validation', () => {
-    it('should accept valid custom prefix in config', () => {
-      const template = createMockTemplate([]);
-      expect(() =>
-        createRenderContext(
-          template,
-          {},
-          {
-            config: { sourceTrackingPrefix: 'data-custom-' },
-          }
-        )
-      ).not.toThrow();
+  describe('through a render', () => {
+    it('uses the configured prefix on the attributes it emits', () => {
+      const html = htmlOk(
+        '<p>${v}</p>',
+        { v: 'x' },
+        {
+          config: {
+            includeSourceTracking: true,
+            sourceTrackingPrefix: 'audit-',
+          },
+        }
+      );
+
+      expect(html).toContain('audit-source=');
+      expect(html).not.toContain('rd-source=');
     });
 
-    it('should reject invalid prefix in config', () => {
-      const template = createMockTemplate([]);
+    it('refuses a prefix that would not be a legal attribute name', () => {
+      expect(() =>
+        htmlOk('<p>x</p>', {}, { config: { sourceTrackingPrefix: '@invalid' } })
+      ).toThrow(/Invalid sourceTrackingPrefix/);
       expect(() =>
         createRenderContext(
-          template,
+          compileOk(''),
           {},
-          {
-            config: { sourceTrackingPrefix: '123-invalid' },
-          }
+          { config: { sourceTrackingPrefix: '123-invalid' } }
         )
       ).toThrow(/Invalid sourceTrackingPrefix/);
     });
 
-    it('should use default prefix when not specified', () => {
-      const template = createMockTemplate([]);
-      const ctx = createRenderContext(template, {});
-      expect(ctx.renderConfig.sourceTrackingPrefix).toBe('rd-');
-    });
+    it('keeps the prefix across repeated renders', () => {
+      const render = createStringRenderer(compileOk('<p>${v}</p>'));
+      const options = {
+        config: {
+          includeSourceTracking: true,
+          sourceTrackingPrefix: 'custom-',
+        },
+      };
 
-    it('should use custom prefix when specified', () => {
-      const template = createMockTemplate([]);
-      const ctx = createRenderContext(
-        template,
-        {},
-        {
-          config: { sourceTrackingPrefix: 'blade-' },
-        }
-      );
-      expect(ctx.renderConfig.sourceTrackingPrefix).toBe('blade-');
-    });
-
-    it('should accept empty string prefix', () => {
-      const template = createMockTemplate([]);
-      const ctx = createRenderContext(
-        template,
-        {},
-        {
-          config: { sourceTrackingPrefix: '' },
-        }
-      );
-      expect(ctx.renderConfig.sourceTrackingPrefix).toBe('');
-    });
-  });
-
-  describe('createStringRenderer with custom prefix', () => {
-    it('should accept valid prefix through renderer options', () => {
-      const template = createMockTemplate([
-        text([{ kind: 'literal', text: 'Hello' }]),
-      ]);
-      const renderer = createStringRenderer(template);
-
-      expect(() =>
-        renderer({}, { config: { sourceTrackingPrefix: 'audit-' } })
-      ).not.toThrow();
-    });
-
-    it('should reject invalid prefix through renderer options', () => {
-      const template = createMockTemplate([
-        text([{ kind: 'literal', text: 'Hello' }]),
-      ]);
-      const renderer = createStringRenderer(template);
-
-      expect(() =>
-        renderer({}, { config: { sourceTrackingPrefix: '@invalid' } })
-      ).toThrow(/Invalid sourceTrackingPrefix/);
-    });
-
-    it('should consistently use configured prefix across multiple renders', () => {
-      const template = createMockTemplate([
-        text([{ kind: 'literal', text: 'Test' }]),
-      ]);
-      const renderer = createStringRenderer(template);
-      const options = { config: { sourceTrackingPrefix: 'custom-' } };
-
-      // Multiple renders should all succeed with same config
-      expect(() => renderer({}, options)).not.toThrow();
-      expect(() => renderer({}, options)).not.toThrow();
-      expect(() => renderer({}, options)).not.toThrow();
+      expect(render({ v: 'a' }, options).html).toContain('custom-source=');
+      expect(render({ v: 'b' }, options).html).toContain('custom-source=');
     });
   });
 });

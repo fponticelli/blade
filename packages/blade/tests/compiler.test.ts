@@ -6,7 +6,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { compile, type CompileOptions } from '../src/compiler/index.js';
+import {
+  compile,
+  compileOrThrow,
+  type CompileOptions,
+} from '../src/compiler/index.js';
+import { render } from '../src/renderer/index.js';
 import {
   isLiteralSegment,
   isExprSegment,
@@ -51,23 +56,27 @@ import type {
  */
 function compileAndGetRoot(source: string, options?: CompileOptions): RootNode {
   const result = compile(source, options);
-  return result.root;
+  return result.ok ? result.template.root : result.partial.root;
 }
 
 /**
  * Helper to compile and check for errors
  */
 function compileAndGetErrors(source: string, options?: CompileOptions) {
-  const result = compile(source, options);
-  return result.diagnostics.filter(d => d.level === 'error');
+  return compileDiagnostics(source, options).filter(d => d.level === 'error');
 }
 
 /**
  * Helper to compile and check for warnings
  */
 function compileAndGetWarnings(source: string, options?: CompileOptions) {
+  return compileDiagnostics(source, options).filter(d => d.level === 'warning');
+}
+
+/** Every diagnostic a compile produced, whether or not it succeeded. */
+function compileDiagnostics(source: string, options?: CompileOptions) {
   const result = compile(source, options);
-  return result.diagnostics.filter(d => d.level === 'warning');
+  return result.ok ? result.template.diagnostics : result.diagnostics;
 }
 
 // =============================================================================
@@ -78,11 +87,11 @@ describe('Compiler - Basic Structure', () => {
   it('should compile an empty template', async () => {
     const result = compile('');
 
-    expect(result).toBeDefined();
-    expect(result.root).toBeDefined();
-    expect(result.root.kind).toBe('root');
-    expect(result.root.children).toEqual([]);
-    expect(result.diagnostics).toEqual([]);
+    expect(result.ok).toBe(true);
+    const root = compileAndGetRoot('');
+    expect(root.kind).toBe('root');
+    expect(root.children).toEqual([]);
+    expect(compileDiagnostics('')).toEqual([]);
   });
 
   it('should compile plain text', async () => {
@@ -875,7 +884,11 @@ describe('Compiler - Component Definitions', () => {
 
     const currencyProp = comp.props.find(p => p.name === 'currency')!;
     expect(currencyProp.required).toBe(false);
-    expect(currencyProp.defaultValue).toBe('USD');
+    // A quoted default is a string LITERAL expression, not a bare string: one
+    // representation for every default, so the renderer has one code path.
+    expect(currencyProp.defaultValue).toEqual(
+      expect.objectContaining({ kind: 'literal', value: 'USD' })
+    );
 
     const decimalsProp = comp.props.find(p => p.name === 'decimals')!;
     expect(decimalsProp.required).toBe(false);
@@ -1009,7 +1022,6 @@ describe('Compiler - Fragments', () => {
     const fragment = root.children[0] as FragmentNode;
 
     expect(fragment.kind).toBe('fragment');
-    expect(fragment.preserveWhitespace).toBe(true);
     expect(fragment.children).toHaveLength(0);
   });
 
@@ -1026,12 +1038,11 @@ describe('Compiler - Fragments', () => {
     expect(fragment.children.length).toBeGreaterThan(0);
   });
 
-  it('should preserve whitespace in fragments', async () => {
+  it('should render fragment children without a wrapper element', async () => {
     const source = '<>\n  <span>A</span>\n  <span>B</span>\n</>';
-    const root = compileAndGetRoot(source);
-    const fragment = root.children[0] as FragmentNode;
+    const html = render(compileOrThrow(source), {}).html;
 
-    expect(fragment.preserveWhitespace).toBe(true);
+    expect(html).toBe('<span>A</span><span>B</span>');
   });
 });
 
@@ -1075,10 +1086,11 @@ describe('Compiler - Comments', () => {
 
   it('should include comments when option is set', async () => {
     const source = '// Comment\n<div>Content</div>';
-    const result = compile(source, { includeMetadata: true });
+    // Comments are metadata, not content: they are collected on every compile
+    // and rendered only when the RENDER config asks for them.
+    const result = compile(source);
 
-    // When includeComments or includeMetadata is true, comments might be tracked
-    expect(result).toBeDefined();
+    expect(result.ok).toBe(true);
   });
 });
 
@@ -1116,23 +1128,6 @@ describe('Compiler - Metadata Collection', () => {
     expect(root.metadata.componentsUsed.size).toBe(2);
     expect(Array.from(root.metadata.componentsUsed)).toContain('Card');
     expect(Array.from(root.metadata.componentsUsed)).toContain('Header');
-  });
-});
-
-describe('Compiler - Source Maps', () => {
-  it('should generate source map when requested', async () => {
-    const result = compile('<div>test</div>', { includeSourceMap: true });
-
-    expect(result.sourceMap).toBeDefined();
-    expect(result.sourceMap!.version).toBe(3);
-    expect(result.sourceMap!.sources).toBeDefined();
-    expect(result.sourceMap!.mappings).toBeDefined();
-  });
-
-  it('should not generate source map by default', async () => {
-    const result = compile('<div>test</div>');
-
-    expect(result.sourceMap).toBeUndefined();
   });
 });
 
@@ -1199,7 +1194,7 @@ describe('Compiler - Validation Errors', () => {
       </template:Card>
       <Card />
     `;
-    const errors = compileAndGetErrors(source, { validate: true });
+    const errors = compileAndGetErrors(source);
 
     // Should report missing required prop 'title'
     expect(errors.length).toBeGreaterThan(0);
@@ -1220,7 +1215,7 @@ describe('Compiler - Validation Errors', () => {
 describe('Compiler - Warnings', () => {
   it('should warn on unused variables', async () => {
     const source = '@@ { let x = 10; }\n<div>test</div>';
-    const warnings = compileAndGetWarnings(source, { validate: true });
+    const warnings = compileAndGetWarnings(source);
 
     // May warn about unused variable x
     expect(warnings).toBeDefined();
@@ -1233,7 +1228,7 @@ describe('Compiler - Warnings', () => {
         @@ { let x = 20; }
       }
     `;
-    const warnings = compileAndGetWarnings(source, { validate: true });
+    const warnings = compileAndGetWarnings(source);
 
     // May warn about variable shadowing
     expect(warnings).toBeDefined();
@@ -1245,14 +1240,22 @@ describe('Compiler - Warnings', () => {
 // =============================================================================
 
 describe('Compiler - Options', () => {
-  it('should respect maxExpressionDepth', async () => {
-    const deepExpr = '${' + 'a + '.repeat(100) + 'b' + '}'.repeat(100);
+  it('should respect maxExpressionDepth for genuinely nested expressions', async () => {
+    const deepExpr = '${' + '('.repeat(40) + '$a' + ')'.repeat(40) + '}';
     const errors = compileAndGetErrors(deepExpr, {
       maxExpressionDepth: 10,
     });
 
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].message).toMatch(/depth|nesting/i);
+  });
+
+  it('should not treat a long operator chain as depth', async () => {
+    // A sum of 100 line items is a flat chain, not a deep expression.
+    const chain = '${' + '1 + '.repeat(100) + '1}';
+    const errors = compileAndGetErrors(chain, { maxExpressionDepth: 10 });
+
+    expect(errors).toEqual([]);
   });
 
   it('should respect maxFunctionDepth for recursion', async () => {
@@ -1292,9 +1295,8 @@ describe('Compiler - Complex Templates', () => {
       </div>
     `;
 
-    const result = compile(source);
-    expect(result.diagnostics.filter(d => d.level === 'error')).toHaveLength(0);
-    expect(result.root.children.length).toBeGreaterThan(0);
+    expect(compileAndGetErrors(source)).toHaveLength(0);
+    expect(compileAndGetRoot(source).children.length).toBeGreaterThan(0);
   });
 
   it('should compile template with components and slots', async () => {
@@ -1323,9 +1325,8 @@ describe('Compiler - Complex Templates', () => {
       </Card>
     `;
 
-    const result = compile(source);
-    expect(result.diagnostics.filter(d => d.level === 'error')).toHaveLength(0);
-    expect(result.root.components.size).toBe(1);
+    expect(compileAndGetErrors(source)).toHaveLength(0);
+    expect(compileAndGetRoot(source).components.size).toBe(1);
   });
 
   it('should compile template with all features', async () => {
@@ -1376,13 +1377,13 @@ describe('Compiler - Complex Templates', () => {
       </div>
     `;
 
-    const result = compile(source);
-    expect(result.diagnostics.filter(d => d.level === 'error')).toHaveLength(0);
+    expect(compileAndGetErrors(source)).toHaveLength(0);
 
     // Verify metadata
-    expect(result.root.metadata.globalsUsed.has('theme')).toBe(true);
-    expect(result.root.metadata.helpersUsed.has('formatCurrency')).toBe(true);
-    expect(result.root.metadata.componentsUsed.has('PriceTag')).toBe(true);
+    const metadata = compileAndGetRoot(source).metadata;
+    expect(metadata.globalsUsed.has('theme')).toBe(true);
+    expect(metadata.helpersUsed.has('formatCurrency')).toBe(true);
+    expect(metadata.componentsUsed.has('PriceTag')).toBe(true);
   });
 });
 
@@ -1437,8 +1438,7 @@ describe('Compiler - Edge Cases', () => {
       .fill(0)
       .map((_, i) => `<div>Item ${i}</div>`)
       .join('\n');
-    const result = compile(items);
-    expect(result.root.children.length).toBe(1000);
+    expect(compileAndGetRoot(items).children.length).toBe(1000);
   });
 });
 
@@ -1450,11 +1450,10 @@ describe('Compiler - Whitespace Handling', () => {
     expect(div.children.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('should preserve whitespace in fragments', async () => {
+  it('should keep fragment children in source order', async () => {
     const source = '<>\n  <span>A</span>\n  <span>B</span>\n</>';
-    const root = compileAndGetRoot(source);
-    const fragment = root.children[0] as FragmentNode;
-    expect(fragment.preserveWhitespace).toBe(true);
+    const html = render(compileOrThrow(source), {}).html;
+    expect(html.indexOf('A')).toBeLessThan(html.indexOf('B'));
   });
 
   it('should handle leading/trailing whitespace', async () => {

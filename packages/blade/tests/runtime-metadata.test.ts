@@ -9,7 +9,7 @@
 // a consumer answers "which fields did this render never touch".
 
 import { describe, it, expect } from 'vitest';
-import { compile } from '../src/compiler/index.js';
+import { compileOrThrow } from '../src/compiler/index.js';
 import {
   createDomRenderer,
   createStringRenderer,
@@ -18,7 +18,7 @@ import { standardLibrary } from '../src/helpers/index.js';
 import type { RuntimeMetadata } from '../src/renderer/index.js';
 
 function renderMeta(source: string, data: unknown): RuntimeMetadata {
-  return createStringRenderer(compile(source))(data, {
+  return createStringRenderer(compileOrThrow(source))(data, {
     helpers: standardLibrary,
   }).metadata;
 }
@@ -58,7 +58,7 @@ describe('runtime pathsAccessed', () => {
   });
 
   it('marks a global so it is never mistaken for a data path', () => {
-    const meta = createStringRenderer(compile('<p>${$.site}</p>'))(
+    const meta = createStringRenderer(compileOrThrow('<p>${$.site}</p>'))(
       {},
       { globals: { site: 'blade' } }
     ).metadata;
@@ -73,7 +73,7 @@ describe('runtime pathsAccessed', () => {
   });
 
   it('uses the same notation as the compile-time metadata', () => {
-    const template = compile('<p>${rows[0].n}</p>');
+    const template = compileOrThrow('<p>${rows[0].n}</p>');
     const meta = createStringRenderer(template)(
       { rows: [{ n: 1 }] },
       { helpers: standardLibrary }
@@ -84,7 +84,7 @@ describe('runtime pathsAccessed', () => {
 
   it('is a subset of what the compiler found statically', () => {
     const source = '<p>@if(flag) { ${yes} } else { ${no} }</p>';
-    const template = compile(source);
+    const template = compileOrThrow(source);
     const meta = createStringRenderer(template)(
       { flag: false, yes: 'y', no: 'n' },
       { helpers: standardLibrary }
@@ -97,7 +97,7 @@ describe('runtime pathsAccessed', () => {
 
   it('collects afresh for each render', () => {
     const renderer = createStringRenderer(
-      compile('<p>@if(flag) { ${yes} } else { ${no} }</p>')
+      compileOrThrow('<p>@if(flag) { ${yes} } else { ${no} }</p>')
     );
     const first = renderer({ flag: true, yes: 'y', no: 'n' }).metadata;
     const second = renderer({ flag: false, yes: 'y', no: 'n' }).metadata;
@@ -184,7 +184,7 @@ describe('runtime iterationCount', () => {
     // shared, the inner passes were lost on the `{...ctx}` copy and this
     // template rendered straight through the limit.
     const render = createStringRenderer(
-      compile(
+      compileOrThrow(
         '<ul>@for(g of groups) { @for(r of g.rows) { <li>$r</li> } }</ul>'
       )
     );
@@ -216,7 +216,7 @@ describe('runtime metadata from the DOM renderer', () => {
   it('matches the string renderer for the same template and data', () => {
     const source = '<p>${upper(name)} ${age}</p>';
     const data = { name: 'ada', age: 36 };
-    const domMeta = createDomRenderer(compile(source))(data, {
+    const domMeta = createDomRenderer(compileOrThrow(source))(data, {
       helpers: standardLibrary,
     }).metadata;
     const stringMeta = renderMeta(source, data);

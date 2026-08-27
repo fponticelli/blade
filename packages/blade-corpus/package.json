@@ -1,0 +1,22 @@
+{
+  "name": "@bladets/corpus",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The shared renderer conformance corpus - one table of (template, data) -> expected, driven through every renderer",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext ts --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf .turbo"
+  },
+  "license": "Apache-2.0"
+}

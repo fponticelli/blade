@@ -20,16 +20,16 @@
             "type": "string",
             "description": "Item name"
           },
-          "price": {
-            "type": "number",
-            "description": "Item price in dollars"
+          "color": {
+            "type": "string",
+            "description": "Item colour"
           },
-          "inStock": {
-            "type": "boolean",
-            "description": "Whether the item is in stock"
+          "calories": {
+            "type": "number",
+            "description": "Energy per serving, in kilocalories"
           }
         },
-        "required": ["name", "price"]
+        "required": ["name"]
       }
     }
   },

@@ -1,0 +1,9 @@
+{
+  "order": {
+    "id": "A-1",
+    "quantity": 2,
+    "lines": [{ "sku": "SKU-1" }]
+  },
+  "customer": { "name": "Ada", "tier": "gold" },
+  "tags": ["priority"]
+}

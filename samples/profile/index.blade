@@ -252,7 +252,7 @@
       @if(isOnline) {
         <strong>Online now</strong>
       } else {
-        ${formatDate(lastActiveDate, "MMM d, yyyy")} at ${formatDate(lastActiveDate, "HH:mm")}
+        ${formatDate(lastActiveDate, "MMM d, yyyy")} at ${hour(lastActiveDate)}:${padStart(toString(minute(lastActiveDate)), 2, "0")}
       }
     </p>
   </footer>

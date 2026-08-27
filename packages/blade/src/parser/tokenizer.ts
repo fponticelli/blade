@@ -1,12 +1,32 @@
 /**
- * Tokenizer for Blade templates
+ * Tokenizer for Blade expressions.
  *
- * Breaks template source code into tokens for parsing.
+ * This lexer serves the EXPRESSION grammar only - the template grammar has its
+ * own scanner in `template-parser.ts`. It therefore knows nothing about tags,
+ * directives or template keywords: `match`, `when`, `for`, `props` and friends
+ * are ordinary identifiers here, so a data field may be named after any of them.
+ *
+ * Two invariants hold for every input, however malformed:
+ *
+ * 1. **It never throws.** A lexical failure produces a {@link TokenType.ERROR}
+ *    token carrying the offending text, plus a {@link ParseError}.
+ * 2. **It never drops a character.** Every character is either consumed as
+ *    whitespace or covered by exactly one token, so the token stream can always
+ *    be sliced back to the source.
+ *
+ * Positions are recorded when a scan starts and when it ends - never derived by
+ * subtracting a length - and are rebased onto the enclosing document through the
+ * `basePosition` given to the constructor.
  */
+
+import type { ParseError } from './index.js';
+import type { Position } from './position.js';
+import { START_POSITION } from './position.js';
+
+export type { Position } from './position.js';
 
 export enum TokenType {
   // Literals
-  TEXT = 'TEXT',
   NUMBER = 'NUMBER',
   STRING = 'STRING',
   TRUE = 'TRUE',
@@ -46,277 +66,221 @@ export enum TokenType {
   DOT = 'DOT', // .
   COMMA = 'COMMA', // ,
   ARROW = 'ARROW', // =>
-  UNDERSCORE = 'UNDERSCORE', // _
-
-  // Special
-  AT = 'AT', // @
-  HASH = 'HASH', // #
-  EXPR_START = 'EXPR_START', // ${
-  EXPR_END = 'EXPR_END', // }
-
-  // HTML
-  TAG_OPEN = 'TAG_OPEN', // <
-  TAG_CLOSE = 'TAG_CLOSE', // >
-  TAG_SELF_CLOSE = 'TAG_SELF_CLOSE', // />
-  TAG_END_OPEN = 'TAG_END_OPEN', // </
-  EQUALS = 'EQUALS', // =
-
-  // Keywords
-  IF = 'IF',
-  ELSE = 'ELSE',
-  FOR = 'FOR',
-  OF = 'OF',
-  MATCH = 'MATCH',
-  WHEN = 'WHEN',
-  LET = 'LET',
-  PROPS = 'PROPS',
-  COMPONENT = 'COMPONENT',
-  SLOT = 'SLOT',
 
   // Control
+  ERROR = 'ERROR',
   EOF = 'EOF',
-  NEWLINE = 'NEWLINE',
 }
 
+/**
+ * A lexeme with the absolute range it occupies in the document.
+ *
+ * `value` is always `source.slice(start.offset - base.offset, end.offset - base.offset)`,
+ * so a token never disagrees with its own range.
+ */
 export interface Token {
-  type: TokenType;
-  value: string;
-  line: number;
-  column: number;
-  offset: number;
+  readonly type: TokenType;
+  readonly value: string;
+  readonly start: Position;
+  readonly end: Position;
 }
 
-export interface SourceLocation {
-  line: number;
-  column: number;
-  offset: number;
+/** Everything a tokenizer run produces. Errors are never thrown. */
+export interface TokenizeResult {
+  tokens: Token[];
+  errors: ParseError[];
 }
+
+/**
+ * Characters that are reserved by the expression grammar but are not operators
+ * in it, mapped to the hint shown when one appears on its own.
+ */
+const SINGLE_CHAR_HINTS: Readonly<Record<string, string>> = {
+  '&': "did you mean '&&'?",
+  '|': "did you mean '||'?",
+  '=': "did you mean '==' or '=>'?",
+};
+
+const UNICODE_IDENTIFIER_START = /[\p{L}\p{Nl}]/u;
+const UNICODE_IDENTIFIER_PART = /[\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}]/u;
 
 export class Tokenizer {
-  private source: string;
-  private pos = 0;
-  private line = 1;
-  private column = 1;
-  private tokens: Token[] = [];
-  private callCount = 0;
-  private readonly MAX_CALLS = 1000;
+  private readonly source: string;
+  private readonly base: Position;
 
-  constructor(source: string) {
+  private pos = 0;
+  private line: number;
+  private column: number;
+  private tokens: Token[] = [];
+  private errors: ParseError[] = [];
+
+  /**
+   * @param source - The expression source, which may be a slice of a larger document
+   * @param basePosition - Absolute position of `source[0]` in that document
+   */
+  constructor(source: string, basePosition: Position = START_POSITION) {
     this.source = source;
+    this.base = basePosition;
+    this.line = basePosition.line;
+    this.column = basePosition.column;
   }
 
-  tokenize(): Token[] {
+  /**
+   * Scans the whole source. Never throws; repeated calls return the same result.
+   */
+  tokenize(): TokenizeResult {
+    this.pos = 0;
+    this.line = this.base.line;
+    this.column = this.base.column;
+    this.tokens = [];
+    this.errors = [];
+
     while (!this.isAtEnd()) {
-      if (++this.callCount > this.MAX_CALLS) {
-        const context = this.source.substring(
-          Math.max(0, this.pos - 50),
-          Math.min(this.source.length, this.pos + 50)
-        );
-        throw new Error(
-          `Tokenizer exceeded maximum call limit (${this.MAX_CALLS}).\n` +
-            `Position: ${this.pos}, Line: ${this.line}, Column: ${this.column}\n` +
-            `Context: ...${context}...`
-        );
-      }
+      const before = this.pos;
       this.scanToken();
+      if (this.pos === before) {
+        // Unreachable: scanToken() consumes at least one character on every
+        // path. Kept so a future scanner that forgets to advance cannot hang.
+        this.advance();
+      }
     }
 
-    this.tokens.push(this.makeToken(TokenType.EOF, ''));
-    return this.tokens;
+    const end = this.position();
+    this.tokens.push({
+      type: TokenType.EOF,
+      value: '',
+      start: end,
+      end,
+    });
+    return { tokens: this.tokens, errors: this.errors };
   }
 
   private scanToken(): void {
-    const start = this.pos;
+    const start = this.position();
+    const startIndex = this.pos;
     const char = this.advance();
 
-    // Handle whitespace
     if (this.isWhitespace(char)) {
-      if (char === '\n') {
-        this.tokens.push(
-          this.makeToken(TokenType.NEWLINE, char, start, this.line - 1)
-        );
-      }
-      // Other whitespace is skipped
+      // Whitespace carries no meaning in an expression, and no token.
       return;
     }
 
-    // Handle expression start ${
-    if (char === '$' && this.peek() === '{') {
-      this.advance(); // consume {
-      this.tokens.push(this.makeToken(TokenType.EXPR_START, '${', start));
+    if (this.isIdentifierStart(char)) {
+      this.scanIdentifier(startIndex, start);
       return;
     }
 
-    // Handle dollar sign for simple expressions
-    if (char === '$') {
-      this.tokens.push(this.makeToken(TokenType.DOLLAR, char, start));
-      return;
-    }
-
-    // Handle @ directives
-    if (char === '@') {
-      this.tokens.push(this.makeToken(TokenType.AT, char, start));
-      return;
-    }
-
-    // Handle identifiers and keywords
-    if (this.isAlpha(char)) {
-      this.scanIdentifier(start);
-      return;
-    }
-
-    // Handle numbers
     if (this.isDigit(char)) {
-      this.scanNumber(start);
+      this.scanNumber(startIndex, start);
       return;
     }
 
-    // Handle strings
     if (char === '"' || char === "'") {
-      this.scanString(char, start);
+      this.scanString(char, startIndex, start);
       return;
     }
 
-    // Handle operators and delimiters
     switch (char) {
+      case '$':
+        return this.push(TokenType.DOLLAR, startIndex, start);
       case '(':
-        this.tokens.push(this.makeToken(TokenType.LPAREN, char, start));
-        break;
+        return this.push(TokenType.LPAREN, startIndex, start);
       case ')':
-        this.tokens.push(this.makeToken(TokenType.RPAREN, char, start));
-        break;
+        return this.push(TokenType.RPAREN, startIndex, start);
       case '{':
-        this.tokens.push(this.makeToken(TokenType.LBRACE, char, start));
-        break;
+        return this.push(TokenType.LBRACE, startIndex, start);
       case '}':
-        this.tokens.push(this.makeToken(TokenType.RBRACE, char, start));
-        break;
+        return this.push(TokenType.RBRACE, startIndex, start);
       case '[':
-        this.tokens.push(this.makeToken(TokenType.LBRACKET, char, start));
-        break;
+        return this.push(TokenType.LBRACKET, startIndex, start);
       case ']':
-        this.tokens.push(this.makeToken(TokenType.RBRACKET, char, start));
-        break;
+        return this.push(TokenType.RBRACKET, startIndex, start);
       case '.':
-        this.tokens.push(this.makeToken(TokenType.DOT, char, start));
-        break;
+        return this.push(TokenType.DOT, startIndex, start);
       case ',':
-        this.tokens.push(this.makeToken(TokenType.COMMA, char, start));
-        break;
+        return this.push(TokenType.COMMA, startIndex, start);
       case ':':
-        this.tokens.push(this.makeToken(TokenType.COLON, char, start));
-        break;
-      case '#':
-        this.tokens.push(this.makeToken(TokenType.HASH, char, start));
-        break;
-      case '_':
-        this.tokens.push(this.makeToken(TokenType.UNDERSCORE, char, start));
-        break;
+        return this.push(TokenType.COLON, startIndex, start);
       case '+':
-        this.tokens.push(this.makeToken(TokenType.PLUS, char, start));
-        break;
+        return this.push(TokenType.PLUS, startIndex, start);
       case '-':
-        this.tokens.push(this.makeToken(TokenType.MINUS, char, start));
-        break;
+        return this.push(TokenType.MINUS, startIndex, start);
       case '*':
-        this.tokens.push(this.makeToken(TokenType.STAR, char, start));
-        break;
+        return this.push(TokenType.STAR, startIndex, start);
       case '/':
-        // Check for self-closing tag />
+        return this.push(TokenType.SLASH, startIndex, start);
+      case '%':
+        return this.push(TokenType.PERCENT, startIndex, start);
+      case '!':
+        return this.pushIfNext(
+          '=',
+          TokenType.BANG_EQ,
+          TokenType.BANG,
+          startIndex,
+          start
+        );
+      case '<':
+        return this.pushIfNext(
+          '=',
+          TokenType.LT_EQ,
+          TokenType.LT,
+          startIndex,
+          start
+        );
+      case '>':
+        return this.pushIfNext(
+          '=',
+          TokenType.GT_EQ,
+          TokenType.GT,
+          startIndex,
+          start
+        );
+      case '?':
+        return this.pushIfNext(
+          '?',
+          TokenType.QUESTION_QUESTION,
+          TokenType.QUESTION,
+          startIndex,
+          start
+        );
+      case '&':
+        return this.pushPairOrError('&', TokenType.AMP_AMP, startIndex, start);
+      case '|':
+        return this.pushPairOrError(
+          '|',
+          TokenType.PIPE_PIPE,
+          startIndex,
+          start
+        );
+      case '=':
         if (this.peek() === '>') {
           this.advance();
-          this.tokens.push(
-            this.makeToken(TokenType.TAG_SELF_CLOSE, '/>', start)
-          );
-        } else {
-          this.tokens.push(this.makeToken(TokenType.SLASH, char, start));
+          return this.push(TokenType.ARROW, startIndex, start);
         }
-        break;
-      case '%':
-        this.tokens.push(this.makeToken(TokenType.PERCENT, char, start));
-        break;
-      case '!':
-        if (this.peek() === '=') {
-          this.advance();
-          this.tokens.push(this.makeToken(TokenType.BANG_EQ, '!=', start));
-        } else {
-          this.tokens.push(this.makeToken(TokenType.BANG, char, start));
-        }
-        break;
-      case '=':
-        if (this.peek() === '=') {
-          this.advance();
-          this.tokens.push(this.makeToken(TokenType.EQ_EQ, '==', start));
-        } else if (this.peek() === '>') {
-          this.advance();
-          this.tokens.push(this.makeToken(TokenType.ARROW, '=>', start));
-        } else {
-          this.tokens.push(this.makeToken(TokenType.EQUALS, char, start));
-        }
-        break;
-      case '<':
-        if (this.peek() === '=') {
-          this.advance();
-          this.tokens.push(this.makeToken(TokenType.LT_EQ, '<=', start));
-        } else if (this.peek() === '/') {
-          this.advance();
-          this.tokens.push(this.makeToken(TokenType.TAG_END_OPEN, '</', start));
-        } else {
-          this.tokens.push(this.makeToken(TokenType.TAG_OPEN, char, start));
-        }
-        break;
-      case '>':
-        if (this.peek() === '=') {
-          this.advance();
-          this.tokens.push(this.makeToken(TokenType.GT_EQ, '>=', start));
-        } else {
-          this.tokens.push(this.makeToken(TokenType.TAG_CLOSE, char, start));
-        }
-        break;
-      case '&':
-        if (this.peek() === '&') {
-          this.advance();
-          this.tokens.push(this.makeToken(TokenType.AMP_AMP, '&&', start));
-        }
-        break;
-      case '|':
-        if (this.peek() === '|') {
-          this.advance();
-          this.tokens.push(this.makeToken(TokenType.PIPE_PIPE, '||', start));
-        }
-        break;
-      case '?':
-        if (this.peek() === '?') {
-          this.advance();
-          this.tokens.push(
-            this.makeToken(TokenType.QUESTION_QUESTION, '??', start)
-          );
-        } else {
-          this.tokens.push(this.makeToken(TokenType.QUESTION, char, start));
-        }
-        break;
+        return this.pushPairOrError('=', TokenType.EQ_EQ, startIndex, start);
       default:
-        // Unknown character, skip it
-        break;
+        return this.pushError(
+          `Unexpected character ${this.describe(char)} in expression`,
+          startIndex,
+          start
+        );
     }
   }
 
-  private scanIdentifier(start: number): void {
-    while (this.isAlphaNumeric(this.peek())) {
+  private scanIdentifier(startIndex: number, start: Position): void {
+    while (!this.isAtEnd() && this.isIdentifierPart(this.peek())) {
       this.advance();
     }
 
-    const value = this.source.substring(start, this.pos);
-    const type = this.getKeywordType(value);
-    this.tokens.push(this.makeToken(type, value, start));
+    const value = this.source.substring(startIndex, this.pos);
+    this.push(this.identifierType(value), startIndex, start);
   }
 
-  private scanNumber(start: number): void {
+  private scanNumber(startIndex: number, start: Position): void {
     while (this.isDigit(this.peek())) {
       this.advance();
     }
 
-    // Handle decimal numbers
     if (this.peek() === '.' && this.isDigit(this.peekNext())) {
       this.advance(); // consume .
       while (this.isDigit(this.peek())) {
@@ -324,31 +288,41 @@ export class Tokenizer {
       }
     }
 
-    const value = this.source.substring(start, this.pos);
-    this.tokens.push(this.makeToken(TokenType.NUMBER, value, start));
+    this.push(TokenType.NUMBER, startIndex, start);
   }
 
-  private scanString(quote: string, start: number): void {
+  private scanString(quote: string, startIndex: number, start: Position): void {
     while (!this.isAtEnd() && this.peek() !== quote) {
       if (this.peek() === '\\') {
         this.advance(); // consume backslash
-        this.advance(); // consume escaped character
-      } else {
-        this.advance();
+        if (this.isAtEnd()) break;
       }
+      this.advance();
     }
 
     if (this.isAtEnd()) {
-      throw new Error('Unterminated string');
+      this.pushError(
+        `Unterminated string literal (expected a closing ${quote})`,
+        startIndex,
+        start
+      );
+      return;
     }
 
     this.advance(); // consume closing quote
-
-    const value = this.source.substring(start, this.pos);
-    this.tokens.push(this.makeToken(TokenType.STRING, value, start));
+    this.push(TokenType.STRING, startIndex, start);
   }
 
-  private getKeywordType(value: string): TokenType {
+  /**
+   * `true`, `false` and `null` are literals only where a literal can appear.
+   * Directly after a `.` or a `$` they are path segments, so a data field may be
+   * named after one.
+   */
+  private identifierType(value: string): TokenType {
+    const previous = this.tokens[this.tokens.length - 1]?.type;
+    if (previous === TokenType.DOT || previous === TokenType.DOLLAR) {
+      return TokenType.IDENTIFIER;
+    }
     switch (value) {
       case 'true':
         return TokenType.TRUE;
@@ -356,45 +330,95 @@ export class Tokenizer {
         return TokenType.FALSE;
       case 'null':
         return TokenType.NULL;
-      case 'if':
-        return TokenType.IF;
-      case 'else':
-        return TokenType.ELSE;
-      case 'for':
-        return TokenType.FOR;
-      case 'of':
-        return TokenType.OF;
-      case 'match':
-        return TokenType.MATCH;
-      case 'when':
-        return TokenType.WHEN;
-      case 'let':
-        return TokenType.LET;
-      case 'props':
-        return TokenType.PROPS;
       default:
         return TokenType.IDENTIFIER;
     }
   }
 
-  private makeToken(
-    type: TokenType,
-    value: string,
-    offset = this.pos - value.length,
-    line = this.line,
-    column = this.column - value.length
-  ): Token {
-    return {
+  // Token construction -------------------------------------------------------
+
+  private push(type: TokenType, startIndex: number, start: Position): void {
+    this.tokens.push({
       type,
-      value,
-      line,
-      column,
-      offset,
+      value: this.source.substring(startIndex, this.pos),
+      start,
+      end: this.position(),
+    });
+  }
+
+  private pushIfNext(
+    next: string,
+    whenPaired: TokenType,
+    whenAlone: TokenType,
+    startIndex: number,
+    start: Position
+  ): void {
+    if (this.peek() === next) {
+      this.advance();
+      this.push(whenPaired, startIndex, start);
+      return;
+    }
+    this.push(whenAlone, startIndex, start);
+  }
+
+  /**
+   * Handles the characters that are only ever valid doubled (`&&`, `||`, `==`).
+   * A single one is reserved, not silently ignored.
+   */
+  private pushPairOrError(
+    char: string,
+    paired: TokenType,
+    startIndex: number,
+    start: Position
+  ): void {
+    if (this.peek() === char) {
+      this.advance();
+      this.push(paired, startIndex, start);
+      return;
+    }
+    const hint = SINGLE_CHAR_HINTS[char];
+    this.pushError(
+      `Unexpected character '${char}' in expression${hint ? ` - ${hint}` : ''}`,
+      startIndex,
+      start
+    );
+  }
+
+  private pushError(
+    message: string,
+    startIndex: number,
+    start: Position
+  ): void {
+    this.push(TokenType.ERROR, startIndex, start);
+    this.errors.push({
+      message,
+      line: start.line,
+      column: start.column,
+      offset: start.offset,
+    });
+  }
+
+  private describe(char: string): string {
+    const code = char.codePointAt(0) ?? 0;
+    if (code < 0x20 || code === 0x7f) {
+      return `U+${code.toString(16).toUpperCase().padStart(4, '0')}`;
+    }
+    return `'${char}'`;
+  }
+
+  // Cursor -------------------------------------------------------------------
+
+  private position(): Position {
+    return {
+      line: this.line,
+      column: this.column,
+      offset: this.base.offset + this.pos,
     };
   }
 
   private advance(): string {
-    const char = this.source[this.pos++] ?? '\0';
+    const char = this.source[this.pos] ?? '\0';
+    this.pos++;
     if (char === '\n') {
       this.line++;
       this.column = 1;
@@ -418,23 +442,29 @@ export class Tokenizer {
     return this.pos >= this.source.length;
   }
 
+  // Character classes --------------------------------------------------------
+
   private isWhitespace(char: string): boolean {
     return char === ' ' || char === '\t' || char === '\r' || char === '\n';
-  }
-
-  private isAlpha(char: string): boolean {
-    return (
-      (char >= 'a' && char <= 'z') ||
-      (char >= 'A' && char <= 'Z') ||
-      char === '_'
-    );
   }
 
   private isDigit(char: string): boolean {
     return char >= '0' && char <= '9';
   }
 
-  private isAlphaNumeric(char: string): boolean {
-    return this.isAlpha(char) || this.isDigit(char);
+  private isIdentifierStart(char: string): boolean {
+    if (
+      (char >= 'a' && char <= 'z') ||
+      (char >= 'A' && char <= 'Z') ||
+      char === '_'
+    ) {
+      return true;
+    }
+    return char > '\x7f' && UNICODE_IDENTIFIER_START.test(char);
+  }
+
+  private isIdentifierPart(char: string): boolean {
+    if (this.isIdentifierStart(char) || this.isDigit(char)) return true;
+    return char > '\x7f' && UNICODE_IDENTIFIER_PART.test(char);
   }
 }

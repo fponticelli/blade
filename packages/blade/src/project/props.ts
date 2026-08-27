@@ -1,16 +1,22 @@
 /**
  * Props Handling for Blade Projects
  *
- * Parses @props directives from component files and infers props
- * from template content when no explicit @props directive exists.
+ * Reads the `@props` directive of a component file, and - when it has none -
+ * infers what the component reads from its caller.
  */
 
 import type {
   PropDeclaration,
-  Diagnostic,
+  PropsNode,
   SourceLocation,
+  TemplateNode,
+  Diagnostic,
 } from '../ast/types.js';
-import { parseProps } from '../parser/props-parser.js';
+import { parseTemplate } from '../parser/index.js';
+import type { TemplateParseResult } from '../parser/index.js';
+import { walkNodes } from '../ast/visitor.js';
+import { collectFreeVariables } from './free-variables.js';
+import { createDiagnostic } from '../validation/index.js';
 
 export interface PropsWarning {
   message: string;
@@ -20,125 +26,131 @@ export interface PropsWarning {
 
 export interface ComponentPropsResult {
   props: PropDeclaration[];
+  /** True when nothing was declared and the list was derived from usage. */
   inferred: boolean;
   warnings: PropsWarning[];
+}
+
+/** The `@props` node of a parsed template, if it declares one. */
+function findPropsNode(nodes: readonly TemplateNode[]): PropsNode | undefined {
+  let found: PropsNode | undefined;
+  walkNodes(nodes, node => {
+    if (found) return false;
+    if (node.kind === 'props') {
+      found = node;
+      return false;
+    }
+    return undefined;
+  });
+  return found;
 }
 
 /**
  * Parses or infers props from a component source file.
  *
+ * `@props` is an ordinary directive in the one template parser, so this reads
+ * the declarations off the AST.
+ *
  * @param source - The component source code
  * @returns The parsed/inferred props and any warnings
  */
 export function parseComponentProps(source: string): ComponentPropsResult {
-  // Try to parse @props directive
-  const parseResult = parseProps(source);
+  return componentPropsFrom(parseTemplate(source));
+}
 
-  if (parseResult.directive) {
-    // @props directive found and parsed successfully
-    return {
-      props: parseResult.directive.props as PropDeclaration[],
-      inferred: false,
-      warnings: parseResult.warnings.map(w => ({
-        message: w.message,
-        line: w.line,
-        column: w.column,
-      })),
-    };
-  }
+/**
+ * Parses or infers props from an already-parsed component.
+ *
+ * The project compiler parses each file once and needs both its props and its
+ * body; re-parsing the same bytes to answer the second question is what this
+ * exists to avoid.
+ *
+ * @param parsed - The parsed component
+ * @returns The parsed/inferred props and any warnings
+ */
+export function componentPropsFrom(
+  parsed: TemplateParseResult
+): ComponentPropsResult {
+  const propsNode = findPropsNode(parsed.value);
 
-  // Check if there were @props parse warnings (malformed @props)
-  if (parseResult.warnings.length > 0) {
-    // Malformed @props - fall back to inference with warnings
-    const inferred = inferPropsFromSource(source);
+  if (!propsNode) {
     return {
-      props: inferred,
+      props: inferProps(parsed.value),
       inferred: true,
-      warnings: parseResult.warnings.map(w => ({
-        message: w.message,
-        line: w.line,
-        column: w.column,
-      })),
+      warnings: [],
     };
   }
 
-  // No @props directive at all - infer from template
-  const inferred = inferPropsFromSource(source);
+  // Only diagnostics from inside the directive itself are props warnings.
+  const warnings = parsed.errors
+    .filter(
+      error =>
+        error.offset >= propsNode.location.start.offset &&
+        error.offset <= propsNode.location.end.offset
+    )
+    .map(error => ({
+      message: error.message,
+      line: error.line,
+      column: error.column,
+    }));
+
+  if (warnings.length > 0 && propsNode.props.length === 0) {
+    // Malformed @props: fall back to inference, but say why.
+    return {
+      props: inferProps(parsed.value),
+      inferred: true,
+      warnings,
+    };
+  }
+
   return {
-    props: inferred,
-    inferred: true,
-    warnings: [],
+    props: propsNode.props.map(declaration => ({ ...declaration })),
+    inferred: false,
+    warnings,
   };
 }
 
 /**
- * Infers props from template source by finding $variable references.
+ * The props a component appears to expect, from what it reads.
  *
- * @param source - The template source code
- * @returns Array of inferred prop declarations (all required)
+ * Inferred props are NEVER required. Inference cannot tell "the caller must
+ * pass this" from "this name is referenced": the previous implementation
+ * marked every match of `/\$\w+/` over the raw source as `required: true`, so
+ * a component containing `@for($item of $items)` demanded an `item` attribute
+ * at every call site and the whole project failed to compile over a loop
+ * variable. A name that is read but not declared is worth a warning - see
+ * {@link createUndeclaredPropDiagnostic} - and never a hard error.
  */
-function inferPropsFromSource(source: string): PropDeclaration[] {
-  const variablePattern = /\$([a-zA-Z_][a-zA-Z0-9_]*)/g;
-  const variables = new Set<string>();
-
-  let match;
-  while ((match = variablePattern.exec(source)) !== null) {
-    const varName = match[1];
-    if (varName) {
-      variables.add(varName);
-    }
-  }
-
-  // Convert to prop declarations (all inferred props are required)
-  return Array.from(variables).map(name => ({
+function inferProps(nodes: readonly TemplateNode[]): PropDeclaration[] {
+  return Array.from(collectFreeVariables(nodes), ([name, location]) => ({
     name,
-    required: true,
+    required: false,
     defaultValue: undefined,
-    location: {
-      start: { line: 1, column: 1, offset: 0 },
-      end: { line: 1, column: 1, offset: 0 },
-    },
+    location,
   }));
 }
 
 /**
- * Creates a diagnostic for a missing required prop.
+ * Reports a prop a component reads without declaring.
  *
- * @param propName - The name of the missing prop
- * @param componentName - The component name
- * @param usageLocation - Where the component is used
- * @param definedAt - Where the prop is defined (optional)
- * @returns A diagnostic with actionable information
+ * A warning, deliberately. The component works if its caller happens to pass
+ * the value; what is missing is the declaration that would let the compiler
+ * check that at the call site.
+ *
+ * @param propName - The undeclared name
+ * @param componentName - The component that reads it
+ * @param location - Where it is first read, inside the component
  */
-export function createMissingPropDiagnostic(
+export function createUndeclaredPropDiagnostic(
   propName: string,
   componentName: string,
-  usageLocation: { start: { line: number; column: number } },
-  definedAt?: { file: string; line: number }
+  location: SourceLocation
 ): Diagnostic {
-  let message = `Missing required prop '${propName}' for component '${componentName}'.`;
-  message += `\n  Used at: line ${usageLocation.start.line}, column ${usageLocation.start.column}`;
-
-  if (definedAt) {
-    message += `\n  Defined at: ${definedAt.file}:${definedAt.line}`;
-  }
-
-  const location: SourceLocation = {
-    start: {
-      line: usageLocation.start.line,
-      column: usageLocation.start.column,
-      offset: 0,
-    },
-    end: {
-      line: usageLocation.start.line,
-      column: usageLocation.start.column,
-      offset: 0,
-    },
-  };
-
-  return {
-    level: 'error',
-    message,
+  return createDiagnostic(
+    'warning',
+    `Component '${componentName}' reads '$${propName}' but declares no props for it.\n` +
+      `  Tip: add @props($${propName}) so call sites can be checked.`,
     location,
-  };
+    'UNDECLARED_PROP'
+  );
 }

@@ -15,6 +15,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
+      // The shared renderer conformance corpus. Aliased rather than installed:
+      // it is a table of test data with no dependencies and nothing to build,
+      // and both packages that read it reach it the same way.
+      '@bladets/corpus': resolve(__dirname, '../blade-corpus/src/index.ts'),
     },
   },
 });

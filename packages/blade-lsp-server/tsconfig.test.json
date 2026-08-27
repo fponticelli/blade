@@ -1,0 +1,24 @@
+{
+  // Typechecks the test suite, which tsconfig.json excludes. Extends the
+  // package config rather than the base so tests always inherit whatever
+  // strictness src is held to.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Widened from `src`, because the suite reads the shared project fixtures
+    // from packages/blade-corpus and the API-surface tool from scripts/.
+    // Nothing is emitted, so the root only has to contain the program.
+    "rootDir": "../..",
+    "baseUrl": ".",
+    "paths": {
+      "@bladets/corpus": ["../blade-corpus/src/index.ts"]
+    },
+    // The only relaxation, matching @bladets/template's test config: fixtures
+    // of known shape are indexed directly, and `?.` would turn an out-of-range
+    // read into a silent `undefined === expected` pass instead of a loud
+    // failure.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["src", "tests", "../blade-corpus/src", "../../scripts"],
+  "exclude": ["node_modules", "dist"]
+}

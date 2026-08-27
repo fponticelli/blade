@@ -3,7 +3,7 @@
 // DOM renderers, in the wire format consumers parse.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { compile, standardLibrary } from '@bladets/template/browser';
+import { compileOrThrow, standardLibrary } from '@bladets/template/browser';
 import { prop, render } from '@tempots/dom';
 import { createTempoRenderer } from '../src/index.js';
 import type { TempoRenderOptions } from '../src/types.js';
@@ -27,7 +27,7 @@ describe('source tracking', () => {
     data: unknown,
     options: TempoRenderOptions = {}
   ): HTMLElement {
-    const renderer = createTempoRenderer(compile(source), options);
+    const renderer = createTempoRenderer(compileOrThrow(source), options);
     cleanup = render(renderer(prop(data)), container);
     return container;
   }

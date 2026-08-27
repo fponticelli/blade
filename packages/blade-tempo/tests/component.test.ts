@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compile } from '@bladets/template/browser';
+import { compileOrThrow } from '@bladets/template/browser';
 import { prop, render } from '@tempots/dom';
 import { createTempoRenderer } from '../src/index.js';
 
@@ -14,7 +14,7 @@ describe('Component rendering', () => {
   <Badge label="Test Label" />
 </div>
         `;
-    const template = compile(source);
+    const template = compileOrThrow(source);
     const renderer = createTempoRenderer(template);
     const container = document.createElement('div');
 
@@ -33,7 +33,7 @@ describe('Component rendering', () => {
   <Badge label=$user.name />
 </div>
     `;
-    const template = compile(source);
+    const template = compileOrThrow(source);
     const renderer = createTempoRenderer(template);
     const container = document.createElement('div');
     const data = prop({ user: { name: 'Alice' } });

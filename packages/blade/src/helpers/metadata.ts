@@ -5,6 +5,10 @@
  */
 
 import type { SourceOp } from '../source-tracking/index.js';
+// Type-only: erased at emit, so the value-level import graph
+// (source-tracking -> metadata) stays acyclic while the key set of
+// `standardLibrary` still constrains this registry.
+import type { standardLibrary } from './index.js';
 
 export type HelperCategory =
   | 'array'
@@ -33,17 +37,40 @@ export interface HelperMetadata {
    * rules in `classifyExpression`.
    */
   sourceOp?: SourceOp;
+  /**
+   * What the helper's return value *is*, when it is not prose.
+   *
+   * `'json'` means the string it returns is already JSON text, i.e. JavaScript
+   * source. Inside a `<script>` element that changes the correct escaper: JSON
+   * run through a JavaScript *string* escaper comes out as an unusable pile of
+   * backslashes, which is what pushed every consumer of
+   * `<script>var d = ${toJson(x)}</script>` onto the raw `$!` sink and straight
+   * into a `</script>` breakout. The renderer asks this question through
+   * {@link producesJsonSource}.
+   */
+  outputKind?: 'json';
 }
 
 /**
  * Registry of all helper function metadata for LSP and documentation.
+ *
+ * The `satisfies` clause keeps this registry and `standardLibrary` in lockstep
+ * by the compiler, in both directions: a helper added without metadata is a
+ * missing-property error, and metadata for a helper that no longer exists is an
+ * excess-property error. Nothing else enforces it - the consumers of the two
+ * sets are disjoint, so a helper with no metadata would silently lose hover,
+ * completion and its `rd-source-op` provenance classification.
+ *
+ * The declared type stays `Record<string, HelperMetadata>` because callers look
+ * helpers up by a name parsed out of a template, which is a plain string.
  */
 export const helperMetadata: Record<string, HelperMetadata> = {
   // Formatting helpers (existing)
   formatCurrency: {
     name: 'formatCurrency',
     signature: 'formatCurrency(value: number, currency?: string): string',
-    description: 'Formats a number as currency using locale settings',
+    description:
+      'Formats a number as currency using $.currency and $.locale. An invalid currency code warns and falls back to USD',
     examples: [
       'formatCurrency(1234.56) → "$1,234.56"',
       'formatCurrency(1234.56, "EUR") → "€1,234.56"',
@@ -54,7 +81,8 @@ export const helperMetadata: Record<string, HelperMetadata> = {
   formatNumber: {
     name: 'formatNumber',
     signature: 'formatNumber(value: number, decimals?: number): string',
-    description: 'Formats a number with locale-aware formatting',
+    description:
+      'Formats a number with locale-aware formatting. decimals is clamped to 0-20',
     examples: ['formatNumber(1234.567, 2) → "1,234.57"'],
     category: 'format',
     sourceOp: { category: 'format', detail: 'number' },
@@ -62,61 +90,69 @@ export const helperMetadata: Record<string, HelperMetadata> = {
   formatPercent: {
     name: 'formatPercent',
     signature: 'formatPercent(value: number, decimals?: number): string',
-    description: 'Formats a number as a percentage',
+    description:
+      'Formats a number as a percentage. decimals is clamped to 0-20',
     examples: ['formatPercent(0.1234, 1) → "12.3%"'],
     category: 'format',
     sourceOp: { category: 'format', detail: 'percent' },
   },
   formatDate: {
     name: 'formatDate',
-    signature: 'formatDate(date: Date, format?: "short" | "long"): string',
-    description: 'Formats a date using locale settings',
+    signature:
+      'formatDate(date: Date | string | null, format?: "short" | "long"): string',
+    description:
+      'Formats a date using $.locale and $.timezone. A date-only value (2025-11-26) always prints that calendar day, whatever the host zone; a missing or invalid date prints as an empty string',
     examples: [
       'formatDate(date, "short") → "11/26/25"',
       'formatDate(date, "long") → "Wednesday, November 26, 2025"',
+      'formatDate(null) → ""',
     ],
     category: 'format',
     sourceOp: { category: 'format', detail: 'date' },
   },
 
   // Aggregation helpers (existing)
+  // Empty-input contract, shared by all five: sum and count have an identity
+  // element and return 0; avg, min and max have none and return null, which
+  // renders as an empty string rather than a fabricated 0 or Infinity.
   sum: {
     name: 'sum',
     signature: 'sum(...values: number[]): number',
-    description: 'Returns the sum of all values',
-    examples: ['sum(1, 2, 3) → 6', 'sum([1, 2, 3]) → 6'],
+    description: 'Returns the sum of all values, or 0 when there are none',
+    examples: ['sum(1, 2, 3) → 6', 'sum([1, 2, 3]) → 6', 'sum([]) → 0'],
     category: 'number',
     sourceOp: { category: 'aggregate' },
   },
   avg: {
     name: 'avg',
-    signature: 'avg(...values: number[]): number',
-    description: 'Returns the average of all values',
-    examples: ['avg(1, 2, 3) → 2', 'avg([1, 2, 3]) → 2'],
+    signature: 'avg(...values: number[]): number | null',
+    description:
+      'Returns the average of all values, or null when there are none',
+    examples: ['avg(1, 2, 3) → 2', 'avg([1, 2, 3]) → 2', 'avg([]) → null'],
     category: 'number',
     sourceOp: { category: 'aggregate' },
   },
   min: {
     name: 'min',
-    signature: 'min(...values: number[]): number',
-    description: 'Returns the minimum value',
-    examples: ['min(3, 1, 2) → 1'],
+    signature: 'min(...values: number[]): number | null',
+    description: 'Returns the minimum value, or null when there are none',
+    examples: ['min(3, 1, 2) → 1', 'min([]) → null'],
     category: 'number',
     sourceOp: { category: 'aggregate' },
   },
   max: {
     name: 'max',
-    signature: 'max(...values: number[]): number',
-    description: 'Returns the maximum value',
-    examples: ['max(3, 1, 2) → 3'],
+    signature: 'max(...values: number[]): number | null',
+    description: 'Returns the maximum value, or null when there are none',
+    examples: ['max(3, 1, 2) → 3', 'max([]) → null'],
     category: 'number',
     sourceOp: { category: 'aggregate' },
   },
   count: {
     name: 'count',
     signature: 'count(...values: unknown[]): number',
-    description: 'Returns the count of values',
-    examples: ['count(1, 2, 3) → 3', 'count([1, 2, 3]) → 3'],
+    description: 'Returns the count of values, or 0 when there are none',
+    examples: ['count(1, 2, 3) → 3', 'count([1, 2, 3]) → 3', 'count([]) → 0'],
     category: 'number',
     sourceOp: { category: 'aggregate' },
   },
@@ -163,7 +199,7 @@ export const helperMetadata: Record<string, HelperMetadata> = {
   round: {
     name: 'round',
     signature: 'round(value: number, decimals?: number): number',
-    description: 'Rounds to specified decimal places',
+    description: 'Rounds to specified decimal places, clamped to -20..20',
     examples: ['round(3.567, 1) → 3.6'],
     category: 'number',
     sourceOp: { category: 'calculated' },
@@ -204,8 +240,9 @@ export const helperMetadata: Record<string, HelperMetadata> = {
   },
   addDays: {
     name: 'addDays',
-    signature: 'addDays(date: Date, days: number): Date',
-    description: 'Adds days to a date',
+    signature: 'addDays(date: Date, days: number): Date | null',
+    description:
+      'Adds days to a date, or null when there is no date. Calendar dates stay on the calendar across DST boundaries',
     examples: ['addDays(date, 7) → date + 7 days'],
     category: 'date',
   },
@@ -377,14 +414,16 @@ export const helperMetadata: Record<string, HelperMetadata> = {
   padStart: {
     name: 'padStart',
     signature: 'padStart(str: string, length: number, char?: string): string',
-    description: 'Pads the start of string to reach length',
+    description:
+      'Pads the start of string to reach length, up to the 1,000,000-character helper output limit',
     examples: ['padStart("42", 5, "0") → "00042"'],
     category: 'string',
   },
   padEnd: {
     name: 'padEnd',
     signature: 'padEnd(str: string, length: number, char?: string): string',
-    description: 'Pads the end of string to reach length',
+    description:
+      'Pads the end of string to reach length, up to the 1,000,000-character helper output limit',
     examples: ['padEnd("Hi", 5, "!") → "Hi!!!"'],
     category: 'string',
   },
@@ -405,136 +444,151 @@ export const helperMetadata: Record<string, HelperMetadata> = {
   repeat: {
     name: 'repeat',
     signature: 'repeat(str: string, count: number): string',
-    description: 'Repeats string count times',
+    description:
+      'Repeats string count times, up to the 1,000,000-character helper output limit',
     examples: ['repeat("ab", 3) → "ababab"'],
     category: 'string',
   },
   truncate: {
     name: 'truncate',
     signature: 'truncate(str: string, length: number, suffix?: string): string',
-    description: 'Truncates string with optional suffix',
-    examples: ['truncate("Hello World", 8) → "Hello..."'],
+    description:
+      'Truncates string to at most length characters, suffix included',
+    examples: [
+      'truncate("Hello World", 8) → "Hello..."',
+      'truncate("abcdef", 2) → ".."',
+    ],
     category: 'string',
   },
 
   // Date helpers (new)
   addYears: {
     name: 'addYears',
-    signature: 'addYears(date: Date, n: number): Date',
+    signature: 'addYears(date: Date, n: number): Date | null',
     description: 'Adds n years to date',
     examples: ['addYears(date, 1) → date + 1 year'],
     category: 'date',
   },
   addMonths: {
     name: 'addMonths',
-    signature: 'addMonths(date: Date, n: number): Date',
+    signature: 'addMonths(date: Date, n: number): Date | null',
     description: 'Adds n months to date',
     examples: ['addMonths(date, 3) → date + 3 months'],
     category: 'date',
   },
   addWeeks: {
     name: 'addWeeks',
-    signature: 'addWeeks(date: Date, n: number): Date',
+    signature: 'addWeeks(date: Date, n: number): Date | null',
     description: 'Adds n weeks to date',
     examples: ['addWeeks(date, 2) → date + 14 days'],
     category: 'date',
   },
   addHours: {
     name: 'addHours',
-    signature: 'addHours(date: Date, n: number): Date',
+    signature: 'addHours(date: Date, n: number): Date | null',
     description: 'Adds n hours to date',
     examples: ['addHours(date, 5) → date + 5 hours'],
     category: 'date',
   },
   addMinutes: {
     name: 'addMinutes',
-    signature: 'addMinutes(date: Date, n: number): Date',
+    signature: 'addMinutes(date: Date, n: number): Date | null',
     description: 'Adds n minutes to date',
     examples: ['addMinutes(date, 30) → date + 30 minutes'],
     category: 'date',
   },
   addSeconds: {
     name: 'addSeconds',
-    signature: 'addSeconds(date: Date, n: number): Date',
+    signature: 'addSeconds(date: Date, n: number): Date | null',
     description: 'Adds n seconds to date',
     examples: ['addSeconds(date, 45) → date + 45 seconds'],
     category: 'date',
   },
   year: {
     name: 'year',
-    signature: 'year(date: Date): number',
-    description: 'Extracts the year from date',
+    signature: 'year(date: Date): number | null',
+    description: 'Extracts the year from date, or null when there is no date',
     examples: ['year(date) → 2025'],
     category: 'date',
   },
   month: {
     name: 'month',
-    signature: 'month(date: Date): number',
-    description: 'Extracts the month (1-12) from date',
+    signature: 'month(date: Date): number | null',
+    description:
+      'Extracts the month (1-12) from date, or null when there is no date',
     examples: ['month(date) → 11 (November)'],
     category: 'date',
   },
   day: {
     name: 'day',
-    signature: 'day(date: Date): number',
-    description: 'Extracts the day of month from date',
+    signature: 'day(date: Date): number | null',
+    description:
+      'Extracts the day of month from date, or null when there is no date',
     examples: ['day(date) → 26'],
     category: 'date',
   },
   weekday: {
     name: 'weekday',
-    signature: 'weekday(date: Date): number',
-    description: 'Extracts the day of week (0-6, Sunday=0)',
+    signature: 'weekday(date: Date): number | null',
+    description:
+      'Extracts the day of week (0-6, Sunday=0), or null when there is no date',
     examples: ['weekday(date) → 3 (Wednesday)'],
     category: 'date',
   },
   hour: {
     name: 'hour',
-    signature: 'hour(date: Date): number',
-    description: 'Extracts the hour (0-23) from date',
+    signature: 'hour(date: Date): number | null',
+    description:
+      'Extracts the hour (0-23) from date, or null when there is no date',
     examples: ['hour(date) → 14'],
     category: 'date',
   },
   minute: {
     name: 'minute',
-    signature: 'minute(date: Date): number',
-    description: 'Extracts the minute (0-59) from date',
+    signature: 'minute(date: Date): number | null',
+    description:
+      'Extracts the minute (0-59) from date, or null when there is no date',
     examples: ['minute(date) → 30'],
     category: 'date',
   },
   second: {
     name: 'second',
-    signature: 'second(date: Date): number',
-    description: 'Extracts the second (0-59) from date',
+    signature: 'second(date: Date): number | null',
+    description:
+      'Extracts the second (0-59) from date, or null when there is no date',
     examples: ['second(date) → 45'],
     category: 'date',
   },
   diffDays: {
     name: 'diffDays',
-    signature: 'diffDays(date1: Date, date2: Date): number',
-    description: 'Returns the difference in days between dates',
+    signature: 'diffDays(date1: Date, date2: Date): number | null',
+    description:
+      'Returns the difference in days between dates, or null when either is missing',
     examples: ['diffDays(date1, date2) → 7'],
     category: 'date',
     sourceOp: { category: 'calculated' },
   },
   isBefore: {
     name: 'isBefore',
-    signature: 'isBefore(date1: Date, date2: Date): boolean',
-    description: 'Returns true if date1 is before date2',
+    signature: 'isBefore(date1: Date, date2: Date): boolean | null',
+    description:
+      'Returns true if date1 is before date2, or null when either is missing',
     examples: ['isBefore(yesterday, today) → true'],
     category: 'date',
   },
   isAfter: {
     name: 'isAfter',
-    signature: 'isAfter(date1: Date, date2: Date): boolean',
-    description: 'Returns true if date1 is after date2',
+    signature: 'isAfter(date1: Date, date2: Date): boolean | null',
+    description:
+      'Returns true if date1 is after date2, or null when either is missing',
     examples: ['isAfter(tomorrow, today) → true'],
     category: 'date',
   },
   parseDate: {
     name: 'parseDate',
-    signature: 'parseDate(str: string, format?: string): Date',
-    description: 'Parses a string into a Date',
+    signature: 'parseDate(str: string, format?: string): Date | null',
+    description:
+      'Parses a string into a Date, or null when it is not a date. A date-only string (2025-11-26) stays on that calendar day whatever the host zone',
     examples: ['parseDate("2025-11-26") → Date'],
     category: 'date',
   },
@@ -620,7 +674,8 @@ export const helperMetadata: Record<string, HelperMetadata> = {
   toInt: {
     name: 'toInt',
     signature: 'toInt(str: string, radix?: number): number',
-    description: 'Parses string as integer with optional radix',
+    description:
+      'Parses string as integer with optional radix, clamped to 2-36',
     examples: ['toInt("42") → 42', 'toInt("ff", 16) → 255'],
     category: 'number',
   },
@@ -710,21 +765,18 @@ export const helperMetadata: Record<string, HelperMetadata> = {
     description: 'Converts value to JSON string',
     examples: ['toJson({x: 1}) → \'{"x":1}\''],
     category: 'utility',
+    outputKind: 'json',
   },
-};
+} satisfies Record<keyof typeof standardLibrary, HelperMetadata>;
 
 /**
- * Get all helper names
+ * Whether a helper returns JSON text rather than prose.
+ *
+ * The renderer consults this for an expression written directly into a
+ * `<script>` body, so that `${toJson(x)}` is emitted as JSON with only the
+ * five characters that are unsafe *there* escaped - which `JSON.parse` decodes
+ * back to the originals, so the value round-trips exactly.
  */
-export function getHelperNames(): string[] {
-  return Object.keys(helperMetadata);
-}
-
-/**
- * Get helpers by category
- */
-export function getHelpersByCategory(
-  category: HelperCategory
-): HelperMetadata[] {
-  return Object.values(helperMetadata).filter(h => h.category === category);
+export function producesJsonSource(name: string): boolean {
+  return helperMetadata[name]?.outputKind === 'json';
 }

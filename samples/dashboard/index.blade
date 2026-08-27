@@ -220,7 +220,7 @@
   </main>
 
   <footer class="dashboard-footer">
-    <p>Dashboard generated on ${formatDate(now(), "MMMM d, yyyy")} at ${formatDate(now(), "HH:mm")}</p>
+    <p>Dashboard generated on ${formatDate(now(), "MMMM d, yyyy")} at ${hour(now())}:${padStart(toString(minute(now())), 2, "0")}</p>
   </footer>
 </body>
 </html>

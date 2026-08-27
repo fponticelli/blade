@@ -1,161 +1,193 @@
 /**
- * Escape Sequence Tests
+ * Escape sequences, and the diagnostics that go with them.
  *
- * Tests for escape sequences in Blade templates.
+ * Two things were wrong with this file.
+ *
+ * The first: it asserted that `@if(true)Hello\@world@endif` CONTAINED
+ * `Hello@world`, and it did - because Blade's directives are brace-delimited,
+ * `@endif` is not a directive at all, and the whole construct failed to parse
+ * and degraded to literal text. Three error diagnostics, and an assertion that
+ * passed. A test that cannot tell a working directive from a broken one is not
+ * evidence of anything, and the broken form is now a NEGATIVE test that pins
+ * the diagnostics by name.
+ *
+ * The second, which is what let the first survive: not one of the twenty-two
+ * tests here looked at `result.diagnostics`. Every positive-path assertion now
+ * goes through {@link ./support/render-ok.js#renderOk}, which fails the test
+ * unless the compile was completely clean before it renders - so "it produced
+ * the right characters" can no longer stand in for "it compiled".
  */
 
 import { describe, it, expect } from 'vitest';
-import { compile, render } from '../src/index.js';
+import { compile } from '../src/compiler/index.js';
+import { compileOk, diagnosticCodes, htmlOk } from './support/render-ok.js';
 
-describe('Escape Sequences', () => {
-  describe('Tokenizer escape handling', () => {
-    it('renders \\@ as literal @', async () => {
-      const ast = compile('Email: user\\@example.com');
-      const result = render(ast, {});
-      expect(result.html).toContain('user@example.com');
+describe('escape sequences', () => {
+  describe('in text', () => {
+    it('renders \\@ as a literal @', () => {
+      expect(htmlOk('Email: user\\@example.com')).toBe(
+        'Email: user@example.com'
+      );
     });
 
-    it('renders \\$ as literal $', async () => {
-      const ast = compile('Price: \\$100');
-      const result = render(ast, {});
-      expect(result.html).toContain('$100');
+    it('renders \\$ as a literal $', () => {
+      expect(htmlOk('Price: \\$100')).toBe('Price: $100');
     });
 
-    it('renders \\\\ as literal \\', async () => {
-      const ast = compile('Path: C:\\\\Users');
-      const result = render(ast, {});
-      expect(result.html).toContain('C:\\Users');
+    it('renders \\\\ as a literal backslash', () => {
+      expect(htmlOk('Path: C:\\\\Users')).toBe('Path: C:\\Users');
     });
 
-    it('handles multiple escape sequences', async () => {
-      const ast = compile('\\@user paid \\$50');
-      const result = render(ast, {});
-      expect(result.html).toContain('@user paid $50');
+    it('handles several escapes in one template', () => {
+      expect(htmlOk('\\@user paid \\$50')).toBe('@user paid $50');
     });
 
-    it('handles backslash at end of template', async () => {
-      const ast = compile('trailing\\');
-      const result = render(ast, {});
-      expect(result.html).toContain('trailing\\');
+    it('keeps a trailing backslash', () => {
+      expect(htmlOk('trailing\\')).toBe('trailing\\');
     });
 
-    it('handles backslash followed by non-special char', async () => {
-      const ast = compile('test\\n value');
-      const result = render(ast, {});
-      expect(result.html).toContain('test\\n value');
+    it('keeps a backslash before an ordinary character', () => {
+      expect(htmlOk('test\\n value')).toBe('test\\n value');
     });
   });
 
-  describe('Invalid directive handling', () => {
-    it('renders @example as literal text (invalid directive)', async () => {
-      const ast = compile('<p>Tweet @mentions</p>');
-      const result = render(ast, {});
-      expect(result.html).toContain('@mentions');
+  describe('an @ that is not a directive', () => {
+    it('renders @mentions as text', () => {
+      expect(htmlOk('<p>Tweet @mentions</p>')).toBe('<p>Tweet @mentions</p>');
     });
 
-    it('renders @anything as literal text', async () => {
-      const ast = compile('Contact: @support');
-      const result = render(ast, {});
-      expect(result.html).toContain('@support');
+    it('renders @support as text', () => {
+      expect(htmlOk('Contact: @support')).toBe('Contact: @support');
     });
   });
 
-  describe('Invalid variable handling', () => {
-    it('renders $123 as literal text ($ not followed by letter)', async () => {
-      const ast = compile('Price: $100');
-      const result = render(ast, {});
-      expect(result.html).toContain('$100');
+  describe('a $ that is not an interpolation', () => {
+    it('renders $100 as text', () => {
+      expect(htmlOk('Price: $100')).toBe('Price: $100');
     });
 
-    it('renders $! as literal text', async () => {
-      const ast = compile('Cost: $!');
-      const result = render(ast, {});
-      expect(result.html).toContain('$!');
+    it('renders a bare $! as text', () => {
+      expect(htmlOk('Cost: $!')).toBe('Cost: $!');
     });
 
-    it('renders $ followed by space as literal', async () => {
-      const ast = compile('Amount: $ 50');
-      const result = render(ast, {});
-      expect(result.html).toContain('$ 50');
+    it('renders $ followed by a space as text', () => {
+      expect(htmlOk('Amount: $ 50')).toBe('Amount: $ 50');
     });
   });
 
-  describe('Escapes in attribute values', () => {
-    it('processes escapes in attribute values', async () => {
-      const ast = compile('<a href="mailto:user\\@example.com">Email</a>');
-      const result = render(ast, {});
-      expect(result.html).toContain('user@example.com');
+  describe('in attribute values', () => {
+    it('processes an escape', () => {
+      expect(htmlOk('<a href="mailto:user\\@example.com">Email</a>')).toBe(
+        '<a href="mailto:user@example.com">Email</a>'
+      );
     });
 
-    it('handles $ in attribute values', async () => {
-      const ast = compile('<span data-price="\\$99">Price</span>');
-      const result = render(ast, {});
-      expect(result.html).toContain('$99');
+    it('processes an escaped dollar', () => {
+      expect(htmlOk('<span data-price="\\$99">Price</span>')).toBe(
+        '<span data-price="$99">Price</span>'
+      );
     });
   });
 
-  describe('Unsafe/raw HTML interpolation', () => {
-    it('renders $!variable without HTML escaping', async () => {
-      const ast = compile('Content: $!content');
-      const result = render(ast, { content: '<b>bold</b>' });
-      expect(result.html).toBe('Content: <b>bold</b>');
+  describe('raw interpolation', () => {
+    it('renders $!variable without escaping', () => {
+      expect(htmlOk('Content: $!content', { content: '<b>bold</b>' })).toBe(
+        'Content: <b>bold</b>'
+      );
     });
 
-    it('renders $!{expression} without HTML escaping', async () => {
-      const ast = compile('Content: $!{content}');
-      const result = render(ast, { content: '<em>italic</em>' });
-      expect(result.html).toBe('Content: <em>italic</em>');
+    it('renders $!{expression} without escaping', () => {
+      expect(
+        htmlOk('Content: $!{content}', { content: '<em>italic</em>' })
+      ).toBe('Content: <em>italic</em>');
     });
 
-    it('renders dotted path $!data.bio without escaping', async () => {
-      const ast = compile('Bio: $!data.bio');
-      const result = render(ast, { data: { bio: '<p>Hello</p>' } });
-      expect(result.html).toBe('Bio: <p>Hello</p>');
+    it('renders a dotted path without escaping', () => {
+      expect(htmlOk('Bio: $!data.bio', { data: { bio: '<p>Hello</p>' } })).toBe(
+        'Bio: <p>Hello</p>'
+      );
     });
 
-    it('still escapes regular expressions alongside unsafe ones', async () => {
-      const ast = compile('Safe: $safe, Raw: $!raw');
-      const result = render(ast, {
-        safe: '<script>bad</script>',
-        raw: '<b>good</b>',
-      });
-      expect(result.html).toContain('&lt;script&gt;');
-      expect(result.html).toContain('<b>good</b>');
+    it('still escapes the ordinary interpolations beside it', () => {
+      expect(
+        htmlOk('Safe: $safe, Raw: $!raw', {
+          safe: '<script>bad</script>',
+          raw: '<b>good</b>',
+        })
+      ).toBe('Safe: &lt;script&gt;bad&lt;/script&gt;, Raw: <b>good</b>');
     });
 
-    it('does not treat $! without identifier as unsafe', async () => {
-      const ast = compile('Cost: $!');
-      const result = render(ast, {});
-      expect(result.html).toContain('$!');
-    });
-
-    it('preserves ${!expr} as logical NOT (not unsafe)', async () => {
-      const ast = compile('${!isHidden}');
-      const result = render(ast, { isHidden: false });
-      expect(result.html).toBe('true');
-    });
-
-    it('handles $!{expression} with helper calls', async () => {
-      const ast = compile('$!{content}');
-      const result = render(ast, { content: '<div>block</div>' });
-      expect(result.html).toBe('<div>block</div>');
+    it('reads ${!expr} as a logical NOT, not as a raw interpolation', () => {
+      expect(htmlOk('${!isHidden}', { isHidden: false })).toBe('true');
     });
   });
 
-  describe('Combined with valid syntax', () => {
-    it('mixes escaped and real directives', async () => {
-      const ast = compile('@if(true)Hello\\@world@endif');
-      const result = render(ast, {});
-      expect(result.html).toContain('Hello@world');
+  describe('mixed with real syntax', () => {
+    it('escapes an @ inside a directive body', () => {
+      // The brace-delimited form, which is the one Blade actually has. The
+      // trailing space is the whitespace before the closing brace: a block
+      // body keeps it, and this test says so rather than reaching for
+      // `toContain` to avoid the question.
+      expect(htmlOk('@if(true) { Hello\\@world }')).toBe('Hello@world ');
     });
 
-    it('mixes escaped and real variables', async () => {
-      const ast = compile('Cost: \\$50 for {$item}', {
-        projectRoot: undefined,
-      });
-      const result = render(ast, { item: 'widget' });
-      expect(result.html).toContain('$50');
-      expect(result.html).toContain('widget');
+    it('mixes an escaped dollar with a real interpolation', () => {
+      expect(htmlOk('Cost: \\$50 for {$item}', { item: 'widget' })).toBe(
+        'Cost: $50 for {widget}'
+      );
     });
+  });
+});
+
+// =============================================================================
+// The negative path
+//
+// Every test above asserts a clean compile. These assert the opposite, by name:
+// a construct that does not exist has to be REPORTED, and the fact that it
+// degrades to readable text is not a substitute for reporting it.
+// =============================================================================
+
+describe('diagnostics', () => {
+  it('reports @endif, which is not a directive in this language', () => {
+    // The exact template the old "mixes escaped and real directives" test used.
+    // It renders text that contains `Hello@world`, which is why a `toContain`
+    // assertion passed - and it does not compile.
+    const source = '@if(true)Hello\\@world@endif';
+
+    expect(diagnosticCodes(source)).toEqual([
+      'error:PARSE_ERROR',
+      'error:PARSE_ERROR',
+    ]);
+
+    const result = compile(source);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.diagnostics[0].message).toContain("Expected '{'");
+    // A renderer factory structurally cannot be handed this, which is the
+    // other half of why the old assertion was misleading: the thing it
+    // measured was never a render of a working template.
+    expect('template' in result).toBe(false);
+  });
+
+  it('reports an @if whose block is never closed', () => {
+    expect(diagnosticCodes('@if(x) {')).toEqual(['error:PARSE_ERROR']);
+
+    const result = compile('@if(x) {');
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.diagnostics[0].message).toContain("Expected '}'");
+    expect(result.diagnostics[0].location.start.line).toBe(1);
+  });
+
+  it('reports an @for whose header is never closed', () => {
+    expect(diagnosticCodes('@for(x of xs { <i>${x}</i> }')).toContain(
+      'error:PARSE_ERROR'
+    );
+  });
+
+  it('accepts the same @if once its block is closed', () => {
+    // The control for the two above: the diagnostics are about the mistake,
+    // not about the shape of the construct.
+    expect(compileOk('@if(x) { <i>y</i> }')).toBeDefined();
   });
 });

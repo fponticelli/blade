@@ -8,36 +8,60 @@
 import type {
   ComponentInfo,
   ComponentDefinition,
+  ComponentNode,
+  JsonSchema,
   ProjectContext,
   ProjectConfig,
   Diagnostic,
+  RootNode,
   SourceLocation,
+  TemplateNode,
 } from '../ast/types.js';
+import { walkNodes } from '../ast/visitor.js';
+import { createDiagnostic } from '../validation/index.js';
+import { DEFAULT_ENTRY } from './discovery.js';
 
 /**
- * Creates a project context from discovered components.
+ * Everything a {@link ProjectContext} needs to be honest.
  *
- * @param rootPath - The root directory of the project
- * @param components - Map of discovered components
- * @param templateComponents - Optional template-passed components that shadow project components
+ * One object rather than a positional list, because the three fields that used
+ * to be missing were missing *structurally*: `createProjectContext` hard-coded
+ * `entry: 'index.blade'`, `schema: undefined` and `samples: new Map()` with no
+ * parameter that could say otherwise. `compileProject` therefore reported the
+ * wrong entry whenever it was given one, and the schema-driven validation in
+ * `validation/index.ts`, which is gated on the context's schema, could never
+ * run for any project at all.
+ */
+export interface ProjectContextInit {
+  readonly rootPath: string;
+  /** @default 'index.blade' */
+  readonly entry?: string;
+  readonly schema?: JsonSchema | undefined;
+  /** Sample name to parsed payload. */
+  readonly samples?: ReadonlyMap<string, unknown>;
+  readonly components: Map<string, ComponentInfo>;
+  /** Components passed by the host, which shadow discovered ones. */
+  readonly templateComponents?: ReadonlyMap<string, ComponentDefinition>;
+}
+
+/**
+ * Creates a project context.
+ *
+ * @param init - The project's root, entry, schema, samples and components
  * @returns The project context
  */
-export function createProjectContext(
-  rootPath: string,
-  components: Map<string, ComponentInfo>,
-  templateComponents?: ReadonlyMap<string, ComponentDefinition>
-): ProjectContext {
+export function createProjectContext(init: ProjectContextInit): ProjectContext {
   const config: ProjectConfig = {
-    rootPath,
-    entry: 'index.blade',
-    schema: undefined,
-    samples: new Map(),
+    rootPath: init.rootPath,
+    entry: init.entry ?? DEFAULT_ENTRY,
+    schema: init.schema,
+    samples: init.samples ?? new Map(),
   };
 
   return {
     config,
-    components,
-    templateComponents: templateComponents ?? new Map(),
+    components: init.components,
+    templateComponents: init.templateComponents ?? new Map(),
     warnings: [],
     errors: [],
   };
@@ -73,86 +97,54 @@ export function resolveComponent(
 }
 
 /**
+ * Every component usage in a template, keyed by tag name and in document order.
+ *
+ * Runs on `ast/visitor.ts`. The three copies this replaces took `unknown`,
+ * cast to `Record<string, unknown>` and dispatched on string literals, so none
+ * of them descended into fragment children or slot fallback content: a
+ * component used only inside a `<slot>` fallback was never resolved and never
+ * prop-checked.
+ *
+ * One traversal answers every question the project compiler asks about
+ * component usage - which names occur, where the first one is, and where all of
+ * them are. It used to run this walk once per referenced component, twice, so a
+ * project with 25 components over 3000 nodes paid 75,000 node visits where 3000
+ * would do - on every keystroke burst, because the preview recompiles as you
+ * type.
+ *
+ * @param root - The compiled root node
+ * @returns Usages by tag name; a name with no usages is absent
+ */
+export function collectComponentUsages(
+  root: RootNode
+): Map<string, ComponentNode[]> {
+  const usages = new Map<string, ComponentNode[]>();
+  const collect = (nodes: readonly TemplateNode[]): void => {
+    walkNodes(nodes, node => {
+      if (node.kind !== 'component') return;
+      const existing = usages.get(node.name);
+      if (existing) existing.push(node);
+      else usages.set(node.name, [node]);
+    });
+  };
+
+  collect(root.children);
+  // A `<template:Name>` body is template code like any other, and the
+  // components it calls have to resolve too.
+  for (const definition of root.components.values()) {
+    collect(definition.body);
+  }
+  return usages;
+}
+
+/**
  * Collects all component references from an AST.
  *
- * @param ast - The root AST node
+ * @param root - The compiled root node
  * @returns Set of component tag names referenced in the template
  */
-export function collectComponentReferences(ast: {
-  children: readonly unknown[];
-}): Set<string> {
-  const references = new Set<string>();
-
-  function visit(node: unknown): void {
-    if (!node || typeof node !== 'object') return;
-
-    const n = node as Record<string, unknown>;
-
-    // Check if this is a component node (kind: 'component' with name field)
-    if (n['kind'] === 'component' && typeof n['name'] === 'string') {
-      references.add(n['name'] as string);
-    }
-
-    // Recurse into children
-    if (Array.isArray(n['children'])) {
-      for (const child of n['children']) {
-        visit(child);
-      }
-    }
-
-    // Check branches in conditionals (kind: 'if')
-    if (n['kind'] === 'if' && Array.isArray(n['branches'])) {
-      for (const branch of n['branches'] as unknown[]) {
-        if (branch && typeof branch === 'object') {
-          const b = branch as Record<string, unknown>;
-          if (Array.isArray(b['body'])) {
-            for (const child of b['body']) {
-              visit(child);
-            }
-          }
-        }
-      }
-      if (Array.isArray(n['elseBranch'])) {
-        for (const child of n['elseBranch']) {
-          visit(child);
-        }
-      }
-    }
-
-    // Check body in loops (kind: 'for')
-    if (n['kind'] === 'for' && Array.isArray(n['body'])) {
-      for (const child of n['body']) {
-        visit(child);
-      }
-    }
-
-    // Check cases in match expressions (kind: 'match')
-    if (n['kind'] === 'match' && Array.isArray(n['cases'])) {
-      for (const c of n['cases'] as unknown[]) {
-        if (c && typeof c === 'object') {
-          const mc = c as Record<string, unknown>;
-          if (Array.isArray(mc['body'])) {
-            for (const child of mc['body']) {
-              visit(child);
-            }
-          }
-        }
-      }
-      if (Array.isArray(n['defaultCase'])) {
-        for (const child of n['defaultCase']) {
-          visit(child);
-        }
-      }
-    }
-  }
-
-  if (Array.isArray(ast.children)) {
-    for (const child of ast.children) {
-      visit(child);
-    }
-  }
-
-  return references;
+export function collectComponentReferences(root: RootNode): Set<string> {
+  return new Set(collectComponentUsages(root).keys());
 }
 
 /**
@@ -165,7 +157,7 @@ export function collectComponentReferences(ast: {
  */
 export function createMissingComponentDiagnostic(
   tagName: string,
-  location: { start: { line: number; column: number } },
+  location: SourceLocation,
   projectRoot: string
 ): Diagnostic {
   const segments = tagName.split('.');
@@ -180,27 +172,14 @@ export function createMissingComponentDiagnostic(
         filename
       : filename;
 
-  const fullLocation: SourceLocation = {
-    start: {
-      line: location.start.line,
-      column: location.start.column,
-      offset: 0,
-    },
-    end: {
-      line: location.start.line,
-      column: location.start.column,
-      offset: 0,
-    },
-  };
-
-  return {
-    level: 'error',
-    message:
-      `Component '${tagName}' not found.\n` +
+  return createDiagnostic(
+    'error',
+    `Component '${tagName}' not found.\n` +
       `  Expected at: ./${expectedPath}\n` +
       `  Searched in: ${projectRoot}/\n` +
       `\n` +
       `  Tip: Create the component file or check the spelling.`,
-    location: fullLocation,
-  };
+    location,
+    'UNKNOWN_COMPONENT'
+  );
 }

@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect } from 'vitest';
-import { compile } from '../src/compiler/index.js';
+import { compileOrThrow } from '../src/compiler/index.js';
 import { createDomRenderer } from '../src/renderer/index.js';
 import { standardLibrary } from '../src/helpers/index.js';
 import type { RenderConfig } from '../src/renderer/index.js';
@@ -12,7 +12,7 @@ function renderToElement(
   data: unknown,
   config: Partial<RenderConfig> = {}
 ): Element {
-  const renderer = createDomRenderer(compile(source));
+  const renderer = createDomRenderer(compileOrThrow(source));
   const { nodes } = renderer(data, {
     helpers: standardLibrary,
     config: { includeSourceTracking: true, ...config },
