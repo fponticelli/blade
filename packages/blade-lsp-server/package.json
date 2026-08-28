@@ -1,6 +1,6 @@
 {
   "name": "@bladets/lsp-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Language Server Protocol implementation for Blade templates",
   "type": "module",
   "main": "./dist/index.cjs",

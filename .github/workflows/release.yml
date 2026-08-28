@@ -2,15 +2,16 @@ name: Release
 
 # Changesets is the single release mechanism for @bladets/template,
 # @bladets/lsp-server and @bladets/tempo. On every push to main this either
-# opens/updates a "version packages" PR (when unreleased changesets exist) or,
-# once that PR is merged, publishes the versioned packages to npm.
+# opens or updates a "release: version packages" PR. It NEVER publishes:
+# publishing is a deliberate local act via ./scripts/publish.sh, because an npm
+# version number can never be reused and a push to main must not be able to
+# spend one.
 #
 # blade-templates (the VS Code extension) is listed in `.changeset/config.json`
 # under `ignore` - it ships to the Marketplace, not to npm.
 #
-# Requires an NPM_TOKEN repository secret: an npm automation token with publish
-# rights on the @bladets scope. Without it the publish step fails; nothing here
-# invents credentials.
+# No NPM_TOKEN is needed or used here - this workflow only writes a branch and
+# opens a PR. Run `pnpm release` locally to publish once that PR is merged.
 
 on:
   push:
@@ -51,9 +52,7 @@ jobs:
       - uses: changesets/action@v1
         with:
           version: pnpm changeset:version
-          publish: pnpm release
           commit: 'release: version packages'
           title: 'release: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

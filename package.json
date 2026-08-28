@@ -22,7 +22,8 @@
     "clean": "turbo clean && rm -rf node_modules",
     "changeset": "changeset",
     "changeset:version": "changeset version",
-    "release": "turbo build && changeset publish"
+    "release": "./scripts/publish.sh",
+    "release:dry": "DRY_RUN=1 ./scripts/publish.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,6 +1,6 @@
 {
   "name": "@bladets/tempo",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Blade template integration for @tempots/dom - reactive rendering",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -55,7 +55,7 @@
     "directory": "packages/blade-tempo"
   },
   "peerDependencies": {
-    "@bladets/template": "^0.6.0",
+    "@bladets/template": ">=0.6.0 <1.0.0",
     "@tempots/dom": "^37.0.0"
   },
   "devDependencies": {

@@ -188,7 +188,7 @@ above has drifted from the truth or a peer dependency has been inlined.
 
 <!-- peer-dependencies:start -->
 
-- `@bladets/template` ^0.6.0
+- `@bladets/template` >=0.6.0 <1.0.0
 - `@tempots/dom` ^37.0.0
 
 <!-- peer-dependencies:end -->
