@@ -182,9 +182,21 @@ for pkg in "${PKGS[@]}"; do
   # success and move on WITHOUT cascading. Re-attempting would make npm reject
   # the duplicate as a hard error, which would then cascade-skip every downstream
   # dependent - turning one mid-list failure into an unrecoverable release.
+  #
+  # This asks the registry for the VERSION document, not `npm view`. Observed on
+  # the 0.7.0 release: minutes after @bladets/lsp-server@0.1.1 published
+  # successfully, `npm view` still answered E404 while
+  # /-/package/<name>/dist-tags and /<name>/<version> both answered 200 with the
+  # real tarball. `npm view` reads the aggregate package document, which is CDN
+  # cached and lags a first publish; the per-version document does not. Trusting
+  # the lagging read would have re-published a live version (hard failure) and,
+  # for a DEPENDENCY, cascade-skipped every dependent for no reason.
   if [ -z "$DRY_RUN" ]; then
-    published_version="$(npm view "$name@$version" version 2>/dev/null || true)"
-    if [ "$published_version" = "$version" ]; then
+    # Percent-encode the scope separator: @scope/name -> @scope%2Fname.
+    encoded_name="${name/\//%2F}"
+    probe_status="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 20 \
+      "https://registry.npmjs.org/${encoded_name}/${version}" 2>/dev/null || true)"
+    if [ "$probe_status" = "200" ]; then
       echo "✓ $name@$version already on registry - skipping (idempotent re-run)."
       SUCCEEDED+=("$name@$version (already published)")
       echo ""
@@ -237,9 +249,22 @@ for pkg in "${PKGS[@]}"; do
   PUBLISH_ARGS=(--access public --no-git-checks)
   [ -n "$DRY_RUN" ] && PUBLISH_ARGS+=(--dry-run)
 
-  if (cd "$dir" && pnpm publish "${PUBLISH_ARGS[@]}" 2>&1); then
+  # Belt and braces for the same lag: if the probe above missed and npm rejects
+  # the upload *because the version already exists*, that is proof it published,
+  # not a failure. Treat it as success so dependents are not cascade-skipped.
+  # `set -e` would abort the whole script on a failing command substitution, so
+  # the status is captured through `||`, which makes the failure part of a list
+  # and therefore not fatal.
+  publish_status=0
+  publish_output="$( (cd "$dir" && pnpm publish "${PUBLISH_ARGS[@]}") 2>&1 )" || publish_status=$?
+  echo "$publish_output"
+
+  if [ $publish_status -eq 0 ]; then
     SUCCEEDED+=("$name@$version")
     echo "✓ $name@$version published"
+  elif echo "$publish_output" | grep -qiE "cannot publish over|previously published version"; then
+    echo "✓ $name@$version was already on the registry - treating as published."
+    SUCCEEDED+=("$name@$version (already published)")
   else
     FAILED+=("$name")
     FAILED_NAMES+="$name "
